@@ -1,7 +1,7 @@
 ---
 alwaysApply: true
 ---
-# **"terma" Technical Implementation**
+# **Technical Implementation**
 
 This document details the core architecture for building terma.
 
@@ -36,8 +36,6 @@ The tool's logic is built around a request-response loop that manages a **persis
 
 ## **2\. Platform & Dependencies**
 
-## **2\. Platform & Dependencies**
-
 * **Language:** Python 3.10+  
 * **Development Environment:** uv is the preferred tool for virtual environment and package management during development.  
 * **Distribution:** uv tool (via PyPI). Package configured with pyproject.toml.  
@@ -53,22 +51,5 @@ The tool's logic is built around a request-response loop that manages a **persis
 * tomli / tomli-w: For config.toml parsing (if Python \< 3.11).  
 * pyyaml: For parsing role frontmatter.
 
-## **3\. Proposed File Structure**
-
-terma/  
-├── terma/  
-│   ├── \_\_init\_\_.py  
-│   ├── \_\_main\_\_.py          \# Entry point for \`python \-m terma\`  
-│   ├── main.py              \# Core logic, \`typer\` or \`argparse\` definitions  
-│   ├── config.py            \# Load/save config.toml, find/load roles  
-│   ├── context.py           \# \`tmux capture-pane\` and history file logic  
-│   ├── llm.py               \# LiteLLM integration, \`LLMProvider\` class  
-│   └── interaction.py       \# The core \`\[a\]/\[r\]\` loop, \`Popen\` mgmt, tool parsing  
-│  
-├── shell/  
-│   ├── terma.zsh            \# Optional helpers for zsh (e.g., keybinding)  
-│   └── terma.bash           \# Optional helpers for bash  
-│  
-├── pyproject.toml           \# Project metadata, dependencies, entry point  
-├── README.md  
-└── LICENSE  
+## **2.2 WSL**
+This project is being developed on windows. However, there is a kali instance installed through WSL (callable using the 'kali' command, amongst other ways), which has tmux installed for testing.

@@ -1,0 +1,42 @@
+---
+alwaysApply: true
+---
+# Overall guidelines
+The overall philosophy is to write easy to read, easy to maintain, clean code.
+Avoid boilerplate, avoid making too many checks and too much abstractions. You should still write objects, functions and separate files for clarity, but let's keep things short and simple. Don't write too many files, make a lot of folders and sub folder, and don't write too many functions or checks or abstractions if they are not necessary.
+
+Always use best and modern practices for your code, project structure, naming schemes etc.
+
+## Error handling
+Generally, if the code doesn't work as it should, it should crash. 
+I want to know when there are issues.
+Unless it's a process that often doesn't work for reasons outside our control, or if it's something like an API call that can take multiple tries, it should crash on error. Minimize try except, surface the problems.
+
+## Bugfixing
+When fixing bugs, do not start by fixing the bug.
+ALWAYS start by debugging to find the **ROOT CAUSE** of the issue.
+Don't just suppose what's happening, add logging to confirm it.
+Write a unit test, make sure it captures the bug properly.
+Once you are certain you have found, identified and verified the root cause, ONLY THEN fix the bug.
+Finally, verify your fix with the unit test.
+
+## Code style
+AVOID DUPLICATE CODE AT ALL COSTS.
+Use best practices and keep the code clean and readable.
+The code should be written to be maintainable.
+Separate code into relevant files and maximize maintainability.
+Prefer underscore over camel case for variable names.
+Make variable names descriptive.
+Don't comment every line, but do add docstrings and comment semantic chunk of lines (like a loop, or a chunk that parses a file).
+Use f strings to keep strings clean.
+
+Keep languages seperate. Python code in py files, Javascript in js files and HTML in html files. Minimize mixing within one file.
+
+## Project code
+This project uses `uv` for virtual environment management.
+The virtual environment is located in the project root under .venv
+Add logging for debugging purposes to the code.
+
+## Unit testing
+Every important function should have a corresponding unit test using Pytest. 
+NEVER WRITE DANGEROUS COMMANDS even if it a test that should fail or prevent it. Do not risk it.
