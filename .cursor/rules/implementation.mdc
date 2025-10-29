@@ -1,0 +1,74 @@
+---
+alwaysApply: true
+---
+# **"terma" Technical Implementation**
+
+This document details the core architecture for building terma.
+
+## **1\. Core Architecture: The Interaction Loop**
+
+The tool's logic is built around a request-response loop that manages a **persistent, stateful sub-shell** for the duration of a single terma invocation.  
+**Execution Flow:**
+
+1. User executes terma "how do I debug X?".  
+2. terma process starts.  
+3. **Interaction Module:**  
+   * Launches a new child shell (e.g., bash) using subprocess.Popen with stdin=PIPE, stdout=PIPE, and stderr=PIPE.  
+   * This Popen object (the "session shell") is kept in memory.  
+4. **Context Module:**  
+   * Checks for TMUX env var. If present, runs tmux capture-pane \-p to get scrollback.  
+   * If not, reads shell history file (e.g., \~/.zsh\_history).  
+5. **Config Module:** Loads config.toml and the specified role's .md file (parsing YAML frontmatter and Markdown body). Prepends the hardcoded "base prompt."  
+6. **Conversation Module:** Assembles the final prompt (base prompt \+ role \+ context \+ user query).  
+7. **LLM Module (LiteLLM):** Sends the prompt to the selected LLM.  
+8. **Interaction Module (Handling Response):**  
+   * The LLM is instructed (via the base prompt) to respond with text and, if necessary, a JSON object for tool use (e.g., \<TOOL\_CALL\>{"tool": "execute\_shell", "command": "ps aux"}\</TOOL\_CALL\>).  
+   * terma streams the text portion to stdout.  
+   * When a \<TOOL\_CALL\> is received, terma parses the JSON.  
+   * It prints the command and prompts the user: \[a\]pprove \[r\]eject:.  
+   * **If 'a'**:  
+     * The interaction module writes the command string (e.g., ps aux\\n) to the Popen object's stdin.  
+     * **Crucially:** To know when the command is finished, it must also write a unique end-of-command marker (e.g., echo "TERMA\_CMD\_DONE\_MARKER"\\n).  
+     * It then reads from the Popen object's stdout and stderr in a non-blocking way until it reads "TERMA\_CMD\_DONE\_MARKER".  
+     * All lines *before* the marker are collected as the command's output.  
+     * This output is sent *back to the LLM* for the *next* turn of the conversation.  
+     * The loop continues until the conversation ends.
+
+## **2\. Platform & Dependencies**
+
+## **2\. Platform & Dependencies**
+
+* **Language:** Python 3.10+  
+* **Development Environment:** uv is the preferred tool for virtual environment and package management during development.  
+* **Distribution:** uv tool (via PyPI). Package configured with pyproject.toml.  
+* **LLM Agnosticism:** Use **LiteLLM**. API keys stored in \~/.config/terma/config.toml.  
+  * Cross-Platform: Linux, macOS, Windows.  
+    \* Constraint: tmux context engine is Linux/macOS only. Windows support will be fallback (history file) only.  
+    * **Shell Support:** Zsh and Bash (primary targets).
+
+### **2.1. Key Dependencies**
+
+* litellm: For multi-LLM support.  
+* typer (or click): For a clean CLI interface.  
+* tomli / tomli-w: For config.toml parsing (if Python \< 3.11).  
+* pyyaml: For parsing role frontmatter.
+
+## **3\. Proposed File Structure**
+
+terma/  
+├── terma/  
+│   ├── \_\_init\_\_.py  
+│   ├── \_\_main\_\_.py          \# Entry point for \`python \-m terma\`  
+│   ├── main.py              \# Core logic, \`typer\` or \`argparse\` definitions  
+│   ├── config.py            \# Load/save config.toml, find/load roles  
+│   ├── context.py           \# \`tmux capture-pane\` and history file logic  
+│   ├── llm.py               \# LiteLLM integration, \`LLMProvider\` class  
+│   └── interaction.py       \# The core \`\[a\]/\[r\]\` loop, \`Popen\` mgmt, tool parsing  
+│  
+├── shell/  
+│   ├── terma.zsh            \# Optional helpers for zsh (e.g., keybinding)  
+│   └── terma.bash           \# Optional helpers for bash  
+│  
+├── pyproject.toml           \# Project metadata, dependencies, entry point  
+├── README.md  
+└── LICENSE  
