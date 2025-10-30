@@ -1,6 +1,7 @@
 ---
 alwaysApply: true
 ---
+
 # Overall guidelines
 The overall philosophy is to write easy to read, easy to maintain, clean code.
 Avoid boilerplate, avoid making too many checks and too much abstractions. You should still write objects, functions and separate files for clarity, but let's keep things short and simple. Don't write too many files, make a lot of folders and sub folder, and don't write too many functions or checks or abstractions if they are not necessary.
@@ -31,6 +32,7 @@ Don't comment every line, but do add docstrings and comment semantic chunk of li
 Use f strings to keep strings clean.
 
 Keep languages seperate. Python code in py files, Javascript in js files and HTML in html files. Minimize mixing within one file.
+Likewise, yaml goes in yaml files, toml in toml, markdown in markdown. Don't write markdown in python (for a system prompt for example), it should import from a .md file.
 
 ## Project code
 This project uses `uv` for virtual environment management.
@@ -40,3 +42,21 @@ Add logging for debugging purposes to the code.
 ## Unit testing
 Every important function should have a corresponding unit test using Pytest. 
 NEVER WRITE DANGEROUS COMMANDS even if it a test that should fail or prevent it. Do not risk it.
+
+## Documentation
+
+### Documentation guidelines
+Here are a few lines you can add to the Documentation section of your `@coding-style.mdc` to clearly express your documentation preferences for future reference:
+- Documentation should be clear, concise, and well-structured.
+- Use section titles and subtitles, but avoid excessive bold/italic formatting.
+- Use plain lists for steps and details (do not bold or decorate each list item).
+- Use backticks for file names, command names, paths, and code references (e.g., `main.py`, `terma "your question"`).
+- Organize information by logic and relevance, not by verbosity or repetition.
+- Prefer plain English and practical examples; avoid over-formatting and complex markdown.
+
+### Automatic updating
+The project contains user documentation (like README.md and others) as well as agent documentation, that can be passed as context to coding agents (located in .cursor/rules). The agent documentation contains useful information for understanding the project: structure, purpose, vision, libraries used, coding style etc.
+When working on the project, you should always look for:
+1. Changes are made to the files that makes the documentation obsolete or incomplete
+2. If the code and the documentation are not aligned (contradictions, incomplete information etc)
+In those cases, you should inform the user of the situation, and propose a solution.

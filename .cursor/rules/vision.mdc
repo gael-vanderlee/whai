@@ -1,67 +1,38 @@
 ---
 alwaysApply: true
 ---
-# **Project Vision: "terma"**
+# Project Vision
 
-## **1\. Overview**
+## What is terma?
+terma is a Python CLI tool called "Terminal Assistant". It brings a large language model (LLM) into your terminal and acts as a context-aware helper for terminal work. The user stays in control at all times—the assistant fits into your real shell environment and never takes over or creates a separate shell.
 
-**Project Name:** terma (Terminal Assistant)  
-**Goal:** A lightweight, Python-based CLI tool that integrates a large language model (LLM) directly into the user's terminal.  
-**Core Philosophy:** terma functions as a context-aware, collaborative assistant. The user must always remain in control. The tool is designed to be seamless, augmenting the existing shell experience without forcing the user into a separate, isolated sub-shell. It is a "pair programmer" for the terminal, not an autonomous agent.
+## Goals
+- Provide natural-language-to-command translation
+- Analyze, explain, and help fix problems in the terminal
+- Always require explicit user approval before running commands
 
-## **2\. Primary Functions**
+## Features
+- Start with: `terma "your question"`
+- Captures context from `tmux` scrollback (for full context), otherwise falls back to parsing your shell history file for recent command context
+- Supports user-defined roles via markdown files in `~/.config/terma/roles/`
+- Maintains a separate persistent shell session; all changes like `cd` or `export` last for the session, but do not affect your regular terminal session
+- Prompts before running any commands, using `[a]pprove`, `[r]eject`, `[m]odify`
+- Optionally, can provide shell helpers (such as keybindings), but these are not part of the core experience
 
-1. **Natural Language Command Generation:** Translate natural language queries into shell commands, using terminal history for context (e.g., file names, previous outputs).  
-2. **Collaborative Troubleshooting & Q\&A:** Allow the user to ask "what happened?" or "how do I...?" and receive step-by-step guidance, including the execution of commands, with explicit user approval for each step.
+## Usage Examples
 
-## **3\. Key Features**
+### 1. Find the largest folder:
+- User: `terma what's the biggest folder here, excluding node_modules?`
+- terma reads context and suggests `du -sh * | grep -v 'node_modules' | sort -rh | head -n 5`
+- If approved, runs command and prints results
 
-### **3.1. Interaction Model**
+### 2. Post-mortem analysis after a failure:
+- User: `terma why did pipx install fail?`
+- If `tmux` is running, context and output help terma suggest a fix (such as `sudo apt install python3-dev`) for user approval
 
-* **Seamless Invocation:** Primary interaction is through a single binary, terma (e.g., terma why did my last command fail?).  
-* **Post-Mortem Analysis:** Must be able to analyze the output of the *previous* command(s).  
-* **Conversational History:** Support persistent conversations, saved locally, allowing users to resume a session.  
-* **Shell Augmentation (Optional):** Provide optional shell-specific helpers (for .zshrc/.bashrc) for keybindings (e.g., Ctrl+T to translate the current command buffer).
+### 3. General info:
+- User: `terma what is a .wget-hsts file?`
+- terma displays an explanation, does not suggest any dangerous action
 
-### **3.2. Context Engine**
-
-* **Primary Context (tmux):** tmux pane scrollback is the primary source for "deep context" (commands \+ output). This is a hard requirement for post-mortem analysis.  
-* **Fallback Context (History File):** If not in tmux, fall back to shell history files (.zsh\_history), understanding this is "shallow context" (commands only).  
-* **Role-Based System Prompts:** Use a \~/.config/terma/roles/ directory for user-defined .md files. These files will use YAML frontmatter for metadata (model, temp) and the body for the system prompt.
-
-### **3.3. Command Execution & Safety**
-
-* **Explicit Approval:** terma **must not** execute *any* shell command without explicit user approval.  
-* **Approval Flow:** The default flow is: (1) LLM streams explanation, (2) LLM proposes command via tool use, (3) terma prints command and prompts \[a\]pprove \[r\]eject, (4) Command executes only on a.  
-* **Command Chaining:** This approval flow applies to *every single command* in a chain.
-
-## **4\. User Flow Examples (Acceptance Criteria)**
-
-1. **Flow 1: Command Generation & Execution**  
-   * **User:** terma what's the biggest folder here, excluding node\_modules?  
-   * **terma:** Captures context, LLM proposes command.  
-   * **terma:** Prints:  
-     I'll use \`du\`...  
-     Proposed command:  
-     \> du \-sh \* | grep \-v 'node\_modules' | sort \-rh | head \-n 5  
-     \[a\]pprove \[r\]eject: a
-
-   * **terma:** Executes, sends output to LLM.  
-   * **LLM:** Responds: "The largest folder is Media/ at 24G."  
-2. **Flow 2: Post-Mortem Analysis**  
-   * **User:** (Runs pipx install foo, which fails with Python.h error).  
-   * **User:** terma why did this happen?  
-   * **terma:** Captures tmux scrollback, including the full error.  
-   * **LLM:** "The error Python.h: No such file or directory indicates... you can install them."  
-   * **terma:** Prints:  
-     Proposed command:  
-     \> sudo apt install python3-dev  
-     \[a\]pprove \[r\]eject: a
-
-   * **terma:** Executes sudo (user's terminal handles password).  
-   * **LLM:** Responds: "Great, that's installed. You should now be able to run your pipx install foo command successfully."  
-3. **Flow 3: General Q\&A**  
-   * **User:** terma what is a .wget-hsts file?  
-   * **terma:** Captures context.  
-   * **LLM:** Responds with a text-only answer.  
-   * **terma:** Prints the text. The session ends.
+## Core Philosophy
+The assistant always requires user confirmation, informs and guides rather than acting autonomously, and is designed to make the terminal safer and more usable—never disruptive.

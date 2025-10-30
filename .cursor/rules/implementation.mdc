@@ -1,55 +1,75 @@
 ---
 alwaysApply: true
 ---
-# **Technical Implementation**
 
-This document details the core architecture for building terma.
+# Technical Implementation
 
-## **1\. Core Architecture: The Interaction Loop**
+## Overview
 
-The tool's logic is built around a request-response loop that manages a **persistent, stateful sub-shell** for the duration of a single terma invocation.  
-**Execution Flow:**
+terma is a modular Python CLI tool. It uses a persistent shell subprocess to run user-approved commands and integrates with a large language model for terminal assistance. The focus is on explicit user control, modularity, and safety by design.
 
-1. User executes terma "how do I debug X?".  
-2. terma process starts.  
-3. **Interaction Module:**  
-   * Launches a new child shell (e.g., bash) using subprocess.Popen with stdin=PIPE, stdout=PIPE, and stderr=PIPE.  
-   * This Popen object (the "session shell") is kept in memory.  
-4. **Context Module:**  
-   * Checks for TMUX env var. If present, runs tmux capture-pane \-p to get scrollback.  
-   * If not, reads shell history file (e.g., \~/.zsh\_history).  
-5. **Config Module:** Loads config.toml and the specified role's .md file (parsing YAML frontmatter and Markdown body). Prepends the hardcoded "base prompt."  
-6. **Conversation Module:** Assembles the final prompt (base prompt \+ role \+ context \+ user query).  
-7. **LLM Module (LiteLLM):** Sends the prompt to the selected LLM.  
-8. **Interaction Module (Handling Response):**  
-   * The LLM is instructed (via the base prompt) to respond with text and, if necessary, a JSON object for tool use (e.g., \<TOOL\_CALL\>{"tool": "execute\_shell", "command": "ps aux"}\</TOOL\_CALL\>).  
-   * terma streams the text portion to stdout.  
-   * When a \<TOOL\_CALL\> is received, terma parses the JSON.  
-   * It prints the command and prompts the user: \[a\]pprove \[r\]eject:.  
-   * **If 'a'**:  
-     * The interaction module writes the command string (e.g., ps aux\\n) to the Popen object's stdin.  
-     * **Crucially:** To know when the command is finished, it must also write a unique end-of-command marker (e.g., echo "TERMA\_CMD\_DONE\_MARKER"\\n).  
-     * It then reads from the Popen object's stdout and stderr in a non-blocking way until it reads "TERMA\_CMD\_DONE\_MARKER".  
-     * All lines *before* the marker are collected as the command's output.  
-     * This output is sent *back to the LLM* for the *next* turn of the conversation.  
-     * The loop continues until the conversation ends.
+## Main Architecture and Execution Flow
 
-## **2\. Platform & Dependencies**
+1. Launch: User runs `terma "question or instruction"`
+2. Configuration loading (handled by `config.py`): Reads `config.toml` and the active role definition from `roles/*.md`
+3. Context capture (in `context.py`):
+   - If inside tmux, captures pane scrollback (commands and their output)
+   - Otherwise, reads recent command history from `~/.zsh_history` or `~/.bash_history`
+4. LLM setup (`llm.py`):
+   - Loads API keys
+   - Selects and configures the model and prepares the system prompt (including context note)
+5. Persistent shell session (`interaction.py`):
+   - Starts a shell subprocess (usually `bash` or `cmd.exe`)
+   - Maintains state for all commands during the session (e.g. `cd`/`export`)
+6. Request-Response loop (`main.py`):
+   - Prepares prompt for LLM (including system prompt, role, query, context)
+   - Streams model responses in real time; prints the LLM's output
+   - If the model suggests a command, prints it and prompts `[a]pprove / [r]eject / [m]odify`
+   - Only runs commands if the user approves
+   - Follows up every command by echoing a unique marker. The session reads lines until the marker appears, so it knows exactly when the command ends
+   - Collects all command output, feeds it back to the conversation
+   - Ends loop when there are no new commands or the user cancels. Shell session shuts down.
 
-* **Language:** Python 3.10+  
-* **Development Environment:** uv is the preferred tool for virtual environment and package management during development.  
-* **Distribution:** uv tool (via PyPI). Package configured with pyproject.toml.  
-* **LLM Agnosticism:** Use **LiteLLM**. API keys stored in \~/.config/terma/config.toml.  
-  * Cross-Platform: Linux, macOS, Windows.  
-    \* Constraint: tmux context engine is Linux/macOS only. Windows support will be fallback (history file) only.  
-    * **Shell Support:** Zsh and Bash (primary targets).
+## Patterns and Constraints
 
-### **2.1. Key Dependencies**
+- Command approval is required for every command (implemented in `interaction.py`)
+- End-of-command detection uses a unique marker (echoed after every command), so output is reliably captured up to that point
+- Two context types:
+  - Deep (when in tmux): commands plus output
+  - Shallow (history fallback): recent commands only
+  - System prompt notes which type is present for best LLM results
+- No sudo/interactive password hacks; subprocess handles interactive commands normally, and authentication is always up to the user's TTY
+- If required config or roles are missing or broken, terma intentionally crashes with a clear error
 
-* litellm: For multi-LLM support.  
-* typer (or click): For a clean CLI interface.  
-* tomli / tomli-w: For config.toml parsing (if Python \< 3.11).  
-* pyyaml: For parsing role frontmatter.
+## Module Overview
 
-## **2.2 WSL**
-This project is being developed on windows. However, there is a kali instance installed through WSL (callable using the 'kali' command, amongst other ways), which has tmux installed for testing.
+- `main.py`: Conversation setup, core CLI, main execution loop, user IO
+- `config.py`: Handles loading, creation, and validation of configuration and user roles, parses YAML in markdown files
+- `context.py`: Implements context capture as described above
+- `llm.py`: Manages LiteLLM backend, system prompt and API key setup, handles model streaming and tool use
+- `interaction.py`: Manages the persistent shell, approval request, command writing, marker protocol, and all subprocess edge cases
+- `logging_setup.py`: Centralizes logging config, allowing debug toggles
+- `tests/`: Contains unit and integration tests for all logic, using pytest
+
+## Testing
+
+- All modules have corresponding pytest test files in the `tests` directory
+- Integration tests work with mock API or actual LLMs (user must provide keys and proper test markers)
+- Tests never run dangerous commands; any such code is prevented by policy and design
+
+## Configuration and Extensibility
+
+- New LLMs can be added by extending `config.toml` and, if necessary, updating `llm.py`
+- New roles are just markdown+YAML files in `~/.config/terma/roles/`
+- To expand context types, extend `context.py`
+- Extra shell helpers, plugins, or approval logic go in `interaction.py` or can be cleanly added elsewhere
+
+## Troubleshooting
+
+- The tool fails clearly and loudly if configuration or roles are missing/broken (fail-fast)
+- Timeout and marker handling for long-running commands is in `interaction.py`
+- For debugging, use `TERMA_DEBUG=1` environment variable
+
+## Summary
+
+terma separates concerns in its source, requires user approval for every shell action, and can safely manage persistent state for a session. All key logic is unit-tested and designed to be easy to extend or update.

@@ -114,7 +114,7 @@ def main(
 
             if not is_deep_context and context_str:
                 print_warning(
-                    "Using shell history only (no tmux detected). Post-mortem analysis may be limited."
+                    "Using shell history only (no tmux detected). History analysis may be limited."
                 )
             elif not context_str:
                 print_info("No context available (no tmux, no history).")
