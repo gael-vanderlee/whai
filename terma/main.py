@@ -8,14 +8,22 @@ from typing import Optional
 import typer
 
 from terma import ui
-from terma.config import MissingConfigError, load_config, load_role, validate_llm_config
+from terma.config import (
+    MissingConfigError,
+    load_config,
+    load_role,
+    resolve_role,
+    validate_llm_config,
+)
 from terma.constants import DEFAULT_LLM_MODEL
 from terma.context import get_context
 from terma.interaction import ShellSession, approval_loop
 from terma.llm import LLMProvider, get_base_system_prompt
 from terma.logging_setup import configure_logging, get_logger
+from terma.role_cli import role_app
 
 app = typer.Typer(help="terma - Your terminal assistant powered by LLMs")
+app.add_typer(role_app, name="role")
 
 logger = get_logger(__name__)
 
@@ -114,8 +122,8 @@ def main(
     query: list[str] = typer.Argument(
         None, help="Your question or request (can be multiple words)"
     ),
-    role: str = typer.Option(
-        "assistant", "--role", "-r", help="Role to use (assistant, debug, etc.)"
+    role: Optional[str] = typer.Option(
+        None, "--role", "-r", help="Role to use (default, debug, etc.)"
     ),
     no_context: bool = typer.Option(False, "--no-context", help="Skip context capture"),
     model: Optional[str] = typer.Option(
@@ -150,6 +158,20 @@ def main(
     """
     # If a subcommand is invoked, let it handle everything
     if ctx.invoked_subcommand is not None:
+        return
+
+    # Check if first word is "role" - if so, it should be handled as a subcommand
+    # This is needed because query is greedy and consumes all args before subcommand detection
+    if query and len(query) > 0 and query[0] == "role":
+        # Get the Click group command for role_app
+        role_click_group = typer.main.get_command(role_app)
+        remaining_args = query[1:] if len(query) > 1 else []
+
+        # Create a new context for the subcommand and invoke it
+        with role_click_group.make_context(
+            "role", list(remaining_args), parent=ctx
+        ) as subctx:
+            role_click_group.invoke(subctx)
         return
 
     # Handle interactive config flag
@@ -234,6 +256,10 @@ def main(
             ui.error(cfg_msg)
             ui.info("Run 'terma --interactive-config' to set up your configuration.")
             raise typer.Exit(1)
+
+        # Resolve role using shared function (CLI > env > config > default)
+        role = resolve_role(role, config)
+
         t_cfg = time.perf_counter()
         logger.debug(
             "Startup: load_config() completed in %.3f ms",

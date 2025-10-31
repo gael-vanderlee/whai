@@ -144,7 +144,10 @@ class LLMProvider:
         """
         self.config = config
         self.default_provider = config["llm"]["default_provider"]
-        self.model = model or config["llm"].get("default_model", DEFAULT_LLM_MODEL)
+        # Resolve model: CLI override > provider-level default > built-in fallback
+        provider_cfg = config.get("llm", {}).get(self.default_provider, {})
+        provider_default_model = provider_cfg.get("default_model")
+        self.model = model or provider_default_model or DEFAULT_LLM_MODEL
 
         # Validate model exists
         validate_model(self.model)

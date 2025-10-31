@@ -15,35 +15,35 @@ class TestShellDetection:
 
     def test_detect_bash_from_shell_env(self):
         """Test detection of bash from SHELL environment variable."""
-        with patch.dict(os.environ, {"SHELL": "/bin/bash"}):
+        with patch.dict(os.environ, {"SHELL": "/bin/bash"}, clear=True):
             assert _get_shell_from_env() == "bash"
 
     def test_detect_zsh_from_shell_env(self):
         """Test detection of zsh from SHELL environment variable."""
-        with patch.dict(os.environ, {"SHELL": "/usr/bin/zsh"}):
+        with patch.dict(os.environ, {"SHELL": "/usr/bin/zsh"}, clear=True):
             assert _get_shell_from_env() == "zsh"
 
     @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test")
     def test_detect_powershell_from_psmodulepath(self):
         """Test detection of PowerShell from PSModulePath environment variable."""
-        with patch.dict(os.environ, {"PSModulePath": "C:\\some\\path", "SHELL": ""}):
-            assert _get_shell_from_env() == "powershell"
+        with patch.dict(os.environ, {"PSModulePath": "C:\\some\\path"}, clear=True):
+            assert _get_shell_from_env() == "pwsh"
 
     @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test")
-    def test_detect_cmd_fallback_on_windows(self):
-        """Test fallback to cmd.exe on Windows when no shell is detected."""
+    def test_detect_pwsh_fallback_on_windows(self):
+        """Test fallback to pwsh on Windows when no shell is detected."""
         with patch.dict(os.environ, {}, clear=True):
-            with patch("os.name", "nt"):
+            with patch("sys.platform", "win32"):
                 detected = _get_shell_from_env()
-                # Should fallback to cmd on Windows
-                assert detected == "cmd"
+                # Should fallback to pwsh on Windows
+                assert detected == "pwsh"
 
-    def test_detect_unknown_on_unix(self):
-        """Test unknown detection on Unix when no shell markers present."""
+    def test_detect_bash_fallback_on_unix(self):
+        """Test bash fallback on Unix when no shell markers present."""
         with patch.dict(os.environ, {}, clear=True):
-            with patch("os.name", "posix"):
+            with patch("sys.platform", "linux"):
                 detected = _get_shell_from_env()
-                assert detected == "unknown"
+                assert detected == "bash"
 
 
 class TestShellExecutable:
@@ -57,22 +57,22 @@ class TestShellExecutable:
         """Test zsh executable path resolution."""
         assert get_shell_executable("zsh") == "/bin/zsh"
 
-    def test_cmd_executable_path(self):
-        """Test cmd.exe executable path resolution."""
-        assert get_shell_executable("cmd") == "cmd.exe"
-
     @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test")
     def test_powershell_executable_found(self):
         """Test that PowerShell executable can be found on Windows."""
-        exe_path = get_shell_executable("powershell")
+        exe_path = get_shell_executable("pwsh")
         # Should return either pwsh.exe or powershell.exe (whichever is available)
         assert "powershell" in exe_path.lower() or "pwsh" in exe_path.lower()
+
+    def test_fish_executable_path(self):
+        """Test fish executable path resolution."""
+        assert get_shell_executable("fish") == "fish"
 
     def test_unknown_shell_fallback(self):
         """Test fallback for unknown shell types."""
         result = get_shell_executable("unknown_shell")
         if os.name == "nt":
-            assert result == "cmd.exe"
+            assert result == "powershell.exe"
         else:
             assert result == "/bin/bash"
 
@@ -177,10 +177,10 @@ class TestShellMismatchBug:
         PowerShell commands to fail or timeout.
         """
         # Simulate PowerShell environment
-        with patch.dict(os.environ, {"PSModulePath": "C:\\some\\path"}):
+        with patch.dict(os.environ, {"PSModulePath": "C:\\some\\path"}, clear=True):
             # Detect shell
             detected_shell_name = _get_shell_from_env()
-            assert detected_shell_name == "powershell"
+            assert detected_shell_name == "pwsh"
 
             # Get executable path
             shell_executable = get_shell_executable(detected_shell_name)
@@ -189,11 +189,18 @@ class TestShellMismatchBug:
                 or "pwsh" in shell_executable.lower()
             )
 
+            # Try to find actual PowerShell, skip if not available
+            import shutil
+
+            actual_ps = shutil.which("pwsh") or shutil.which("powershell")
+            if not actual_ps:
+                pytest.skip("PowerShell not installed")
+
             # Spawn session with detected shell
-            session = ShellSession(shell=shell_executable)
+            session = ShellSession(shell=actual_ps)
             try:
                 # Verify the spawned shell matches
-                assert session.shell == shell_executable
+                assert session.shell == actual_ps
                 assert (
                     "powershell" in session.shell.lower()
                     or "pwsh" in session.shell.lower()

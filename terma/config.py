@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import tomllib  # Python 3.11+, use tomli for older versions
 import yaml
@@ -62,7 +62,6 @@ def load_config(*, allow_ephemeral: bool = False) -> Dict[str, Any]:
             return {
                 "llm": {
                     "default_provider": "openai",
-                    "default_model": "gpt-5-mini",
                     "openai": {
                         "api_key": "test-key",
                         "default_model": "gpt-5-mini",
@@ -119,7 +118,7 @@ def summarize_config(config: Dict[str, Any]) -> str:
     """
     llm = config.get("llm", {})
     default_provider = llm.get("default_provider") or "MISSING"
-    default_model = llm.get("default_model") or "MISSING"
+    default_role = config.get("roles", {}).get("default_role") or "default"
 
     providers = []
     for key, value in llm.items():
@@ -138,7 +137,12 @@ def summarize_config(config: Dict[str, Any]) -> str:
             providers.append(f"{key} (model: {provider_model}, key: {masked_key})")
 
     summary = f"Default provider: {default_provider}\n"
-    summary += f"Default model: {default_model}\n"
+    # Show effective model from the default provider, if available
+    effective_model = (
+        llm.get(default_provider, {}).get("default_model") if default_provider else None
+    ) or "MISSING"
+    summary += f"Default model: {effective_model}\n"
+    summary += f"Default role: {default_role}\n"
     if providers:
         summary += "Configured providers:\n"
         for p in providers:
@@ -215,7 +219,7 @@ def get_default_role(role_name: str) -> str:
     Return the default role content by reading from defaults/roles/{role_name}.md.
 
     Args:
-        role_name: Name of the role (e.g., 'assistant', 'debug')
+        role_name: Name of the role (e.g., 'default', 'debug')
 
     Returns:
         The role content as a string.
@@ -241,16 +245,10 @@ def ensure_default_roles() -> None:
     roles_dir = get_config_dir() / "roles"
     roles_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create assistant role if it doesn't exist
-    assistant_role = roles_dir / "assistant.md"
-    if not assistant_role.exists():
-        assistant_role.write_text(get_default_role("assistant"))
-
-    # Create debug role if it doesn't exist
-    debug_role = roles_dir / "debug.md"
-    if not debug_role.exists():
-        debug_role.write_text(get_default_role("debug"))
-    logger.debug("Ensured default roles exist at %s", roles_dir)
+    # Create default role if it doesn't exist
+    default_role = roles_dir / "default.md"
+    if not default_role.exists():
+        default_role.write_text(get_default_role("default"))
 
 
 def parse_role_file(content: str) -> Tuple[Dict[str, Any], str]:
@@ -289,7 +287,7 @@ def parse_role_file(content: str) -> Tuple[Dict[str, Any], str]:
     return metadata, body
 
 
-def load_role(role_name: str = "assistant") -> Tuple[Dict[str, Any], str]:
+def load_role(role_name: str = "default") -> Tuple[Dict[str, Any], str]:
     """
     Load a role from ~/.config/terma/roles/{role_name}.md.
 
@@ -314,3 +312,40 @@ def load_role(role_name: str = "assistant") -> Tuple[Dict[str, Any], str]:
     content = role_file.read_text()
     logger.debug("Loaded role '%s' from %s", role_name, role_file)
     return parse_role_file(content)
+
+
+def resolve_role(
+    cli_role: Optional[str] = None, config: Optional[Dict[str, Any]] = None
+) -> str:
+    """Resolve the role to use based on precedence.
+
+    Precedence: explicit CLI value > TERMA_ROLE env var > config default > "default".
+
+    Args:
+        cli_role: Role name provided explicitly by CLI options.
+        config: Application config dict. If None, it will be loaded in ephemeral mode.
+
+    Returns:
+        The resolved role name.
+    """
+    # 1) Explicit CLI flag wins
+    if cli_role:
+        return cli_role
+
+    # 2) Environment variable
+    env_role = os.getenv("TERMA_ROLE")
+    if env_role:
+        return env_role
+
+    # 3) Config default
+    if config is None:
+        try:
+            config = load_config(allow_ephemeral=True)
+        except Exception:
+            config = {}
+    cfg_default_role = (config or {}).get("roles", {}).get("default_role")
+    if cfg_default_role:
+        return cfg_default_role
+
+    # 4) Hardcoded fallback
+    return "default"

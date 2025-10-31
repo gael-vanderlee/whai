@@ -20,7 +20,7 @@ def test_extract_inline_overrides_parses_all_supported_flags():
 
     cleaned, overrides = _extract_inline_overrides(
         tokens,
-        role="assistant",
+        role="default",
         no_context=False,
         model=None,
         temperature=None,
@@ -44,7 +44,7 @@ def test_extract_inline_overrides_short_flags_and_defaults():
         "-t",
         "0.7",
         "-r",
-        "assistant",
+        "default",
     ]
 
     cleaned, overrides = _extract_inline_overrides(
@@ -59,6 +59,6 @@ def test_extract_inline_overrides_short_flags_and_defaults():
     assert cleaned == ["what", "now"]
     assert overrides["model"] == "gpt-5-mini"
     assert overrides["temperature"] == 0.7
-    assert overrides["role"] == "assistant"
+    assert overrides["role"] == "default"
     assert overrides["no_context"] is False
     assert overrides["timeout"] == 60

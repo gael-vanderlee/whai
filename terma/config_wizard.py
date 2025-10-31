@@ -7,6 +7,7 @@ import click
 import typer
 
 from terma.config import (
+    ensure_default_roles,
     get_config_path,
     load_config,
     save_config,
@@ -113,9 +114,7 @@ def _quick_setup(config: Dict[str, Any]) -> None:
     config["llm"][provider] = provider_config
     config["llm"]["default_provider"] = provider
 
-    # Set default_model at top level if provider has one
-    if "default_model" in provider_config:
-        config["llm"]["default_model"] = provider_config["default_model"]
+    # No top-level default model; provider-level defaults are authoritative
 
     typer.echo(f"\n✓ {provider} configured successfully!")
 
@@ -196,6 +195,58 @@ def _remove_provider(config: Dict[str, Any]) -> None:
             )
 
 
+def _reset_default() -> None:
+    """
+    Reset configuration to a clean default state with a clear warning and backup.
+
+    Overwrites the current config file with a minimal default configuration and
+    ensures default roles exist.
+    """
+    import datetime
+
+    typer.echo("\n=== Reset Configuration to Defaults ===")
+
+    cfg_path = get_config_path()
+    cfg_dir = cfg_path.parent
+    typer.echo(f"Config path: {cfg_path}")
+
+    if not typer.confirm(
+        "This will overwrite your configuration file. A backup will be created. Continue?",
+        default=False,
+    ):
+        typer.echo("\nReset cancelled.")
+        return
+
+    # Create backup if present
+    if cfg_path.exists():
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup_path = cfg_dir / f"config.toml.bak-{timestamp}"
+        try:
+            backup_path.write_bytes(cfg_path.read_bytes())
+            typer.echo(f"\nBackup created: {backup_path}")
+        except Exception as e:
+            typer.echo(f"\n✗ Failed to create backup: {e}", err=True)
+            raise typer.Exit(1)
+
+    # Minimal default configuration: no providers configured
+    default_config: Dict[str, Any] = {
+        "llm": {},
+        "roles": {
+            "default_role": "default",
+        },
+    }
+
+    try:
+        save_config(default_config)
+        ensure_default_roles()
+    except Exception as e:
+        typer.echo(f"\n✗ Error writing default configuration: {e}", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"\n✓ Configuration reset. Wrote defaults to: {get_config_path()}\n")
+    typer.echo("No providers configured. You'll be prompted to add one now.")
+
+
 def _set_default_provider(config: Dict[str, Any]) -> None:
     """
     Set the default provider.
@@ -223,9 +274,7 @@ def _set_default_provider(config: Dict[str, Any]) -> None:
 
     llm["default_provider"] = provider
 
-    # Also update the default model if the provider has one
-    if provider in llm and "default_model" in llm[provider]:
-        llm["default_model"] = llm[provider]["default_model"]
+    # No top-level default model sync; provider-level default is used directly
 
     typer.echo(f"\n✓ Default provider set to {provider}")
 
@@ -262,7 +311,8 @@ def run_wizard(existing_config: bool = False) -> None:
         actions = [
             "add-or-edit",
             "remove",
-            "set-default",
+            "default-provider",
+            "reset-config",
             "view",
             "open-folder",
             "cancel",
@@ -270,7 +320,13 @@ def run_wizard(existing_config: bool = False) -> None:
         default_action = "view"
     else:
         # No providers yet - drive user to quick-setup
-        actions = ["quick-setup", "add-or-edit", "open-folder", "cancel"]
+        actions = [
+            "quick-setup",
+            "add-or-edit",
+            "reset-config",
+            "open-folder",
+            "cancel",
+        ]
         default_action = "quick-setup"
 
     action = typer.prompt(
@@ -297,8 +353,16 @@ def run_wizard(existing_config: bool = False) -> None:
         _add_or_edit_provider(config)
     elif action == "remove":
         _remove_provider(config)
-    elif action == "set-default":
+    elif action == "default-provider":
         _set_default_provider(config)
+    elif action == "reset-config":
+        _reset_default()
+        # After reset, start quick-setup to add a provider immediately
+        try:
+            config = load_config(allow_ephemeral=True)
+        except Exception:
+            config = {"llm": {}}
+        _quick_setup(config)
     elif action == "open-folder":
         # Open config directory in system file explorer
         cfg_dir = get_config_path().parent

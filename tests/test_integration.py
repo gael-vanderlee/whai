@@ -199,14 +199,12 @@ def test_cli_with_role_option(mock_llm_text_only):
         patch("litellm.completion", side_effect=mock_llm_text_only),
         patch("terma.context.get_context", return_value=("", False)),
     ):
-        result = runner.invoke(
-            app, ["test query", "--role", "assistant", "--no-context"]
-        )
+        result = runner.invoke(app, ["test query", "--role", "default", "--no-context"])
 
         assert result.exit_code == 0
         # Verify that role information is displayed
         output = result.stdout + result.stderr
-        assert "assistant" in output.lower()
+        assert "default" in output.lower()
 
 
 def test_cli_with_model_override(mock_llm_text_only):
@@ -224,7 +222,7 @@ def test_cli_with_model_override(mock_llm_text_only):
         # Verify that model and role information is displayed
         output = result.stdout + result.stderr
         assert "gpt-5-mini" in output
-        assert "assistant" in output.lower()
+        assert "default" in output.lower()
 
 
 def test_cli_timeout_default_passed(mock_llm_with_tool_call, mock_llm_text_only):

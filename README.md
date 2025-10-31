@@ -53,7 +53,7 @@ terma --interactive-config
 The wizard will guide you through:
 - Choosing your LLM provider (OpenAI, Anthropic, Azure OpenAI, or Ollama)
 - Entering your API key
-- Setting your default model
+- Setting your provider's default model
 - Managing multiple providers
 
 Configuration is stored at `~/.config/terma/config.toml` (or `%APPDATA%\terma\config.toml` on Windows).
@@ -66,7 +66,6 @@ You can also edit the config file directly:
 ```toml
 [llm]
 default_provider = "openai"
-default_model = "gpt-5-mini"
 
 [llm.openai]
 api_key = "sk-proj-your-actual-api-key-here"
@@ -132,7 +131,7 @@ terma your question [OPTIONS]
 terma "your question" [OPTIONS]  # quotes optional
 
 Options:
-  -r, --role TEXT        Role to use (assistant, debug, etc.) [default: assistant]
+  -r, --role TEXT        Role to use (default, debug, etc.)
   --no-context          Skip context capture
   -m, --model TEXT      Override the LLM model
   -t, --temperature FLOAT  Override temperature
@@ -187,12 +186,51 @@ Roles are defined in `~/.config/terma/roles/` as Markdown files with YAML frontm
 
 ### Default Roles
 
-- **assistant** (default): General-purpose terminal assistant
+- **default**: General-purpose terminal assistant
 - **debug**: Specialized for troubleshooting and error analysis
+
+### Managing Roles
+
+terma provides a comprehensive role management system:
+
+```bash
+# List all available roles
+terma role list
+
+# Create a new role (opens in editor)
+terma role create my-role
+
+# Edit an existing role
+terma role edit my-role
+
+# Remove a role
+terma role remove my-role
+
+# Set default role (used when --role isn't specified)
+terma role set-default my-role
+
+# Reset default role to packaged version
+terma role reset-default
+
+# Open roles folder in file explorer
+terma role open-folder
+
+# Interactive role manager (shows menu)
+terma role
+
+# Show which role terma would use right now
+terma role which
+```
 
 ### Creating Custom Roles
 
-Create a new file in `~/.config/terma/roles/custom.md`:
+Create a new role using the CLI:
+
+```bash
+terma role create devops
+```
+
+This creates and opens `~/.config/terma/roles/devops.md` in your editor:
 
 ```markdown
 ---
@@ -207,7 +245,40 @@ Help users with containerization, orchestration, and deployment tasks.
 Use it with:
 
 ```bash
-terma help me debug this pod -r custom
+terma help me debug this pod -r devops
+```
+
+### Session Roles
+
+Set a role for your current shell session using environment variables:
+
+```bash
+# Show how to set role for your shell
+terma role use devops
+
+# Then run the command it shows, e.g. for bash/zsh:
+export TERMA_ROLE="devops"
+
+# Now all terma commands use that role
+terma "help me with kubernetes"
+
+# Clear the session role
+unset TERMA_ROLE
+```
+
+### Role Precedence
+
+When determining which role to use, terma follows this precedence (highest first):
+
+1. CLI flag: `-r/--role`
+2. Environment variable: `TERMA_ROLE`
+3. Config default: `roles.default_role` in `config.toml`
+4. Fallback: `default`
+
+To quickly check the effective role based on the above rules, run:
+
+```bash
+terma role which
 ```
 
 ## Context Modes
