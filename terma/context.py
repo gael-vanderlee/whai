@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from terma.logging_setup import get_logger
+from terma.utils import detect_shell
 
 logger = get_logger(__name__)
 
@@ -75,31 +76,10 @@ def _get_shell_from_env() -> str:
     Detect the current shell from environment variables.
 
     Returns:
-        Shell name ('bash', 'zsh', 'powershell', 'cmd') or 'unknown'.
+        Shell name ('bash', 'zsh', 'pwsh', 'fish').
     """
-    shell_path = os.environ.get("SHELL", "")
-
-    # If SHELL explicitly indicates zsh/bash, prefer that regardless of platform
-    lower = shell_path.lower()
-    if "zsh" in lower:
-        return "zsh"
-    if "bash" in lower:
-        return "bash"
-
-    # Prefer explicit PowerShell detection on Windows if SHELL wasn't zsh/bash
-    if os.name == "nt":
-        if "powershell" in lower:
-            return "powershell"
-        # Common environment markers when running under PowerShell
-        if (
-            "PSModulePath" in os.environ
-            or "POWERSHELL_DISTRIBUTION_CHANNEL" in os.environ
-        ):
-            return "powershell"
-        # Fallback to cmd.exe on Windows
-        return "cmd"
-
-    return "unknown"
+    # Use centralized shell detection from utils
+    return detect_shell()
 
 
 def get_shell_executable(shell_name: Optional[str] = None) -> str:
@@ -107,7 +87,7 @@ def get_shell_executable(shell_name: Optional[str] = None) -> str:
     Get the executable path for a shell.
 
     Args:
-        shell_name: Shell name ('bash', 'zsh', 'powershell', 'cmd', etc.).
+        shell_name: Shell name ('bash', 'zsh', 'pwsh', 'fish').
                    If None, auto-detects from environment.
 
     Returns:
@@ -121,37 +101,25 @@ def get_shell_executable(shell_name: Optional[str] = None) -> str:
         return "/bin/bash"
     elif shell_name == "zsh":
         return "/bin/zsh"
-    elif shell_name == "powershell":
-        # Try to find PowerShell executable on Windows
+    elif shell_name == "pwsh":
+        # PowerShell
         if os.name == "nt":
-            # Prefer PowerShell Core (pwsh) if available, otherwise Windows PowerShell
-            for pwsh_path in ["pwsh.exe", "powershell.exe"]:
-                try:
-                    result = subprocess.run(
-                        [pwsh_path, "-Command", "echo test"],
-                        capture_output=True,
-                        timeout=2,
-                    )
-                    if result.returncode == 0:
-                        logger.debug(
-                            "Found PowerShell at: %s",
-                            pwsh_path,
-                            extra={"category": "perf"},
-                        )
-                        return pwsh_path
-                except (subprocess.TimeoutExpired, FileNotFoundError):
-                    continue
-            # Fallback to full path
-            return r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-        return "powershell"  # On non-Windows, shouldn't happen
-    elif shell_name == "cmd":
-        return "cmd.exe"
+            import shutil
+
+            # Try PowerShell 7 (pwsh) first
+            pwsh_path = shutil.which("pwsh")
+            if pwsh_path:
+                return pwsh_path
+            # Fall back to Windows PowerShell 5.1
+            return "powershell.exe"
+        return "pwsh"
+    elif shell_name == "fish":
+        return "fish"
     else:
-        # Unknown or unsupported shell, use platform defaults
+        # Unknown shell, default to bash on Unix, PowerShell on Windows
         if os.name == "nt":
-            return "cmd.exe"
-        else:
-            return "/bin/bash"
+            return "powershell.exe"
+        return "/bin/bash"
 
 
 def _parse_zsh_history(history_file: Path, max_commands: int = 50) -> list:
@@ -248,8 +216,8 @@ def _get_history_context(
     # If shell-specific history is not available, try platform-specific fallbacks
     if not commands:
         # Windows PowerShell / PowerShell (Core) via PSReadLine history
-        # Use when shell is explicitly powershell or unknown on Windows.
-        if os.name == "nt" and shell in {"powershell", "unknown"}:
+        # Use when shell is PowerShell or unknown on Windows.
+        if os.name == "nt" and shell in {"powershell", "pwsh", "unknown"}:
             appdata = os.environ.get("APPDATA")
             psreadline_candidates = []
 

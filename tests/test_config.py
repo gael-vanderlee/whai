@@ -169,25 +169,22 @@ def test_ensure_default_roles(tmp_path, monkeypatch):
     config.ensure_default_roles()
 
     # Check that roles were created
-    assistant_role = tmp_path / "roles" / "assistant.md"
-    debug_role = tmp_path / "roles" / "debug.md"
-
-    assert assistant_role.exists()
-    assert debug_role.exists()
+    default_role = tmp_path / "roles" / "default.md"
+    assert default_role.exists()
 
     # Check content
-    assistant_content = assistant_role.read_text()
-    assert "helpful terminal assistant" in assistant_content
-    assert "execute_shell" in assistant_content
+    default_content = default_role.read_text()
+    assert "helpful terminal assistant" in default_content
+    assert "execute_shell" in default_content
 
 
 def test_load_role_default(tmp_path, monkeypatch):
-    """Test loading the default assistant role."""
+    """Test loading the default role."""
     # Use a temporary directory as the config directory
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
 
     # Load the default role
-    metadata, prompt = config.load_role("assistant")
+    metadata, prompt = config.load_role("default")
 
     # Verify metadata is empty by default (defaults do not include frontmatter)
     assert metadata == {}
