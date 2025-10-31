@@ -3,6 +3,7 @@
 import json
 import sys
 import time
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -169,6 +170,11 @@ def main(
         "--interactive-config",
         help="Run interactive configuration wizard and exit",
     ),
+    version_flag: bool = typer.Option(
+        False,
+        "--version",
+        help="Show version and exit",
+    ),
 ):
     """
     whai - Your terminal assistant powered by LLMs.
@@ -183,6 +189,45 @@ def main(
 
     Note: If your query contains spaces, apostrophes ('), quotation marks, or shell glob characters (? * []), always wrap it in double quotes to avoid shell parsing errors.
     """
+    # Handle --version flag
+    if version_flag:
+        # Try to get version from installed package metadata
+        try:
+            from importlib.metadata import version
+
+            v = version("whai")
+        except Exception:
+            # Fallback: read from pyproject.toml (development mode)
+            try:
+                # Find pyproject.toml relative to this file
+                pyproject_path = Path(__file__).parent.parent.parent / "pyproject.toml"
+                if not pyproject_path.exists():
+                    # Try current directory as fallback
+                    pyproject_path = Path("pyproject.toml")
+
+                # Try tomllib (Python 3.11+)
+                try:
+                    import tomllib
+
+                    with open(pyproject_path, "rb") as f:
+                        data = tomllib.load(f)
+                except ImportError:
+                    # Fallback to tomli for Python 3.10
+                    try:
+                        import tomli
+
+                        with open(pyproject_path, "rb") as f:
+                            data = tomli.load(f)
+                    except ImportError:
+                        raise ImportError("Neither tomllib nor tomli available")
+
+                v = data["project"]["version"]
+            except Exception:
+                ui.error("Could not determine version")
+                raise typer.Exit(1)
+        typer.echo(v)
+        raise typer.Exit(0)
+
     # If a subcommand is invoked, let it handle everything
     if ctx.invoked_subcommand is not None:
         return
