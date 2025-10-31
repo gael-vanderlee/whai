@@ -10,7 +10,7 @@ A lightweight, Python-based CLI tool that integrates large language models (LLMs
 - **Context-Aware**: Captures terminal history for intelligent responses
 - **Multi-LLM Support**: Works with OpenAI, Anthropic, and local models via LiteLLM
 - **Customizable Roles**: Define different AI personas for different tasks. Don't repeat yourself, write instructions and information once for all sessions.
-- **Stateful Sessions**: Commands like `cd` and `export` persist within a conversation (does not persist into your parent shell)
+- **Stateful Sessions**: Commands like `cd` and `export` persist within a conversation (Donesn't work on Windows powershell for now)
 
 ## Installation
 
