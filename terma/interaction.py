@@ -149,7 +149,7 @@ class ShellSession:
                 full_command = f"{command}\necho {marker}\n"
             elif "powershell" in shell_lower or "pwsh" in shell_lower:
                 # Execute PowerShell non-interactively using -EncodedCommand to avoid
-                # interactive stdin echo/reflow issues and to force materialized output.
+                # interactive stdin echo/reflow causes issues and to force materialized output.
                 ps_script = f"& {{ {command} }} | Out-String -Width 4096"
                 encoded = base64.b64encode(ps_script.encode("utf-16le")).decode("ascii")
                 try:

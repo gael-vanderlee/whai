@@ -1,16 +1,23 @@
 # terma - Terminal Assistant
 
-A lightweight, Python-based CLI tool that integrates large language models (LLMs) directly into your terminal. Get command suggestions, troubleshoot issues, and interact with your system using natural language.
+`terma` is a **lightweight and fast** AI terminal assistant that integrates directly into your native shell.
 
-## Features
+The philosophy of `terma` is to **never interrupt your workflow**. You use your terminal as you normally would. It is not a sub-shell or a separate REPL; it is a single, fast binary that you call on-demand.
 
-- **Natural Language Command Generation**: Ask questions in plain English, get working shell commands
-- **Post-Mortem Analysis**: Analyze failed commands with full context (requires tmux)
-- **Collaborative Execution**: Approve, reject, or modify commands before they run
-- **Context-Aware**: Captures terminal history for intelligent responses
-- **Multi-LLM Support**: Works with OpenAI, Anthropic, and local models via LiteLLM
-- **Customizable Roles**: Define different AI personas for different tasks. Don't repeat yourself, write instructions and information once for all sessions.
-- **Stateful Sessions**: Commands like `cd` and `export` persist within a conversation (Donesn't work on Windows powershell for now)
+When you get stuck, need a command, or encounter an error, you simply call `terma` for immediate help.
+
+### Core Features
+
+* **Analyze Previous Errors:** If a command fails, you don't need to copy-paste. Just ask:
+    `> terma why did that fail?`
+    It reads the failed command and its full error output from your `tmux` history to provide an immediate diagnosis and solution.
+* **Persistent Roles (Memory):** `terma` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*—what machine you are on, what tools are available, your personal preferences, and how you like to work—and `terma` retains this context for all future interactions.
+* **Full Session Context:** By securely reading your `tmux` scrollback, `terma` understands not just the commands you ran, but also *what those commands returned*. This provides intelligent, multi-step assistance based on the actual state of your terminal.
+* **On-Demand Assistance:** Get help exactly when you need it, from command generation to complex debugging, right in your active shell:
+    `> terma find all folders over G`
+    `> terma how do I debug this high resource usage?`
+* **Safe by Design:** No command is *ever* executed without your explicit `[a]pprove` / `[r]eject` confirmation.
+* **Model-Agnostic:** Natively supports OpenAI, Gemini, Anthropic, local Ollama models, and more.
 
 ## Installation
 

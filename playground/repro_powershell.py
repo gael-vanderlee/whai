@@ -136,55 +136,115 @@ class ShellSession:
         print("[DEBUG INIT] Shell initialization complete")
 
     def execute_command(self, command: str, timeout: int = 60):
+        # For PowerShell: use streaming hybrid approach with Popen + -NonInteractive -Command
+        shell_lower = self.shell.lower()
+        if "powershell" in shell_lower or "pwsh" in shell_lower:
+            print("[DEBUG PS HYBRID] Using streaming Popen approach for PowerShell")
+            # Wrap command to force materialization (prevents Format-Table hangs)
+            ps_script = f"& {{ {command} }} | Out-String -Width 4096"
+            print(f"[DEBUG PS HYBRID] Script to execute: {repr(ps_script)}")
+            
+            try:
+                # Use Popen to enable streaming
+                ps_process = subprocess.Popen(
+                    [
+                        self.shell,
+                        "-NoProfile",
+                        "-NoLogo",
+                        "-NonInteractive",
+                        "-Command",
+                        ps_script,
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,  # Line buffered for streaming
+                    cwd=PROJECT_ROOT,
+                )
+                
+                print(f"[DEBUG PS HYBRID] Process started, PID={ps_process.pid}")
+                
+                # Stream output as it arrives
+                stdout_lines = []
+                stderr_lines = []
+                start_time = time.time()
+                line_count = 0
+                
+                # Read until process completes
+                while True:
+                    # Check timeout
+                    if time.time() - start_time > timeout:
+                        ps_process.kill()
+                        ps_process.wait()
+                        raise RuntimeError(f"Command timed out after {timeout} seconds")
+                    
+                    # Check if process has exited
+                    returncode = ps_process.poll()
+                    
+                    # Read from stdout
+                    if ps_process.stdout:
+                        line = self._read_line_with_timeout(ps_process.stdout, 0.1)
+                        if line is not None:
+                            line_count += 1
+                            print(f"[DEBUG PS HYBRID] stdout line {line_count}: {repr(line[:100])}{'...' if len(line) > 100 else ''}")
+                            stdout_lines.append(line)
+                            # In real implementation, would yield here for streaming display
+                    
+                    # Read from stderr
+                    if ps_process.stderr:
+                        line = self._read_line_with_timeout(ps_process.stderr, 0.01)
+                        if line is not None:
+                            print(f"[DEBUG PS HYBRID] stderr line: {repr(line[:100])}{'...' if len(line) > 100 else ''}")
+                            stderr_lines.append(line)
+                    
+                    # If process exited and no more output available, break
+                    if returncode is not None:
+                        # Drain any remaining output
+                        print(f"[DEBUG PS HYBRID] Process exited with code {returncode}, draining remaining output")
+                        while True:
+                            line = self._read_line_with_timeout(ps_process.stdout, 0.05)
+                            if line is None:
+                                break
+                            line_count += 1
+                            print(f"[DEBUG PS HYBRID] drain stdout line {line_count}: {repr(line[:100])}")
+                            stdout_lines.append(line)
+                        while True:
+                            line = self._read_line_with_timeout(ps_process.stderr, 0.05)
+                            if line is None:
+                                break
+                            print(f"[DEBUG PS HYBRID] drain stderr line: {repr(line[:100])}")
+                            stderr_lines.append(line)
+                        break
+                
+                stdout = "".join(stdout_lines)
+                stderr = "".join(stderr_lines)
+                
+                # Filter CLIXML progress noise
+                if stderr.lstrip().startswith("#< CLIXML"):
+                    stderr = ""
+                
+                print(f"[DEBUG PS HYBRID] Completed: rc={returncode} stdout_len={len(stdout)} stderr_len={len(stderr)}")
+                return (stdout, stderr, returncode)
+                
+            except subprocess.TimeoutExpired:
+                raise RuntimeError(f"Command timed out after {timeout} seconds")
+        
+        # For non-PowerShell shells: use existing marker-based approach
         if self.process is None or self.process.poll() is not None:
             raise RuntimeError("Shell process is not running")
 
         marker = f"___TERMA_CMD_DONE_{random.randint(100000, 999999)}___"
         print(f"[DEBUG] Generated marker: {marker}")
 
-        # Windows cmd drive-change convenience (not used for PS)
-        if os.name == "nt" and "cmd" in self.shell.lower():
+        # Windows cmd drive-change convenience
+        if os.name == "nt" and "cmd" in shell_lower:
             stripped = command.strip()
             if stripped.lower().startswith("cd ") and "/d" not in stripped.lower():
                 parts = stripped.split(maxsplit=1)
                 command = f"cd /d {parts[1]}" if len(parts) == 2 else stripped
 
-        shell_lower = self.shell.lower()
         if os.name == "nt" and "cmd" in shell_lower:
             full_command = f"{command}\necho {marker}\n"
-        elif "powershell" in shell_lower or "pwsh" in shell_lower:
-            # Non-interactive execution for PowerShell using -EncodedCommand
-            # Build a scriptblock that forces materialization and wide output
-            ps_script = f"& {{ {command} }} | Out-String -Width 4096"
-            encoded = base64.b64encode(ps_script.encode("utf-16le")).decode("ascii")
-            print(
-                f"[DEBUG PS] Running non-interactive PowerShell -EncodedCommand (len={len(encoded)})"
-            )
-            try:
-                result = subprocess.run(
-                    [
-                        self.shell,
-                        "-NoProfile",
-                        "-NoLogo",
-                        "-NonInteractive",
-                        "-EncodedCommand",
-                        encoded,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                    cwd=PROJECT_ROOT,
-                )
-            except subprocess.TimeoutExpired:
-                raise RuntimeError(f"Command timed out after {timeout} seconds")
-            # Filter CLIXML progress noise that sometimes appears on stderr
-            stderr_text = result.stderr or ""
-            if stderr_text.lstrip().startswith("#< CLIXML"):
-                stderr_text = ""
-            print(
-                f"[DEBUG PS] Completed: rc={result.returncode} stdout_len={len(result.stdout)} stderr_len={len(stderr_text)}"
-            )
-            return (result.stdout, stderr_text, result.returncode)
         else:
             full_command = f"{command}\necho {marker}\n"
 
@@ -199,11 +259,6 @@ class ShellSession:
         marker_found = False
         line_count = 0
 
-        # PowerShell output window markers
-        out_start_token = "___TERMA_OUTPUT_START___"
-        out_end_token = "___TERMA_OUTPUT_END___"
-        in_output_window = False
-
         while not marker_found:
             if time.time() - start_time > timeout:
                 print(f"[DEBUG] TIMEOUT: Read {line_count} stdout lines total")
@@ -217,42 +272,11 @@ class ShellSession:
                         f"[DEBUG] stdout line {line_count} (len={len(line)}): {repr(line)}"
                     )
 
-                    # For PowerShell: skip command echoes (lines starting with PS>)
-                    # These are echoes of commands, not actual output
-                    is_ps_echo = False
-                    if "powershell" in shell_lower or "pwsh" in shell_lower:
-                        if line.startswith("PS>") or line.startswith("PS "):
-                            is_ps_echo = True
-                            print(
-                                f"[DEBUG] Line {line_count} is PowerShell echo, skipping"
-                            )
-
-                    if not is_ps_echo and marker in line:
+                    if marker in line:
                         print(f"[DEBUG] MARKER FOUND in line {line_count}")
                         marker_found = True
                         continue
 
-                    if is_ps_echo:
-                        continue
-
-                    # Handle PowerShell output window
-                    if "powershell" in shell_lower or "pwsh" in shell_lower:
-                        if out_start_token in line:
-                            in_output_window = True
-                            print(f"[DEBUG] Entered output window at line {line_count}")
-                            continue
-                        if out_end_token in line:
-                            in_output_window = False
-                            print(f"[DEBUG] Exited output window at line {line_count}")
-                            continue
-                        if in_output_window:
-                            stdout_lines.append(line)
-                            print(
-                                f"[DEBUG] Added to PS output window: line {line_count}"
-                            )
-                            continue
-
-                    # Default behavior for non-PS or when not in output window
                     print(f"[DEBUG] Adding line {line_count} to stdout_lines")
                     stdout_lines.append(line)
 
@@ -261,6 +285,11 @@ class ShellSession:
                 if line is not None:
                     print(f"[DEBUG] stderr line: {repr(line)}")
                     stderr_lines.append(line)
+        
+        stdout = "".join(stdout_lines)
+        stderr = "".join(stderr_lines)
+        print(f"[DEBUG] Command completed: stdout_len={len(stdout)} stderr_len={len(stderr)}")
+        return (stdout, stderr, 0)
 
     def _read_line_with_timeout(self, stream, timeout: float):
         if os.name == "nt":
