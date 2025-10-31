@@ -75,7 +75,7 @@ Here are a few lines you can add to the Documentation section of your `@coding-s
 - Documentation should be clear, concise, and well-structured.
 - Use section titles and subtitles, but avoid excessive bold/italic formatting.
 - Use plain lists for steps and details (do not bold or decorate each list item).
-- Use backticks for file names, command names, paths, and code references (e.g., `main.py`, `terma "your question"`).
+- Use backticks for file names, command names, paths, and code references (e.g., `main.py`, `whai "your question"`).
 - Organize information by logic and relevance, not by verbosity or repetition.
 - Prefer plain English and practical examples; avoid over-formatting and complex markdown.
 
@@ -86,4 +86,4 @@ When working on the project, you should always look for:
 2. If the code and the documentation are not aligned (contradictions, incomplete information etc)
 In those cases, you should inform the user of the situation, and propose a solution.
 
-The CHANGELOG.md file is located in ./terma/doc/CHANGELOG.md
+The CHANGELOG.md file is located in ./whai/doc/CHANGELOG.md

@@ -3,8 +3,8 @@ alwaysApply: true
 ---
 # Project Vision
 
-## What is terma?
-terma is a Python CLI tool called "Terminal Assistant". It brings a large language model (LLM) into your terminal and acts as a context-aware helper for terminal work. The user stays in control at all times—the assistant fits into your real shell environment and never takes over or creates a separate shell.
+## What is Whai?
+Whai is a Python CLI tool called "Terminal Assistant". It brings a large language model (LLM) into your terminal and acts as a context-aware helper for terminal work. The user stays in control at all times—the assistant fits into your real shell environment and never takes over or creates a separate shell.
 
 ## Goals
 - Provide natural-language-to-command translation
@@ -13,9 +13,9 @@ terma is a Python CLI tool called "Terminal Assistant". It brings a large langua
 - The tool is designed to be **fast** and **lightweight**. Keep this is mind when writing the code.
 
 ## Features
-- Start with: `terma "your question"`
+- Start with: `whai "your question"`
 - Captures context from `tmux` scrollback (for full context), otherwise falls back to parsing your shell history file for recent command context
-- Supports user-defined roles via markdown files in `~/.config/terma/roles/`
+- Supports user-defined roles via markdown files in `~/.config/whai/roles/`
 - Maintains a separate persistent shell session; all changes like `cd` or `export` last for the session, but do not affect your regular terminal session
 - Prompts before running any commands, using `[a]pprove`, `[r]eject`, `[m]odify`
 - Optionally, can provide shell helpers (such as keybindings), but these are not part of the core experience
@@ -23,17 +23,17 @@ terma is a Python CLI tool called "Terminal Assistant". It brings a large langua
 ## Usage Examples
 
 ### 1. Find the largest folder:
-- User: `terma what's the biggest folder here, excluding node_modules?`
-- terma reads context and suggests `du -sh * | grep -v 'node_modules' | sort -rh | head -n 5`
+- User: `whai what's the biggest folder here, excluding node_modules?`
+- whai reads context and suggests `du -sh * | grep -v 'node_modules' | sort -rh | head -n 5`
 - If approved, runs command and prints results
 
 ### 2. Post-mortem analysis after a failure:
-- User: `terma why did pipx install fail?`
-- If `tmux` is running, context and output help terma suggest a fix (such as `sudo apt install python3-dev`) for user approval
+- User: `whai why did pipx install fail?`
+- If `tmux` is running, context and output help whai suggest a fix (such as `sudo apt install python3-dev`) for user approval
 
 ### 3. General info:
-- User: `terma what is a .wget-hsts file?`
-- terma displays an explanation, does not suggest any dangerous action
+- User: `whai what is a .wget-hsts file?`
+- whai displays an explanation, does not suggest any dangerous action
 
 ## Core Philosophy
 The assistant always requires user confirmation, informs and guides rather than acting autonomously, and is designed to make the terminal safer and more usable—never disruptive.

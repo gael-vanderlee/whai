@@ -6,11 +6,11 @@ alwaysApply: true
 
 ## Overview
 
-terma is a modular Python CLI tool. It uses a persistent shell subprocess to run user-approved commands and integrates with a large language model for terminal assistance. The focus is on explicit user control, modularity, and safety by design.
+whai is a modular Python CLI tool. It uses a persistent shell subprocess to run user-approved commands and integrates with a large language model for terminal assistance. The focus is on explicit user control, modularity, and safety by design.
 
 ## Main Architecture and Execution Flow
 
-1. Launch: User runs `terma "question or instruction"`
+1. Launch: User runs `whai "question or instruction"`
 2. Configuration loading (handled by `config.py`): Reads `config.toml` and the active role definition from `roles/*.md`
 3. Context capture (in `context.py`):
    - If inside tmux, captures pane scrollback (commands and their output)
@@ -40,7 +40,7 @@ terma is a modular Python CLI tool. It uses a persistent shell subprocess to run
   - System prompt notes which type is present for best LLM results
 - System context automatically includes OS, shell, and working directory information for platform-specific assistance
 - No sudo/interactive password hacks; subprocess handles interactive commands normally, and authentication is always up to the user's TTY
-- If required config or roles are missing or broken, terma intentionally crashes with a clear error
+- If required config or roles are missing or broken, whai intentionally crashes with a clear error
 
 ## Module Overview
 
@@ -62,7 +62,7 @@ terma is a modular Python CLI tool. It uses a persistent shell subprocess to run
 
 - New LLMs can be added by extending `config.toml` and, if necessary, updating `llm.py`
    - Default model should (in the docs and code) should be gpt-5-mini, as it is fast, cheap and good.
-- New roles are just markdown+YAML files in `~/.config/terma/roles/`
+- New roles are just markdown+YAML files in `~/.config/whai/roles/`
 - To expand context types, extend `context.py`
 - Extra shell helpers, plugins, or approval logic go in `interaction.py` or can be cleanly added elsewhere
 
@@ -70,8 +70,8 @@ terma is a modular Python CLI tool. It uses a persistent shell subprocess to run
 
 - The tool fails clearly and loudly if configuration or roles are missing/broken (fail-fast)
 - Timeout and marker handling for long-running commands is in `interaction.py`
-- For debugging, use `TERMA_DEBUG=1` environment variable
+- For debugging, use `whai_DEBUG=1` environment variable
 
 ## Summary
 
-terma separates concerns in its source, requires user approval for every shell action, and can safely manage persistent state for a session. All key logic is unit-tested and designed to be easy to extend or update.
+whai separates concerns in its source, requires user approval for every shell action, and can safely manage persistent state for a session. All key logic is unit-tested and designed to be easy to extend or update.
