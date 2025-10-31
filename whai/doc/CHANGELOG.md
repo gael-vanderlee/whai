@@ -4,6 +4,9 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-10-31] [docs] [readme]: simplify README for new users; add table of contents and video placeholder; replace generic examples with realistic output examples; emphasize roles as persistent context storage; update installation options (uv tool, pipx, pip, git); remove developer-focused content; streamline FAQ
+[2025-10-31] [change] [cli]: update help text to mention shell glob characters (? * []) in addition to spaces and quotes
+[2025-10-31] [change] [roles]: make default role instructions more concise
 [2025-10-31] [change] [interaction]: refactor execute_command to use utility functions from utils.py for shell and OS detection
 [2025-10-31] [change] [interaction]: remove persistent shell sessions; execute commands independently via subprocess.run() to fix Linux TTY suspension and simplify architecture
 [2025-10-31] [fix] [linux]: resolve background process suspension issue by removing ShellSession subprocess that took foreground control

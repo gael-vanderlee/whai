@@ -1,9 +1,23 @@
 # whai - Terminal Assistant
 
-`whai` is a **lightweight and fast** AI terminal assistant that integrates directly into your native shell.
+<!-- TODO: Add demo video showcasing the tool in action -->
 
-The philosophy of `whai` is to **never interrupt your workflow**. You use your terminal as you normally would. It is not a sub-shell or a separate REPL; it is a single, fast binary that you call on-demand.
+## Table of Contents
 
+- [What is it](#what-is-it)
+- [Core Features](#core-features)
+- [Quick Examples](#quick-examples)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Key Features](#key-features)
+- [FAQ](#faq)
+- [Acknowledgments](#acknowledgments)
+
+## What is it
+
+`whai` is a lightweight and fast AI terminal assistant that integrates directly into your native shell.
+The philosophy of `whai` is to never interrupt your workflow. You use your terminal as you normally would. 
+It is not a sub-shell or a separate REPL; it is a single, fast binary that you call on-demand.
 When you get stuck, need a command, or encounter an error, you simply call `whai` for immediate help.
 
 ### Core Features
@@ -11,95 +25,157 @@ When you get stuck, need a command, or encounter an error, you simply call `whai
 * **Analyze Previous Errors:** If a command fails, you don't need to copy-paste. Just ask:
     `> whai why did that fail?`
     It reads the failed command and its full error output from your `tmux` history to provide an immediate diagnosis and solution.
-* **Persistent Roles (Memory):** `whai` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*—what machine you are on, what tools are available, your personal preferences, and how you like to work—and `whai` retains this context for all future interactions.
-* **Full Session Context:** By securely reading your `tmux` scrollback, `whai` understands not just the commands you ran, but also *what those commands returned*. This provides intelligent, multi-step assistance based on the actual state of your terminal.
+* **Persistent Roles (Memory):** `whai` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*, what machine you are on, what tools are available, your personal preferences, and how you like to work, and `whai` retains this context for all future interactions.
+* **Full Session Context:** By securely reading your `tmux` scrollback, `whai` understands the commands you ran and what those commands returned. This provides intelligent, multi-step assistance based on the actual state of your terminal.
 * **On-Demand Assistance:** Get help exactly when you need it, from command generation to complex debugging, right in your active shell:
-    `> whai find all folders over G`
+
+    `> whai check my docker containers logs for errors`
+
     `> whai how do I debug this high resource usage?`
+
 * **Safe by Design:** No command is *ever* executed without your explicit `[a]pprove` / `[r]eject` confirmation.
 * **Model-Agnostic:** Natively supports OpenAI, Gemini, Anthropic, local Ollama models, and more.
 
-## Installation
+## Quick Examples
 
-### Prerequisites
+See `whai` in action:
 
-- Python 3.10 or higher
-- `uv` (recommended) or `pip`
-
-### Install with uv (Recommended)
+### Example 1: Finding the largest folder
 
 ```bash
-# Clone the repository
-git clone https://github.com/gael-vanderlee/whai.git
-cd whai
+$ whai give me the biggest folder here
+Info: Model: gpt-5-mini | Role: default
+I'll list all top-level directories (including hidden ones), compute their disk usage, sort them, and show the largest few with human-readable sizes.
 
-# Create virtual environment and install
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv sync
+I'll run this command:
+find . -maxdepth 1 -mindepth 1 -type d -print0 | xargs -0 du -sk 2>/dev/null | sort -n | tail -n 5 | awk '{print $1 "\t" $2}' | numfmt --to=iec-i --suffix=B --field=1,1
+
+╭─────────────────────────────────────────────────────────────────── Proposed command ────────────────────────────────────────────────────────────────────╮
+│ find . -maxdepth 1 -mindepth 1 -type d -print0 | xargs -0 du -sk 2>/dev/null | sort -n | tail -n 5 | awk '{print $1 "\t" $2}' | numfmt --to=iec-i       │
+│ --suffix=B --field=1,1                                                                                                                                  │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+[a]pprove / [r]eject / [m]odify: a
+
+╭──────────────────────────────────────────────────────────────────────── Output ─────────────────────────────────────────────────────────────────────────╮
+│ 440B ./tests                                                                                                                                            │
+│ 1.4KiB ./.git                                                                                                                                           │
+│ 87KiB ./.venv_tmp                                                                                                                                       │
+│ 108KiB ./.venv                                                                                                                                          │
+│ 123KiB ./.venv-linux                                                                                                                                    │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Result (interpretation)
+- The largest top-level directory here is ./.venv-linux with ~123KiB.
+
+Next steps (options)
+- Show the top N largest items anywhere under the current tree (files+dirs):
+  - du -ah . 2>/dev/null | sort -rh | head -n 30
+- Show only directories, recursively, largest first:
+  - du -h --max-depth=3 2>/dev/null | sort -hr | head -n 30
 ```
 
-### Install with pip
+### Example 2: Troubleshooting a failed command
 
 ```bash
+$ uv pip install requirements.txt
+Using Python 3.11.9 environment at: .venv-linux
+  × No solution found when resolving dependencies:
+  ╰─▶ Because requirements-txt was not found in the package registry...
+
+$ whai what is the problem
+Info: Model: gpt-5-mini | Role: default
+What's happening
+- You ran: uv pip install requirements.txt
+- pip treated "requirements.txt" as the name of a package to download from the package index, not as a file of requirements.
+- The resolver tried to find a package called (normalized) "requirements-txt" on PyPI and failed, so it reports the dependencies are unsatisfiable.
+
+How to fix it
+- Use the -r (or --requirement) flag so pip reads the file instead of treating it as a package name.
+
+Commands you can run
+1) Check the requirements file exists:
+ls -l requirements.txt
+
+2) Install from the file (match how you invoked pip):
+uv pip install -r requirements.txt
+
+Do you want me to:
+- run the ls to confirm the file exists, or
+- run the install command for you now?
+```
+
+### Example 3: Getting help
+
+```bash
+$ whai "Quick how do I exit Vim??"
+Info: Model: gpt-5-mini | Role: default
+I'll show the quick ways to exit Vim and what each one does.
+
+1) Get to Normal mode
+- Press Esc (or Ctrl-[) until you stop inserting text. If Esc doesn't respond, try Ctrl-C.
+
+2) Common exit commands (type them in Normal mode, then press Enter)
+- :q
+  - Quit (works only if no changes since last save).
+- :q!
+  - Quit and discard any unsaved changes.
+- :wq
+  - Write (save) and quit.
+- :x
+  - Write (only if changed) and quit (similar to :wq).
+
+3) Shortcuts
+- ZZ (Shift+Z twice) — save and quit (same as :wq if there are changes).
+- ZQ — quit without saving (same as :q!).
+```
+
+## Installation
+
+### Option 1: uv tool (Recommended)
+
+```bash
+uv tool install whai
+```
+
+### Option 2: pipx
+
+```bash
+pipx install whai
+```
+
+### Option 3: pip
+
+```bash
+pip install whai
+```
+
+### Option 4: From source
+
+```bash
+git clone https://github.com/gael-vanderlee/whai.git
+cd whai
 pip install -e .
 ```
 
-## Configuration
+## Quick Start
 
-### Interactive Configuration Setup
+### 1. Configure your API key
 
-On first run, whai will launch an interactive configuration wizard to help you set up your API keys and provider settings.
-
-You can also run the wizard manually at any time:
+On first run, `whai` launches an interactive configuration wizard:
 
 ```bash
 whai --interactive-config
 ```
 
-The wizard will guide you through:
-- Choosing your LLM provider (OpenAI, Anthropic, Azure OpenAI, or Ollama)
-- Entering your API key
-- Setting your provider's default model
-- Managing multiple providers
+Or edit `~/.config/whai/config.toml` directly:
 
-Configuration is stored at `~/.config/whai/config.toml` (or `%APPDATA%\whai\config.toml` on Windows).
-
-### Manual Configuration
-
-You can also edit the config file directly:
-
-**OpenAI:**
 ```toml
 [llm]
 default_provider = "openai"
 
 [llm.openai]
-api_key = "sk-proj-your-actual-api-key-here"
+api_key = "sk-proj-your-key-here"
 default_model = "gpt-5-mini"
-```
-
-**Anthropic:**
-```toml
-[llm.anthropic]
-api_key = "sk-ant-your-actual-api-key-here"
-default_model = "claude-3-5-sonnet-20241022"
-```
-
-**Azure OpenAI:**
-```toml
-[llm.azure_openai]
-api_key = "your-azure-api-key"
-api_base = "https://your-resource.openai.azure.com"
-api_version = "2023-05-15"
-default_model = "gpt-4"
-```
-
-**Ollama (Local):**
-```toml
-[llm.ollama]
-api_base = "http://localhost:11434"
-default_model = "mistral"
 ```
 
 Get API keys from:
@@ -107,326 +183,93 @@ Get API keys from:
 - [Anthropic Console](https://console.anthropic.com/)
 - [Azure Portal](https://portal.azure.com/) (for Azure OpenAI)
 
-## Usage
-
-### Basic Commands
-
-> **Note:**
-> If your query contains shell-sensitive characters (like spaces, apostrophes ('), or quotes (")), always wrap it in quotation marks.
-> For example:
->   whai "what's the biggest file?"
->   whai "list all files named \"foo.txt\""
+### 2. Start using whai
 
 ```bash
-# Ask a question (quotes optional for multi-word queries, required for apostrophes)
-whai what is the biggest folder here?
-whai "what's the biggest folder here?"
-
-# Get help with a task
-whai how do I find all .py files modified today?
-whai "how do I find all .py files modified today?"
-
-# Troubleshooting (works best in tmux)
-whai why did my last command fail?
-whai "why did my last command fail?"
-```
-
-### Options
-
-```bash
-whai your question [OPTIONS]
-whai "your question" [OPTIONS]  # quotes optional
-
-Options:
-  -r, --role TEXT           Role to use (default or a custom role)
-  --no-context              Skip context capture
-  -m, --model TEXT          Override the LLM model
-  -t, --temperature FLOAT   Override temperature
-  --timeout INTEGER         Per-command timeout in seconds [default: 60]
-  --log-level, -v TEXT     Set log level: CRITICAL|ERROR|WARNING|INFO|DEBUG
-  --help                    Show help message
-```
-
-### Logging Levels
-
-```bash
-# Default (ERROR)
 whai "your question"
-
-# Show timings and key steps
-whai "your question" -v INFO
-
-# Full diagnostics (payloads, prompts)
-whai "your question" -v DEBUG
 ```
 
-### Pretty Output
+That's it! `whai` will:
+- Read your terminal context (if in tmux)
+- Send your question to the configured LLM
+- Suggest commands with `[a]pprove` / `[r]eject` / `[m]odify` prompts
+- Execute approved commands and continue the conversation
 
-whai includes enhanced terminal output with:
-- **Spinners** while waiting for AI responses
-- **Code blocks** for shell commands and outputs
-- **Colored text** for errors, warnings, and info messages
-- **Panels** for structured display
+> **Tip:** Quotes are not necessary, but do use them if you use special characters like `'` or `?`
+> ```bash
+> whai show me the biggest file here
+> whai "what's the biggest file?"
+> ```
 
-Pretty output automatically disables in non-interactive environments (pipes, redirects, CI/CD).
+## Key Features
 
-To force plain text output:
+### Roles
+
+Roles allow you to customize `whai`'s behavior and responses. More importantly, they let you save information about your preferences, system, environment, constraints, and workflow so you don't have to repeat yourself in every conversation.
+
+For example, you can create a role that tells `whai` to respond only in emoji:
+
 ```bash
-export WHAI_PLAIN=1
-whai your question
+$ whai role create emoji # Write down: "Answer using only emojis
+$ whai can you tell me the plot of the first Shrek movie --role emoji
+Info: Model: gpt-5-mini | Role: emoji
+👑👸💤🐉🏰
+👹🏞️🕳️➡️🏰🐴😂
+⚔️🐉🔥💨👸
+👹❤️👸💚
+🌅💋✨💚💚
+🎉🎶🧅
 ```
 
-This is useful for:
-- Logging output to files
-- CI/CD pipelines
-- Screen readers
-- Terminals with limited formatting support
+But more practically, roles let you store:
+- Your system information (OS, available tools, paths)
+- Your preferences (shell style, preferred commands, workflows)
+- Environment constraints (what you can/can't do, security policies)
+- Project-specific context (tools in use, conventions, setup)
 
-### Examples
-
-```bash
-# Use a custom role for troubleshooting (if you created one)
-whai analyze this error -r troubleshooting
-
-# Use a different model
-whai list large files -m gpt-5-mini
-
-# Skip context capture for faster responses
-whai what is a .gitignore file? --no-context
-
-# Quotes still work if you prefer them
-whai "what is a .gitignore file?" --no-context
-
-# Control command timeout (seconds)
-whai "Do this" --timeout 30
-```
-
-## Roles
-
-Roles are defined in `~/.config/whai/roles/` as Markdown files with YAML frontmatter.
-
-### Default Role
-
-- **default**: General-purpose terminal assistant
-
-### Managing Roles
-
-whai provides a comprehensive role management system:
+Define it once, use it everywhere. Roles are stored in `~/.config/whai/roles/` as Markdown files with YAML frontmatter.
+The default role can be defined in the config.
 
 ```bash
-# List all available roles
+# Create a new role
+whai role create my-workflow
+
+# Use it
+whai "help me with this task" -r my-workflow
+
+# List all roles
 whai role list
-
-# Create a new role (opens in editor)
-whai role create my-role
-
-# Edit an existing role
-whai role edit my-role
-
-# Remove a role
-whai role remove my-role
-
-# Set default role (used when --role isn't specified)
-whai role set-default my-role
-
-# Reset default role to packaged version
-whai role reset-default
-
-# Open roles folder in file explorer
-whai role open-folder
-
-# Interactive role manager (shows menu)
-whai role
-
-# Show which role whai would use right now
-whai role which
 ```
 
-### Creating Custom Roles
+### Context Awareness
 
-Create a new role using the CLI:
+`whai` automatically captures context from:
+- **tmux scrollback** (recommended): Full commands + output for intelligent debugging
+- **Shell history** (fallback): Recent commands when not in tmux
 
-```bash
-whai role create devops
-```
+### Safety First
 
-This creates and opens `~/.config/whai/roles/devops.md` in your editor:
-
-```markdown
----
-model: gpt-5-mini
-temperature: 0.5
----
-
-You are a DevOps specialist focusing on Docker and Kubernetes.
-Help users with containerization, orchestration, and deployment tasks.
-```
-
-Use it with:
-
-```bash
-whai help me debug this pod -r devops
-```
-
-### Session Roles
-
-Set a role for your current shell session using environment variables:
-
-```bash
-# Show how to set role for your shell
-whai role use devops
-
-# Then run the command it shows, e.g. for bash/zsh:
-export WHAI_ROLE="devops"
-
-# Now all whai commands use that role
-whai "help me with kubernetes"
-
-# Clear the session role
-unset WHAI_ROLE
-```
-
-### Role Precedence
-
-When determining which role to use, whai follows this precedence (highest first):
-
-1. CLI flag: `-r/--role`
-2. Environment variable: `WHAI_ROLE`
-3. Config default: `roles.default_role` in `config.toml`
-4. Fallback: `default`
-
-To quickly check the effective role based on the above rules, run:
-
-```bash
-whai role which
-```
-
-## Context Modes
-
-whai captures terminal context to provide better assistance:
-
-### Deep Context (Recommended)
-
-Run whai inside a tmux session to get full scrollback (commands + output):
-
-```bash
-tmux
-whai why did this fail?
-```
-
-### Shallow Context (Fallback)
-
-Without tmux, whai reads shell history (commands only):
-
-```bash
-whai what did I just run?
-```
-
-## How It Works
-
-1. **Context Capture**: Reads tmux scrollback or shell history
-2. **LLM Query**: Sends your question with context to the configured LLM
-3. **Response**: Streams the AI's response to your terminal
-4. **Command Approval**: If the AI suggests a command, you approve/reject/modify it
-5. **Execution**: Approved commands run independently via subprocess
-6. **Iteration**: The conversation continues until the task is complete
-
-## Safety
-
-- **No command runs without your explicit approval**
-- You can modify any suggested command before running it
-- Commands run in a subprocess (won't affect your main shell)
-- Use `Ctrl+C` to interrupt at any time
-
-## Troubleshooting
-
-### "No module named 'whai'"
-
-Make sure you've activated the virtual environment:
-
-```bash
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-
-### "API key not found"
-
-Edit `~/.config/whai/config.toml` and add your API key.
-
-### Commands not preserving state
-
-This is by design. Each command runs independently in its own subprocess. Changes like `cd` and `export` do NOT persist between commands. If you need multi-step operations, chain commands using `&&` (e.g., `cd /tmp && ls`).
-
-### tmux context not working on Windows
-
-Use WSL with tmux installed. whai will automatically detect and use WSL's tmux.
-
-## Development
-
-### Running Tests
-
-```bash
-# Run all unit tests
-pytest tests/ -v
-
-# Run specific test file
-pytest tests/test_config.py -v
-
-# Run integration tests (requires API key)
-pytest tests/ -v -m integration
-```
-
-### Project Structure
-
-```
-whai/
-├── whai/               # Main package
-│   ├── __init__.py
-│   ├── __main__.py     # Entry point
-│   ├── main.py         # CLI logic
-│   ├── config.py       # Configuration management
-│   ├── context.py      # Context capture
-│   ├── llm.py          # LLM provider
-│   └── interaction.py  # Shell session & approval
-├── tests/              # Test suite
-├── pyproject.toml      # Project metadata
-└── README.md
-```
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Acknowledgments
-
-- Built with [LiteLLM](https://github.com/BerriAI/litellm) for multi-provider support
-- CLI powered by [Typer](https://typer.tiangolo.com/)
-- Pretty output by [Rich](https://github.com/Textualize/rich)
-- Inspired by tools like `aichat` and `shell-gpt`
+- Every command requires explicit approval
+- Modify commands before execution
+- Commands run in isolated subprocess (won't affect your main shell)
+- Press `Ctrl+C` to interrupt anytime
 
 ## FAQ
 
-### How is this different from ChatGPT in a browser?
+### How is this different?
 
-whai is integrated into your terminal with full context awareness. It sees your command history and can execute commands for you with your explicit approval.
+`whai` is integrated into your terminal with full context awareness. It sees your command history and can execute commands.
+Most terminal assistants require you to explicitely start a REPL loop which takes you out of your usual workflow, or don't allow for roles, or don't allow for the mix of natural language conversation and shell execution. I wanted something that's always ready to help while leaving you in control.
 
 ### Does it send my terminal history to the LLM?
 
-Only when you run whai. It captures recent history or tmux scrollback and includes it in the request. You can use `--no-context` to disable this.
+Only when you run `whai`. It captures recent history or tmux scrollback and includes it in the request. You can disable this with `--no-context`.
 
 ### Can I use it with local models?
 
-Yes! Configure any LiteLLM-compatible provider, including Ollama for local models.
+Yes! Configure any LiteLLM-compatible provider, including Ollama for local models. See the configuration section above.
 
-### Why do changes like `cd` not persist between commands?
 
-This is by design. Each command runs independently in its own subprocess for safety and simplicity. If you need multi-step operations, chain commands using `&&` (e.g., `cd /tmp && ls`).
+## Acknowledgments
+
+Built with [LiteLLM](https://github.com/BerriAI/litellm) for multi-provider support, [Typer](https://typer.tiangolo.com/) for the CLI, and [Rich](https://github.com/Textualize/rich) for pretty terminal output.
