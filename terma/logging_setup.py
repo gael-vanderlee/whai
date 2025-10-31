@@ -1,7 +1,7 @@
 """Logging configuration for terma.
 
-This module centralizes logging setup so we can be very verbose during
-development and completely quiet during normal user usage.
+Centralizes logging setup with simple, level-based control. Defaults to
+INFO for concise, useful output; DEBUG enables verbose diagnostics.
 """
 
 import logging
@@ -9,75 +9,68 @@ import os
 from typing import Optional
 
 
-def configure_logging(mode: Optional[str] = None) -> None:
+def configure_logging(level: Optional[str] = None) -> None:
     """Configure root logging handlers/levels for terma.
 
-    Behavior:
-    - Development (mode == "dev" OR TERMA_DEBUG=1 OR TERMA_ENV=dev):
-      Root logger level DEBUG with a concise console handler to stderr.
-    - Production (default):
-      Remove stream handlers and set a NullHandler at root to avoid printing.
+    Args:
+        level: Optional log level name (e.g., "INFO", "DEBUG"). Defaults to INFO.
+               Can also be provided via TERMA_LOG_LEVEL env var.
     """
-    # Detect mode from env if not explicitly provided
-    if mode is None:
-        env_flag = os.environ.get("TERMA_DEBUG", "")
-        env_mode = os.environ.get("TERMA_ENV", "").lower()
-        if env_flag in {"1", "true", "True"} or env_mode == "dev":
-            mode = "dev"
-        else:
-            mode = "prod"
-
     root_logger = logging.getLogger()
 
     # Always start from a clean slate for predictable behavior
     for handler in list(root_logger.handlers):
         root_logger.removeHandler(handler)
 
-    if mode == "dev":
-        root_logger.setLevel(logging.DEBUG)
+    # Resolve target level
+    resolved_level_name = (
+        (level or "").strip().upper()
+        or os.environ.get("TERMA_LOG_LEVEL", "").strip().upper()
+        or "ERROR"
+    )
+    if resolved_level_name not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
+        resolved_level_name = "ERROR"
+    resolved_level = getattr(logging, resolved_level_name)
 
-        console = logging.StreamHandler()
-        console.setLevel(logging.DEBUG)
+    root_logger.setLevel(resolved_level)
 
-        # Time-only with milliseconds, include filename and line number
-        # Color-aware formatter that uses 'category' extra or name prefixes
-        console.setFormatter(_get_dev_color_formatter())
+    console = logging.StreamHandler()
+    console.setLevel(resolved_level)
 
-        root_logger.addHandler(console)
+    # Time-only with milliseconds, include filename and line number
+    # Color-aware formatter that uses 'category' extra or name prefixes
+    console.setFormatter(_get_dev_color_formatter())
 
-        # Tame noisy third-party loggers by default in dev, unless explicitly requested
-        if os.environ.get("TERMA_VERBOSE_DEPS", "").lower() not in {"1", "true", "yes"}:
-            noisy_names = (
-                "litellm",
-                "LiteLLM",
-                "openai",
-                "openai._base_client",
-                "httpcore",
-                "httpx",
-                "asyncio",
-                "urllib3",
-                "aiohttp",
-            )
+    root_logger.addHandler(console)
 
-            def clamp_logger(name: str) -> None:
-                lg = logging.getLogger(name)
-                lg.setLevel(logging.CRITICAL)
-                lg.propagate = False
-                for h in list(lg.handlers):
-                    lg.removeHandler(h)
+    # Tame noisy third-party loggers unless explicitly requested
+    if os.environ.get("TERMA_VERBOSE_DEPS", "").lower() not in {"1", "true", "yes"}:
+        noisy_names = (
+            "litellm",
+            "LiteLLM",
+            "openai",
+            "openai._base_client",
+            "httpcore",
+            "httpx",
+            "asyncio",
+            "urllib3",
+            "aiohttp",
+        )
 
-            for noisy in noisy_names:
-                clamp_logger(noisy)
+        def clamp_logger(name: str) -> None:
+            lg = logging.getLogger(name)
+            lg.setLevel(logging.CRITICAL)
+            lg.propagate = False
+            for h in list(lg.handlers):
+                lg.removeHandler(h)
 
-            # Also sweep existing registered loggers and clamp by prefix
-            for existing_name in list(logging.root.manager.loggerDict.keys()):
-                if any(existing_name.startswith(n) for n in noisy_names):
-                    clamp_logger(existing_name)
-    else:
-        # Production: be silent by default. Keep errors available to integrators
-        # via NullHandler to avoid "No handler" warnings if someone imports us.
-        root_logger.setLevel(logging.WARNING)
-        root_logger.addHandler(logging.NullHandler())
+        for noisy in noisy_names:
+            clamp_logger(noisy)
+
+        # Also sweep existing registered loggers and clamp by prefix
+        for existing_name in list(logging.root.manager.loggerDict.keys()):
+            if any(existing_name.startswith(n) for n in noisy_names):
+                clamp_logger(existing_name)
 
 
 def get_logger(name: str) -> logging.Logger:
