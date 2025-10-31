@@ -1,7 +1,7 @@
 """Logging configuration for whai.
 
 Centralizes logging setup with simple, level-based control. Defaults to
-INFO for concise, useful output; DEBUG enables verbose diagnostics.
+WARNING for concise output showing only warnings and errors; INFO/DEBUG enable verbose diagnostics.
 """
 
 import logging
@@ -26,10 +26,10 @@ def configure_logging(level: Optional[str] = None) -> None:
     resolved_level_name = (
         (level or "").strip().upper()
         or os.environ.get("WHAI_LOG_LEVEL", "").strip().upper()
-        or "ERROR"
+        or "WARNING"
     )
     if resolved_level_name not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
-        resolved_level_name = "ERROR"
+        resolved_level_name = "WARNING"
     resolved_level = getattr(logging, resolved_level_name)
 
     root_logger.setLevel(resolved_level)
