@@ -49,9 +49,15 @@ def _validate_role_name(name: str) -> None:
 def _template(name: str) -> str:
     """Generate a template for a new role."""
     return f"""---
+# Role metadata (optional frontmatter)
+# Allowed fields:
+#   model: string              # LLM model name (e.g., "gpt-5-mini", "claude-3-sonnet")
+#                              # Falls back to provider config if not specified
+#   temperature: float         # Temperature setting (0.0 to 2.0)
+#                              # Only used when supported by the selected model
+#                              # Falls back to provider default if not specified
 model: gpt-5-mini
-# Optional parameter you can add here (uncomment if needed):
-# temperature: 0.3               # Only used when supported by the selected model
+# temperature: 0.3            # Uncomment and adjust if needed
 ---
 You are a helpful terminal assistant with the '{name}' specialization.
 Describe behaviors, tone, and constraints here.

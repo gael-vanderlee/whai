@@ -9,13 +9,15 @@ import typer
 
 from whai import ui
 from whai.config import (
+    InvalidRoleMetadataError,
     MissingConfigError,
     load_config,
     load_role,
+    resolve_model,
     resolve_role,
+    resolve_temperature,
     validate_llm_config,
 )
-from whai.constants import DEFAULT_LLM_MODEL
 from whai.context import get_context
 from whai.interaction import approval_loop, execute_command
 from whai.llm import LLMProvider, get_base_system_prompt
@@ -309,6 +311,9 @@ def main(
         except FileNotFoundError as e:
             ui.error(str(e))
             raise typer.Exit(1)
+        except InvalidRoleMetadataError as e:
+            ui.error(f"Invalid role metadata: {e}")
+            raise typer.Exit(1)
         except Exception as e:
             ui.error(f"Failed to load role: {e}")
             raise typer.Exit(1)
@@ -350,29 +355,9 @@ def main(
         )
 
         # 4. Initialize LLM provider
-        # Resolve model from CLI > role metadata > provider config > fallback
-        default_provider = config["llm"].get("default_provider")
-        provider_config = config["llm"].get(default_provider, {})
-
-        # Determine model and its source for logging
-        if model:
-            llm_model = model
-            model_source = "CLI override"
-        elif role_metadata.get("model"):
-            llm_model = role_metadata.get("model")
-            model_source = f"role '{role}'"
-        elif provider_config.get("default_model"):
-            llm_model = provider_config.get("default_model")
-            model_source = f"provider config '{default_provider}'"
-        else:
-            llm_model = DEFAULT_LLM_MODEL
-            model_source = "built-in fallback"
-
-        llm_temperature = (
-            temperature
-            if temperature is not None
-            else role_metadata.get("temperature", None)
-        )
+        # Resolve model and temperature using consolidated precedence logic
+        llm_model, model_source = resolve_model(model, role_metadata, config)
+        llm_temperature = resolve_temperature(temperature, role_metadata)
 
         logger.info(
             "Model loaded: %s (source: %s)",

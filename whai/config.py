@@ -1,6 +1,7 @@
 """Configuration management for whai."""
 
 import os
+from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -17,6 +18,93 @@ class MissingConfigError(RuntimeError):
     """Raised when configuration file is missing and not in ephemeral mode."""
 
     pass
+
+
+class InvalidRoleMetadataError(ValueError):
+    """Raised when role metadata contains invalid values."""
+
+    pass
+
+
+@dataclass
+class RoleMetadata:
+    """
+    Structured metadata for a role file.
+
+    Attributes:
+        model: Optional LLM model name to use for this role.
+               If not set, falls back to provider config or default.
+        temperature: Optional temperature setting (0.0 to 2.0).
+                     Only used when supported by the selected model.
+                     If not set, uses provider default or CLI override.
+    """
+
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+
+    def __post_init__(self) -> None:
+        """Validate metadata values after initialization."""
+        if self.model is not None:
+            if not isinstance(self.model, str) or not self.model.strip():
+                raise InvalidRoleMetadataError(
+                    "Role metadata 'model' must be a non-empty string if provided."
+                )
+
+        if self.temperature is not None:
+            if not isinstance(self.temperature, (int, float)):
+                raise InvalidRoleMetadataError(
+                    "Role metadata 'temperature' must be a number if provided."
+                )
+            temp_float = float(self.temperature)
+            if temp_float < 0.0 or temp_float > 2.0:
+                raise InvalidRoleMetadataError(
+                    f"Role metadata 'temperature' must be between 0.0 and 2.0, got {temp_float}."
+                )
+            # Normalize to float if it was an int
+            if isinstance(self.temperature, int):
+                object.__setattr__(self, "temperature", float(self.temperature))
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RoleMetadata":
+        """
+        Create RoleMetadata from a dictionary, validating and extracting only known fields.
+
+        Args:
+            data: Dictionary containing role metadata (may contain unknown keys).
+
+        Returns:
+            RoleMetadata instance with validated fields.
+
+        Raises:
+            InvalidRoleMetadataError: If any field has an invalid value.
+        """
+        # Only extract known fields; ignore unknown ones with a warning
+        known_fields = {"model", "temperature"}
+        unknown_fields = set(data.keys()) - known_fields
+        if unknown_fields:
+            logger.warning(
+                "Role metadata contains unknown fields (ignored): %s",
+                ", ".join(unknown_fields),
+            )
+
+        return cls(
+            model=data.get("model"),
+            temperature=data.get("temperature"),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert RoleMetadata to a dictionary, including only non-None fields.
+
+        Returns:
+            Dictionary with non-None metadata fields.
+        """
+        result: Dict[str, Any] = {}
+        if self.model is not None:
+            result["model"] = self.model
+        if self.temperature is not None:
+            result["temperature"] = self.temperature
+        return result
 
 
 def get_config_dir() -> Path:
@@ -263,7 +351,7 @@ def ensure_default_roles() -> None:
         default_role.write_text(get_default_role("default"))
 
 
-def parse_role_file(content: str) -> Tuple[Dict[str, Any], str]:
+def parse_role_file(content: str) -> Tuple[RoleMetadata, str]:
     """
     Parse a role file with YAML frontmatter and markdown body.
 
@@ -271,15 +359,16 @@ def parse_role_file(content: str) -> Tuple[Dict[str, Any], str]:
         content: The full content of the role file.
 
     Returns:
-        Tuple of (metadata dict, body string).
+        Tuple of (RoleMetadata, body string).
 
     Raises:
         ValueError: If the frontmatter is invalid.
+        InvalidRoleMetadataError: If the metadata contains invalid values.
     """
     # Check for YAML frontmatter
     if not content.startswith("---"):
         # No frontmatter, return empty metadata and full content as body
-        return {}, content
+        return RoleMetadata(), content
 
     # Split frontmatter and body
     parts = content.split("---", 2)
@@ -291,15 +380,24 @@ def parse_role_file(content: str) -> Tuple[Dict[str, Any], str]:
 
     # Parse frontmatter YAML
     try:
-        metadata = yaml.safe_load(frontmatter_text) or {}
+        metadata_dict = yaml.safe_load(frontmatter_text) or {}
     except yaml.YAMLError as e:
         raise ValueError(f"Invalid YAML in frontmatter: {e}")
 
-    logger.debug("Parsed role frontmatter with keys: %s", list(metadata.keys()))
+    if not isinstance(metadata_dict, dict):
+        raise ValueError("Role frontmatter must be a YAML object/mapping")
+
+    # Create structured metadata with validation
+    try:
+        metadata = RoleMetadata.from_dict(metadata_dict)
+    except InvalidRoleMetadataError as e:
+        raise InvalidRoleMetadataError(f"Invalid role metadata: {e}") from e
+
+    logger.debug("Parsed role frontmatter: %s", metadata.to_dict())
     return metadata, body
 
 
-def load_role(role_name: str = "default") -> Tuple[Dict[str, Any], str]:
+def load_role(role_name: str = "default") -> Tuple[RoleMetadata, str]:
     """
     Load a role from ~/.config/whai/roles/{role_name}.md.
 
@@ -307,11 +405,12 @@ def load_role(role_name: str = "default") -> Tuple[Dict[str, Any], str]:
         role_name: Name of the role to load (without .md extension).
 
     Returns:
-        Tuple of (metadata dict, system prompt string).
+        Tuple of (RoleMetadata, system prompt string).
 
     Raises:
         FileNotFoundError: If the role file doesn't exist.
         ValueError: If the role file has invalid frontmatter.
+        InvalidRoleMetadataError: If the role metadata contains invalid values.
     """
     # Ensure default roles exist
     ensure_default_roles()
@@ -361,3 +460,76 @@ def resolve_role(
 
     # 4) Hardcoded fallback
     return "default"
+
+
+def resolve_model(
+    cli_model: Optional[str] = None,
+    role_metadata: Optional[RoleMetadata] = None,
+    config: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, str]:
+    """Resolve the LLM model to use based on precedence.
+
+    Precedence: CLI override > role metadata > provider config > built-in fallback.
+
+    Args:
+        cli_model: Model name provided explicitly by CLI options.
+        role_metadata: RoleMetadata instance from the active role.
+        config: Application config dict. If None, it will be loaded in ephemeral mode.
+
+    Returns:
+        Tuple of (model_name, source_description) where source_description indicates
+        where the model came from for logging purposes.
+    """
+    # 1) CLI override has highest precedence
+    if cli_model:
+        return cli_model, "CLI override"
+
+    # 2) Role metadata
+    if role_metadata and role_metadata.model:
+        return role_metadata.model, "role metadata"
+
+    # 3) Provider config from config.toml
+    if config is None:
+        try:
+            config = load_config(allow_ephemeral=True)
+        except Exception:
+            config = {}
+
+    default_provider = (config or {}).get("llm", {}).get("default_provider")
+    if default_provider:
+        provider_config = (config or {}).get("llm", {}).get(default_provider, {})
+        default_model = provider_config.get("default_model")
+        if default_model:
+            return default_model, f"provider config '{default_provider}'"
+
+    # 4) Built-in fallback
+    from whai.constants import DEFAULT_LLM_MODEL
+
+    return DEFAULT_LLM_MODEL, "built-in fallback"
+
+
+def resolve_temperature(
+    cli_temperature: Optional[float] = None,
+    role_metadata: Optional[RoleMetadata] = None,
+) -> Optional[float]:
+    """Resolve the temperature setting to use based on precedence.
+
+    Precedence: CLI override > role metadata > None.
+
+    Args:
+        cli_temperature: Temperature value provided explicitly by CLI options.
+        role_metadata: RoleMetadata instance from the active role.
+
+    Returns:
+        The resolved temperature value, or None if not set.
+    """
+    # 1) CLI override has highest precedence
+    if cli_temperature is not None:
+        return cli_temperature
+
+    # 2) Role metadata
+    if role_metadata and role_metadata.temperature is not None:
+        return role_metadata.temperature
+
+    # 3) No temperature set
+    return None

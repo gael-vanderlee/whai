@@ -121,8 +121,9 @@ It can have multiple lines.
 
     metadata, body = config.parse_role_file(content)
 
-    assert metadata["model"] == "gpt-5-mini"
-    assert metadata["temperature"] == 0.7
+    assert isinstance(metadata, config.RoleMetadata)
+    assert metadata.model == "gpt-5-mini"
+    assert metadata.temperature == 0.7
     assert "This is the system prompt." in body
     assert "multiple lines" in body
 
@@ -133,7 +134,9 @@ def test_parse_role_file_without_frontmatter():
 
     metadata, body = config.parse_role_file(content)
 
-    assert metadata == {}
+    assert isinstance(metadata, config.RoleMetadata)
+    assert metadata.model is None
+    assert metadata.temperature is None
     assert body == content
 
 
@@ -186,8 +189,10 @@ def test_load_role_default(tmp_path, monkeypatch):
     # Load the default role
     metadata, prompt = config.load_role("default")
 
-    # Verify metadata is empty by default (defaults do not include frontmatter)
-    assert metadata == {}
+    # Verify metadata is RoleMetadata with no values (defaults do not include frontmatter)
+    assert isinstance(metadata, config.RoleMetadata)
+    assert metadata.model is None
+    assert metadata.temperature is None
 
     # Verify prompt
     assert "terminal assistant" in prompt.lower()
@@ -214,8 +219,9 @@ You are a custom assistant.
     metadata, prompt = config.load_role("custom")
 
     # Verify metadata
-    assert metadata["model"] == "gpt-3.5-turbo"
-    assert metadata["temperature"] == 0.9
+    assert isinstance(metadata, config.RoleMetadata)
+    assert metadata.model == "gpt-3.5-turbo"
+    assert metadata.temperature == 0.9
 
     # Verify prompt
     assert "custom assistant" in prompt.lower()
@@ -232,6 +238,96 @@ def test_load_role_not_found(tmp_path, monkeypatch):
     # Try to load a role that doesn't exist
     with pytest.raises(FileNotFoundError, match="Role 'nonexistent' not found"):
         config.load_role("nonexistent")
+
+
+def test_role_metadata_validation_invalid_temperature():
+    """Test that invalid temperature values raise InvalidRoleMetadataError."""
+    with pytest.raises(
+        config.InvalidRoleMetadataError, match="temperature.*between 0.0 and 2.0"
+    ):
+        config.RoleMetadata(temperature=3.0)
+
+    with pytest.raises(
+        config.InvalidRoleMetadataError, match="temperature.*between 0.0 and 2.0"
+    ):
+        config.RoleMetadata(temperature=-0.1)
+
+
+def test_role_metadata_validation_invalid_model():
+    """Test that invalid model values raise InvalidRoleMetadataError."""
+    with pytest.raises(
+        config.InvalidRoleMetadataError, match="model.*non-empty string"
+    ):
+        config.RoleMetadata(model="")
+
+    with pytest.raises(
+        config.InvalidRoleMetadataError, match="model.*non-empty string"
+    ):
+        config.RoleMetadata(model="   ")
+
+
+def test_role_metadata_valid():
+    """Test that valid metadata values are accepted."""
+    metadata = config.RoleMetadata(model="gpt-5-mini", temperature=0.7)
+    assert metadata.model == "gpt-5-mini"
+    assert metadata.temperature == 0.7
+
+    # Test edge cases for temperature
+    metadata_min = config.RoleMetadata(temperature=0.0)
+    assert metadata_min.temperature == 0.0
+
+    metadata_max = config.RoleMetadata(temperature=2.0)
+    assert metadata_max.temperature == 2.0
+
+    # Test None values
+    metadata_none = config.RoleMetadata()
+    assert metadata_none.model is None
+    assert metadata_none.temperature is None
+
+
+def test_role_metadata_from_dict():
+    """Test creating RoleMetadata from dictionary."""
+    data = {"model": "gpt-4", "temperature": 0.5}
+    metadata = config.RoleMetadata.from_dict(data)
+    assert metadata.model == "gpt-4"
+    assert metadata.temperature == 0.5
+
+    # Test with unknown fields (should warn but not fail)
+    data_with_unknown = {"model": "gpt-4", "temperature": 0.5, "unknown": "value"}
+    metadata_with_unknown = config.RoleMetadata.from_dict(data_with_unknown)
+    assert metadata_with_unknown.model == "gpt-4"
+    assert metadata_with_unknown.temperature == 0.5
+
+
+def test_role_metadata_to_dict():
+    """Test converting RoleMetadata to dictionary."""
+    metadata = config.RoleMetadata(model="gpt-4", temperature=0.5)
+    result = metadata.to_dict()
+    assert result == {"model": "gpt-4", "temperature": 0.5}
+
+    # Test with None values (should be omitted)
+    metadata_none = config.RoleMetadata()
+    result_none = metadata_none.to_dict()
+    assert result_none == {}
+
+    # Test with partial values
+    metadata_partial = config.RoleMetadata(model="gpt-4")
+    result_partial = metadata_partial.to_dict()
+    assert result_partial == {"model": "gpt-4"}
+
+
+def test_parse_role_file_invalid_metadata():
+    """Test that invalid metadata in role file raises InvalidRoleMetadataError."""
+    content = """---
+model: 
+temperature: 3.0
+---
+
+Body text.
+"""
+
+    with pytest.raises(config.InvalidRoleMetadataError):
+        config.parse_role_file(content)
 
 
 def test_save_config(tmp_path, monkeypatch):
