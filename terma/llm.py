@@ -118,7 +118,7 @@ def get_base_system_prompt(is_deep_context: bool) -> str:
         )
 
     template = system_prompt_file.read_text()
-    logger.debug(
+    logger.info(
         "Loaded system prompt template from %s",
         system_prompt_file,
         extra={"category": "perf"},
@@ -245,7 +245,7 @@ class LLMProvider:
             if tool_choice is not None:
                 completion_kwargs["tool_choice"] = tool_choice
 
-            logger.debug(
+            logger.info(
                 "Sending message to LLM: stream=%s tools_enabled=%s tool_count=%d temp=%s",
                 stream,
                 bool(tools),
@@ -302,14 +302,14 @@ class LLMProvider:
             from litellm import completion  # type: ignore
 
             t_import_end = _t.perf_counter()
-            logger.debug(
+            logger.info(
                 "LiteLLM import completed in %.3f ms",
                 (t_import_end - t_import_start) * 1000,
                 extra={"category": "perf"},
             )
 
             t_start = _t.perf_counter()
-            logger.debug("LLM API call started", extra={"category": "perf"})
+            logger.info("LLM API call started", extra={"category": "perf"})
 
             response = completion(**completion_kwargs)
 
@@ -326,7 +326,7 @@ class LLMProvider:
                             if first:
                                 first = False
                                 t_first = _t.perf_counter()
-                                logger.debug(
+                                logger.info(
                                     "LLM API first chunk in %.3f ms",
                                     (t_first - t_start) * 1000,
                                     extra={"category": "perf"},
@@ -339,7 +339,7 @@ class LLMProvider:
                             yield chunk
                     finally:
                         t_end = _t.perf_counter()
-                        logger.debug(
+                        logger.info(
                             "LLM API stream completed in %.3f ms (text_len=%d, tool_calls=%d)",
                             (t_end - t_start) * 1000,
                             text_len,
@@ -351,7 +351,7 @@ class LLMProvider:
             else:
                 result = self._handle_complete_response(response)
                 t_end = _t.perf_counter()
-                logger.debug(
+                logger.info(
                     "LLM API call (non-stream) completed in %.3f ms",
                     (t_end - t_start) * 1000,
                     extra={"category": "perf"},
