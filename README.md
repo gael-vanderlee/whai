@@ -135,8 +135,22 @@ Options:
   --no-context          Skip context capture
   -m, --model TEXT      Override the LLM model
   -t, --temperature FLOAT  Override temperature
+  -v [LEVEL]            Logging level (ERROR|WARNING|INFO|DEBUG). Default: ERROR
   --timeout INTEGER     Per-command timeout in seconds [default: 60]
   --help                Show help message
+```
+
+### Logging Levels
+
+```bash
+# Default (ERROR)
+terma "your question"
+
+# Show timings and key steps
+terma "your question" -v INFO
+
+# Full diagnostics (payloads, prompts)
+terma "your question" -v DEBUG
 ```
 
 ### Pretty Output
