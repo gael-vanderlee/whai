@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "whai"
-version = "0.1.0"
+version = "0.1.1"
 description = "A lightweight, Python-based CLI tool that integrates LLMs directly into your terminal"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,10 +18,20 @@ dependencies = [
     "pyyaml>=6.0",
     "tomli-w>=1.0.0",
     "rich>=13.7.0",
+    "pytest>=8.4.2",
+    "pytest-mock>=3.15.1",
+    "pytest-cov>=7.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["whai", "defaults"]
+packages = ["whai"]
+
+[tool.hatch.build]
+include = [
+  "whai/**",
+  "README.md",
+  "LICENSE*"
+]
 
 [project.optional-dependencies]
 dev = [
@@ -42,3 +52,8 @@ markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
 ]
 
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true

@@ -10,6 +10,7 @@ __pycache__/
 venv/
 ENV/
 env/
+.linux-venv/
 
 # Testing
 .pytest_cache/
