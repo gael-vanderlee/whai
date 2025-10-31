@@ -1,4 +1,4 @@
-"""Centralized defaults and constants for terma.
+"""Centralized defaults and constants for whai.
 
 Keep all cross-module default values here to avoid duplication.
 """

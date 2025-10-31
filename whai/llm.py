@@ -114,7 +114,7 @@ def get_base_system_prompt(is_deep_context: bool) -> str:
     if not system_prompt_file.exists():
         raise FileNotFoundError(
             f"System prompt template not found at {system_prompt_file}. "
-            "This indicates a broken installation. Please reinstall terma."
+            "This indicates a broken installation. Please reinstall whai."
         )
 
     template = system_prompt_file.read_text()

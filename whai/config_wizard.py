@@ -1,4 +1,4 @@
-"""Interactive configuration wizard for terma."""
+"""Interactive configuration wizard for whai."""
 
 import re
 from typing import Any, Dict
@@ -190,8 +190,8 @@ def _remove_provider(config: Dict[str, Any]) -> None:
         remaining = [k for k, v in llm.items() if isinstance(v, dict)]
         if not remaining:
             typer.echo(
-                "\nWarning: No providers configured. terma cannot run until you add one.\n"
-                "Run 'terma --interactive-config' and choose quick-setup."
+                "\nWarning: No providers configured. whai cannot run until you add one.\n"
+                "Run 'whai --interactive-config' and choose quick-setup."
             )
 
 
@@ -287,7 +287,7 @@ def run_wizard(existing_config: bool = False) -> None:
         existing_config: If True, config already exists and we're editing it.
     """
     typer.echo("\n" + "=" * 50)
-    typer.echo("       terma Configuration Wizard")
+    typer.echo("       whai Configuration Wizard")
     typer.echo("=" * 50)
 
     # Try to load existing config or start with empty structure
@@ -386,7 +386,7 @@ def run_wizard(existing_config: bool = False) -> None:
         save_config(config)
         config_path = get_config_path()
         typer.echo(f"\n✓ Configuration saved to: {config_path}")
-        typer.echo("\nYou can now use terma!")
+        typer.echo("\nYou can now use whai!")
         # Show current config for verification
         typer.echo("\nCurrent configuration:")
         typer.echo(f"Config path: {config_path}")

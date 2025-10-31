@@ -1,4 +1,4 @@
-"""Shared utility functions for terma."""
+"""Shared utility functions for whai."""
 
 import os
 import platform

@@ -1,4 +1,4 @@
-"""terma - Terminal Assistant
+"""whai - Terminal Assistant
 
 A lightweight, Python-based CLI tool that integrates LLMs directly into your terminal.
 """
