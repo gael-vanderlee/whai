@@ -58,6 +58,79 @@ uv run pytest -v
 uv run pytest --cov=whai --cov-report=term-missing
 ```
 
+## Publish to TestPyPI, verify, then publish to PyPI
+
+The following commands work on Windows PowerShell. They bump the version, build artifacts, publish to TestPyPI, verify in a clean venv, then publish to PyPI.
+
+### 1) Bump version
+
+- Edit `pyproject.toml` and change `[project] version = "..."`, or use:
+
+```powershell
+# Options: major | minor | patch | stable | alpha | beta | rc | post | dev
+uv version --bump minor
+```
+
+### 2) Build artifacts
+
+```powershell
+# Clean previous builds to avoid PyPI errors about duplicate files
+Remove-Item -Recurse -Force .\dist -ErrorAction SilentlyContinue
+uv build
+```
+
+### 3) Publish to TestPyPI
+
+```powershell
+$env:UV_PUBLISH_TOKEN = "pypi-XXXXXXXXXXXXXXXX"  # TestPyPI token
+uv publish --publish-url https://test.pypi.org/legacy/
+```
+
+### 4) Verify the TestPyPI upload in a clean venv
+
+```powershell
+# Create a temp venv for verification
+uv venv .venv_testpypi
+
+# Read current version from pyproject.toml without editing commands for each release
+$ver = uv run --no-project -- python -c "import tomllib,sys;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+$ver = $ver.Trim()
+
+# Install from TestPyPI, use PyPI for dependencies, and allow cross-index resolution
+uv pip install -p .\.venv_testpypi `
+  --index-url https://test.pypi.org/simple/ `
+  --extra-index-url https://pypi.org/simple `
+  --index-strategy unsafe-best-match `
+  "whai==$ver"
+
+# Smoke tests (module and console script)
+uv run -p .\.venv_testpypi -- python -c "import whai; print('import ok')"
+uv run -p .\.venv_testpypi -- python -m whai --help
+
+# Test the installed console script directly (crucial for CLI verification)
+.\.venv_testpypi\Scripts\whai --help
+```
+
+### 5) Publish to PyPI
+
+```powershell
+# Bump again if needed (e.g., from 0.1.1 -> 0.1.2), then rebuild
+uv version --bump patch
+
+# Clean previous builds to avoid PyPI errors about duplicate files
+Remove-Item -Recurse -Force .\dist -ErrorAction SilentlyContinue
+uv build
+
+# Publish to PyPI (regular repository)
+$env:UV_PUBLISH_TOKEN = "pypi-YYYYYYYYYYYYYYYY"  # PyPI token
+uv publish
+```
+
+Notes:
+- Keep `[project.scripts] whai = "whai.main:app"` so the installed command remains `whai`.
+- The `--index-strategy unsafe-best-match` flag is required when the package name exists on both TestPyPI and PyPI but the requested version is only on TestPyPI.
+- Always test from outside the repo root or use the console script; running `python -m whai` from the repo can import local sources instead of the installed wheel.
+
 ### Subprocess CLI E2E tests
 The test suite includes end-to-end tests that invoke `python -m whai` in a subprocess. These tests avoid network calls by placing a mock `litellm` module under `tests/mocks` and prepending that directory to `PYTHONPATH` inside the test harness. You can force a tool-call flow by setting `WHAI_MOCK_TOOLCALL=1` in the subprocess environment. No test-related code lives in the `whai/` package.
 
