@@ -4,6 +4,11 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-10-31] [feature] [llm]: add Google Gemini provider support with GEMINI_API_KEY environment variable; default model gemini/gemini-2.5-flash
+[2025-10-31] [feature] [config]: add Gemini to config wizard provider list with API key configuration
+[2025-10-31] [feature] [config]: add Gemini validation in validate_llm_config function
+[2025-10-31] [test] [llm]: add Gemini API key configuration test coverage
+[2025-10-31] [docs] [readme]: add Google Gemini configuration example in config section
 [2025-10-31] [feature] [cli]: add --version flag to display version; read version from pyproject.toml (no __version__ in __init__.py); use importlib.metadata for installed packages, fallback to reading pyproject.toml in development mode
 [2025-10-31] [feature] [config]: add structured RoleMetadata dataclass with validation for role metadata; only allow model and temperature fields with type and range validation; raise InvalidRoleMetadataError for invalid values; warn on unknown fields
 [2025-10-31] [change] [config]: refactor model and temperature resolution into resolve_model() and resolve_temperature() functions for clearer precedence logic
