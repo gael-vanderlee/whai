@@ -4,6 +4,11 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-10-31] [feature] [llm]: add LM Studio provider support with OpenAI-compatible API; pass api_base directly to completion() call for custom endpoints
+[2025-10-31] [feature] [config]: add LM Studio to provider list in config wizard with default settings (localhost:1234/v1, openai/ prefix)
+[2025-10-31] [fix] [main]: fix model resolution to read from provider config instead of top-level llm section
+[2025-10-31] [feature] [logging]: add INFO log showing loaded model and source (CLI override, role, provider config, or fallback)
+[2025-10-31] [docs] [readme]: add LM Studio setup instructions with server configuration and model naming conventions
 [2025-10-31] [docs] [readme]: simplify README for new users; add table of contents and video placeholder; replace generic examples with realistic output examples; emphasize roles as persistent context storage; update installation options (uv tool, pipx, pip, git); remove developer-focused content; streamline FAQ
 [2025-10-31] [change] [cli]: update help text to mention shell glob characters (? * []) in addition to spaces and quotes
 [2025-10-31] [change] [roles]: make default role instructions more concise

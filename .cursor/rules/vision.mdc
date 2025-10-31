@@ -16,7 +16,7 @@ Whai is a Python CLI tool called "Terminal Assistant". It brings a large languag
 - Start with: `whai "your question"`
 - Captures context from `tmux` scrollback (for full context), otherwise falls back to parsing your shell history file for recent command context
 - Supports user-defined roles via markdown files in `~/.config/whai/roles/`
-- Maintains a separate persistent shell session; all changes like `cd` or `export` last for the session, but do not affect your regular terminal session
+- Executes commands independently without persistent state; each command runs in a fresh subprocess
 - Prompts before running any commands, using `[a]pprove`, `[r]eject`, `[m]odify`
 - Optionally, can provide shell helpers (such as keybindings), but these are not part of the core experience
 

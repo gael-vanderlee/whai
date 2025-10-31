@@ -31,7 +31,7 @@ When you get stuck, need a command, or encounter an error, you simply call `whai
 
     `> whai check my docker containers logs for errors`
 
-    `> whai how do I debug this high resource usage?`
+    `> whai "how do I debug this high resource usage?"`
 
 * **Safe by Design:** No command is *ever* executed without your explicit `[a]pprove` / `[r]eject` confirmation.
 * **Model-Agnostic:** Natively supports OpenAI, Gemini, Anthropic, local Ollama models, and more.
@@ -40,7 +40,7 @@ When you get stuck, need a command, or encounter an error, you simply call `whai
 
 See `whai` in action:
 
-### Example 1: Finding the largest folder
+### Example 1: Running a command
 
 ```bash
 $ whai give me the biggest folder here
@@ -74,7 +74,7 @@ Next steps (options)
   - du -h --max-depth=3 2>/dev/null | sort -hr | head -n 30
 ```
 
-### Example 2: Troubleshooting a failed command
+### Example 2: Troubleshooting terminal output
 
 ```bash
 $ uv pip install requirements.txt
@@ -104,7 +104,7 @@ Do you want me to:
 - run the install command for you now?
 ```
 
-### Example 3: Getting help
+### Example 3: Asking questions
 
 ```bash
 $ whai "Quick how do I exit Vim??"
@@ -183,6 +183,28 @@ Get API keys from:
 - [Anthropic Console](https://console.anthropic.com/)
 - [Azure Portal](https://portal.azure.com/) (for Azure OpenAI)
 
+#### Using Local Models (LM Studio)
+
+To use a local model with LM Studio:
+
+1. **Enable the server in LM Studio:**
+   - Open LM Studio
+   - Go to the Developer menu
+   - Enable the server toggle
+
+2. **Configure whai:**
+   ```bash
+   whai --interactive-config
+   ```
+   - Select `lm_studio` as the provider
+   - Enter the API base URL: `http://localhost:1234/v1`
+   - Enter the model name with `openai/` prefix (e.g., `openai/mistral-7b-v0.1`)
+
+3. **Check available models:**
+   ```bash
+   curl http://localhost:1234/v1/models
+   ```
+
 ### 2. Start using whai
 
 ```bash
@@ -227,9 +249,6 @@ But more practically, roles let you store:
 - Environment constraints (what you can/can't do, security policies)
 - Project-specific context (tools in use, conventions, setup)
 
-Define it once, use it everywhere. Roles are stored in `~/.config/whai/roles/` as Markdown files with YAML frontmatter.
-The default role can be defined in the config.
-
 ```bash
 # Create a new role
 whai role create my-workflow
@@ -240,6 +259,19 @@ whai "help me with this task" -r my-workflow
 # List all roles
 whai role list
 ```
+
+Define it once, use it everywhere. Roles are stored in `~/.config/whai/roles/` as Markdown files with YAML frontmatter, like so:
+```yaml
+---
+model: gpt-5-mini
+# Optional parameter you can add here (uncomment if needed):
+# temperature: 0.3               # Only used when supported by the selected model
+---
+You are a helpful terminal assistant.
+Describe behaviors, tone, and constraints here.
+
+```
+The default role is defined in the config.
 
 ### Context Awareness
 
@@ -256,19 +288,22 @@ whai role list
 
 ## FAQ
 
-### How is this different?
+### How is this different from X ?
 
 `whai` is integrated into your terminal with full context awareness. It sees your command history and can execute commands.
-Most terminal assistants require you to explicitely start a REPL loop which takes you out of your usual workflow, or don't allow for roles, or don't allow for the mix of natural language conversation and shell execution. I wanted something that's always ready to help while leaving you in control.
+Most terminal assistants either require you to explicitely start a REPL loop which takes you out of your usual workflow, don't allow for roles, or don't allow to mix natural language conversation and shell execution. 
+I wanted something that's flexible, understands you, and is always ready to help while leaving you in control.
 
 ### Does it send my terminal history to the LLM?
 
-Only when you run `whai`. It captures recent history or tmux scrollback and includes it in the request. You can disable this with `--no-context`.
+Only when you run `whai`.
+It captures recent history (50 last commands) or tmux scrollback and includes it in the request.
+If you use a remote API model, it will see your recent terminal history.
+You can disable this with the `--no-context` flag.
 
 ### Can I use it with local models?
 
 Yes! Configure any LiteLLM-compatible provider, including Ollama for local models. See the configuration section above.
-
 
 ## Acknowledgments
 
