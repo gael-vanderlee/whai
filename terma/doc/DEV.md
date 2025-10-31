@@ -58,18 +58,24 @@ uv run pytest -v
 uv run pytest --cov=terma --cov-report=term-missing
 ```
 
+### Subprocess CLI E2E tests
+The test suite includes end-to-end tests that invoke `python -m terma` in a subprocess. These tests avoid network calls by placing a mock `litellm` module under `tests/mocks` and prepending that directory to `PYTHONPATH` inside the test harness. You can force a tool-call flow by setting `TERMA_MOCK_TOOLCALL=1` in the subprocess environment. No test-related code lives in the `terma/` package.
+
 ## Flags
 
-### Environment flags
+### Logging and output
 ```bash
-# macOS/Linux
-TERMA_DEBUG=1 TERMA_PLAIN=1 uv run terma "test query"
+# Default logging level is ERROR
+uv run terma "test query"
 
-# Windows PowerShell
-$env:TERMA_DEBUG=1; $env:TERMA_PLAIN=1; uv run terma "test query"
+# Increase verbosity to INFO (timings and key stages)
+uv run terma "test query" -v INFO
 
-# Windows CMD
-set TERMA_DEBUG=1 & set TERMA_PLAIN=1 & uv run terma "test query"
+# Full debug (payloads, prompts, detailed traces)
+uv run terma "test query" -v DEBUG
+
+# Plain output (reduced styling)
+TERMA_PLAIN=1 uv run terma "test query"
 ```
 
 ### CLI flags

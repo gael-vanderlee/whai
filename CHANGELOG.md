@@ -4,6 +4,8 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-10-31] [test] [cli]: add subprocess-based CLI E2E tests using mocked `litellm` via tests/mocks; remove sitecustomize hook
+[2025-10-31] [docs] [dev]: document subprocess E2E testing approach and TERMA_MOCK_TOOLCALL usage
 [2025-10-31] [fix] [context/windows]: use PSReadLine for pwsh history (wrong bash history shown). Detected shell was 'pwsh' after centralization; fallback only handled 'powershell' and 'unknown'. Updated Windows history branch to include 'pwsh'.
 [2025-10-31] [change] [logging]: default level ERROR; add -v LEVEL; move performance timings to INFO; keep payload/system/user dumps under DEBUG; remove TERMA_DEBUG handling.
 [2025-10-31] [change] [roles]: ship only one default role (default.md). Removed assumptions and tests referencing a built-in debug role.
