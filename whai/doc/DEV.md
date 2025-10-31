@@ -95,20 +95,23 @@ uv venv .venv_testpypi
 # Read current version from pyproject.toml without editing commands for each release
 $ver = uv run --no-project -- python -c "import tomllib,sys;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
 $ver = $ver.Trim()
+echo $ver
 
-# Install from TestPyPI, use PyPI for dependencies, and allow cross-index resolution
-uv pip install -p .\.venv_testpypi `
-  --index-url https://test.pypi.org/simple/ `
-  --extra-index-url https://pypi.org/simple `
-  --index-strategy unsafe-best-match `
-  "whai==$ver"
+# Check if version is available on TestPyPI (before attempting install)
+# Note: It could take 2-5 minutes for TestPyPI to index after upload
+uv run --no-project -- pip index versions whai --index-url https://test.pypi.org/simple/
+
+# Actiavte the venv and install
+.\.venv_testpypi\Scripts\activate  
+uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "whai==$ver" --index-strategy unsafe-best-match
 
 # Smoke tests (module and console script)
-uv run -p .\.venv_testpypi -- python -c "import whai; print('import ok')"
-uv run -p .\.venv_testpypi -- python -m whai --help
+python -c "import whai; print('import ok')"
+python -m whai --help
 
 # Test the installed console script directly (crucial for CLI verification)
 .\.venv_testpypi\Scripts\whai --help
+.\.venv_testpypi\Scripts\whai --version
 ```
 
 ### 5) Publish to PyPI

@@ -198,7 +198,9 @@ To use a local model with LM Studio:
    ```
    - Select `lm_studio` as the provider
    - Enter the API base URL: `http://localhost:1234/v1`
-   - Enter the model name with `openai/` prefix (e.g., `openai/mistral-7b-v0.1`)
+   - Enter the model name with `lm_studio/` prefix (e.g., `lm_studio/llama-3-8b-instruct`)
+   
+   Note: You can also use the `openai/` prefix (e.g., `openai/llama-3-8b-instruct`) as LM Studio provides an OpenAI-compatible API. Both formats work, but `lm_studio/` is the recommended prefix for clarity.
 
 3. **Check available models:**
    ```bash
