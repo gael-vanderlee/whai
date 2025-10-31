@@ -10,7 +10,7 @@ A lightweight, Python-based CLI tool that integrates large language models (LLMs
 - **Context-Aware**: Captures terminal history for intelligent responses
 - **Multi-LLM Support**: Works with OpenAI, Anthropic, and local models via LiteLLM
 - **Customizable Roles**: Define different AI personas for different tasks. Don't repeat yourself, write instructions and information once for all sessions.
-- **Stateful Sessions**: Commands like `cd` and `export` persist within a conversation (Donesn't work on Windows powershell for now)
+- **Stateful Sessions**: Commands like `cd` and `export` persist within a conversation (does not persist into your parent shell)
 
 ## Installation
 
@@ -131,7 +131,7 @@ terma your question [OPTIONS]
 terma "your question" [OPTIONS]  # quotes optional
 
 Options:
-  -r, --role TEXT        Role to use (default, debug, etc.)
+  -r, --role TEXT        Role to use (default or a custom role)
   --no-context          Skip context capture
   -m, --model TEXT      Override the LLM model
   -t, --temperature FLOAT  Override temperature
@@ -164,8 +164,8 @@ This is useful for:
 ### Examples
 
 ```bash
-# Use the debug role for troubleshooting
-terma analyze this error -r debug
+# Use a custom role for troubleshooting (if you created one)
+terma analyze this error -r troubleshooting
 
 # Use a different model
 terma list large files -m gpt-5-mini
@@ -184,10 +184,9 @@ terma "Do this" --timeout 30
 
 Roles are defined in `~/.config/terma/roles/` as Markdown files with YAML frontmatter.
 
-### Default Roles
+### Default Role
 
 - **default**: General-purpose terminal assistant
-- **debug**: Specialized for troubleshooting and error analysis
 
 ### Managing Roles
 
