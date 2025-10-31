@@ -4,6 +4,8 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-10-31] [change] [cli]: add --log-level/-v option; appears in help; preserve inline -v after query
+[2025-10-31] [change] [repo]: rename package from terma to whai; update docs and references
 [2025-10-31] [test] [cli]: add subprocess-based CLI E2E tests using mocked `litellm` via tests/mocks; remove sitecustomize hook
 [2025-10-31] [docs] [dev]: document subprocess E2E testing approach and TERMA_MOCK_TOOLCALL usage
 [2025-10-31] [fix] [context/windows]: use PSReadLine for pwsh history (wrong bash history shown). Detected shell was 'pwsh' after centralization; fallback only handled 'powershell' and 'unknown'. Updated Windows history branch to include 'pwsh'.

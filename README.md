@@ -114,8 +114,8 @@ Get API keys from:
 > **Note:**
 > If your query contains shell-sensitive characters (like spaces, apostrophes ('), or quotes (")), always wrap it in quotation marks.
 > For example:
->   terma "what's the biggest file?"
->   terma "list all files named \"foo.txt\""
+>   whai "what's the biggest file?"
+>   whai "list all files named \"foo.txt\""
 
 ```bash
 # Ask a question (quotes optional for multi-word queries, required for apostrophes)
@@ -138,13 +138,13 @@ whai your question [OPTIONS]
 whai "your question" [OPTIONS]  # quotes optional
 
 Options:
-  -r, --role TEXT        Role to use (default or a custom role)
-  --no-context          Skip context capture
-  -m, --model TEXT      Override the LLM model
-  -t, --temperature FLOAT  Override temperature
-  -v [LEVEL]            Logging level (ERROR|WARNING|INFO|DEBUG). Default: ERROR
-  --timeout INTEGER     Per-command timeout in seconds [default: 60]
-  --help                Show help message
+  -r, --role TEXT           Role to use (default or a custom role)
+  --no-context              Skip context capture
+  -m, --model TEXT          Override the LLM model
+  -t, --temperature FLOAT   Override temperature
+  --timeout INTEGER         Per-command timeout in seconds [default: 60]
+  --log-level, -v TEXT     Set log level: CRITICAL|ERROR|WARNING|INFO|DEBUG
+  --help                    Show help message
 ```
 
 ### Logging Levels
@@ -162,7 +162,7 @@ whai "your question" -v DEBUG
 
 ### Pretty Output
 
-terma includes enhanced terminal output with:
+whai includes enhanced terminal output with:
 - **Spinners** while waiting for AI responses
 - **Code blocks** for shell commands and outputs
 - **Colored text** for errors, warnings, and info messages
