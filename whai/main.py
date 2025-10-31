@@ -17,7 +17,7 @@ from whai.config import (
 )
 from whai.constants import DEFAULT_LLM_MODEL
 from whai.context import get_context
-from whai.interaction import ShellSession, approval_loop
+from whai.interaction import approval_loop, execute_command
 from whai.llm import LLMProvider, get_base_system_prompt
 from whai.logging_setup import configure_logging, get_logger
 from whai.role_cli import role_app
@@ -259,8 +259,6 @@ def main(
     t0 = time.perf_counter()
     logger.info("Startup: entered main()", extra={"category": "perf"})
 
-    shell_session = None
-
     try:
         # 1. Load config and role
         try:
@@ -317,17 +315,7 @@ def main(
             extra={"category": "perf"},
         )
 
-        # 2. Detect shell for both context and session
-        from whai.context import get_shell_executable
-
-        shell_executable = get_shell_executable()
-        logger.info(
-            "Detected shell executable: %s",
-            shell_executable,
-            extra={"category": "perf"},
-        )
-
-        # 3. Get context (tmux or history)
+        # 2. Get context (tmux or history)
         if no_context:
             context_str = ""
             is_deep_context = False
@@ -394,21 +382,7 @@ def main(
         # Display loaded configuration
         ui.info(f"Model: {llm_model} | Role: {role}")
 
-        # 5. Create shell session with detected shell
-        try:
-            shell_session = ShellSession(shell=shell_executable)
-        except Exception as e:
-            ui.error(f"Failed to create shell session: {e}")
-            raise typer.Exit(1)
-        t_shell = time.perf_counter()
-        logger.info(
-            "Startup: ShellSession(%s) completed in %.3f ms",
-            shell_executable,
-            (t_shell - t_llm) * 1000,
-            extra={"category": "perf"},
-        )
-
-        # 6. Build initial message
+        # 5. Build initial message
         t_prompt0 = time.perf_counter()
         base_prompt = get_base_system_prompt(is_deep_context)
         system_message = f"{base_prompt}\n\n{role_prompt}"
@@ -510,7 +484,7 @@ def main(
                                 approved_command,
                                 extra={"category": "cmd"},
                             )
-                            stdout, stderr, returncode = shell_session.execute_command(
+                            stdout, stderr, returncode = execute_command(
                                 approved_command, timeout=timeout
                             )
 
@@ -640,13 +614,6 @@ def main(
     except Exception as e:
         ui.error(f"Fatal error: {e}")
         sys.exit(1)
-    finally:
-        # Cleanup
-        if shell_session:
-            try:
-                shell_session.close()
-            except Exception:
-                pass
 
 
 if __name__ == "__main__":
