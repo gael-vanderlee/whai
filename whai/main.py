@@ -155,6 +155,12 @@ def main(
         "--timeout",
         help="Per-command timeout in seconds (applies to each approved command)",
     ),
+    log_level: Optional[str] = typer.Option(
+        None,
+        "--log-level",
+        "-v",
+        help="Set log level: CRITICAL|ERROR|WARNING|INFO|DEBUG",
+    ),
     interactive_config: bool = typer.Option(
         False,
         "--interactive-config",
@@ -234,8 +240,18 @@ def main(
         ui.error("--timeout must be a positive integer (seconds)")
         raise typer.Exit(2)
 
-    # Configure logging (level from inline overrides if provided)
-    configure_logging(overrides.get("log_level"))
+    # Determine effective log level: explicit option takes precedence over inline
+    effective_log_level = log_level or overrides.get("log_level")
+    if effective_log_level is not None:
+        effective_log_level = effective_log_level.strip().upper()
+        if effective_log_level not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
+            ui.error(
+                "--log-level must be one of: CRITICAL, ERROR, WARNING, INFO, DEBUG"
+            )
+            raise typer.Exit(2)
+
+    # Configure logging
+    configure_logging(effective_log_level)
 
     # Join query arguments with spaces
     query_str = " ".join(query)
@@ -259,7 +275,7 @@ def main(
                 config = load_config()
                 ui.info("Configuration complete! Continuing with your query...")
             except typer.Abort:
-                ui.error("Configuration is required to use terma.")
+                ui.error("Configuration is required to use whai.")
                 raise typer.Exit(1)
             except Exception as wizard_error:
                 ui.error(f"Configuration failed: {wizard_error}")
