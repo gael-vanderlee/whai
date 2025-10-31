@@ -4,6 +4,7 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-10-31] [fix] [llm]: improve error handling for API authentication, invalid models, and provider errors with user-friendly messages; redact API keys in error output; suggest --interactive-config for configuration issues
 [2025-10-31] [change] [cli]: add --log-level/-v option; appears in help; preserve inline -v after query
 [2025-10-31] [change] [repo]: rename package from terma to whai; update docs and references
 [2025-10-31] [test] [cli]: add subprocess-based CLI E2E tests using mocked `litellm` via tests/mocks; remove sitecustomize hook

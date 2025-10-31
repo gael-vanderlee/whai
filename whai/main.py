@@ -616,10 +616,21 @@ def main(
             except Exception as e:
                 import traceback
 
-                ui.error(f"Unexpected error: {e}")
-                ui.error(f"Details: {traceback.format_exc()}")
-                logger.exception("Unexpected error in conversation loop: %s", e)
-                break
+                text = str(e)
+                if "LLM API error" in text:
+                    # Show concise, helpful message for provider/model/auth errors
+                    ui.error(text)
+                    ui.info(
+                        "Run 'whai --interactive-config' to review your keys and model."
+                    )
+                    # Keep full details in logs only
+                    logger.exception("LLM error in conversation loop: %s", e)
+                    break
+                else:
+                    ui.error(f"Unexpected error: {e}")
+                    ui.error(f"Details: {traceback.format_exc()}")
+                    logger.exception("Unexpected error in conversation loop: %s", e)
+                    break
 
     except typer.Exit:
         raise

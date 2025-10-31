@@ -1,6 +1,7 @@
 """LLM provider wrapper using LiteLLM."""
 
 import json
+from importlib.resources import files
 from typing import Any, Dict, Generator, List, Optional, Union
 
 from whai.constants import DEFAULT_LLM_MODEL
@@ -107,9 +108,8 @@ def get_base_system_prompt(is_deep_context: bool) -> str:
 
     context_note = " ".join(context_parts)
 
-    # Read from defaults file
-    defaults_dir = Path(__file__).parent.parent / "defaults"
-    system_prompt_file = defaults_dir / "system_prompt.txt"
+    # Read from packaged defaults file
+    system_prompt_file = files("whai").joinpath("defaults", "system_prompt.txt")
 
     if not system_prompt_file.exists():
         raise FileNotFoundError(
@@ -359,8 +359,93 @@ class LLMProvider:
                 return result
 
         except Exception as e:
-            # Re-raise with more context
-            raise RuntimeError(f"LLM API error: {e}")
+            # Map LiteLLM/provider errors to concise, actionable messages.
+            def _sanitize(secret: str) -> str:
+                try:
+                    import re
+
+                    # Redact API key-like tokens (e.g., sk-..., ,sk-...)
+                    return re.sub(
+                        r"[,]*\b[prsu]?k[-_][A-Za-z0-9]{8,}\b",
+                        "<redacted>",
+                        str(secret),
+                    )
+                except Exception:
+                    return str(secret)
+
+            def _friendly_message(exc: Exception) -> str:
+                name = type(exc).__name__
+                text = _sanitize(str(exc))
+                base = f"provider={self.default_provider} model={self.model}"
+                # Import lazily to avoid hard dependency at import-time
+                try:
+                    from litellm.exceptions import (
+                        APIConnectionError,
+                        AuthenticationError,
+                        InvalidRequestError,
+                        NotFoundError,
+                        PermissionDeniedError,
+                        RateLimitError,
+                        ServiceUnavailableError,
+                        Timeout,
+                    )
+                except Exception:  # pragma: no cover - fallback if import shape changes
+                    AuthenticationError = RateLimitError = ServiceUnavailableError = (
+                        APIConnectionError
+                    ) = Timeout = PermissionDeniedError = NotFoundError = (
+                        InvalidRequestError
+                    ) = tuple()  # type: ignore
+
+                if (
+                    isinstance(exc, AuthenticationError)
+                    or "AuthenticationError" in name
+                ):
+                    return (
+                        "LLM API error: Authentication failed. "
+                        f"{base}. Check your API key. "
+                        "Run 'whai --interactive-config' to update your configuration."
+                    )
+                if (
+                    isinstance(exc, (NotFoundError, InvalidRequestError))
+                    or "model" in text.lower()
+                    and (
+                        "not found" in text.lower()
+                        or "does not exist" in text.lower()
+                        or "unknown" in text.lower()
+                    )
+                ):
+                    return (
+                        "LLM API error: Model is invalid or unavailable. "
+                        f"{base}. Choose a valid model with --model or run 'whai --interactive-config' to pick one."
+                    )
+                if (
+                    isinstance(exc, PermissionDeniedError)
+                    or "permission" in text.lower()
+                ):
+                    return (
+                        "LLM API error: Permission denied for this model with the current API key. "
+                        f"{base}. Verify access for your account or pick another model via 'whai --interactive-config'."
+                    )
+                if isinstance(exc, RateLimitError) or "rate limit" in text.lower():
+                    return (
+                        "LLM API error: Rate limit reached. "
+                        f"{base}. Try again later or switch model/provider."
+                    )
+                if isinstance(
+                    exc, (APIConnectionError, ServiceUnavailableError, Timeout)
+                ) or any(
+                    k in text.lower()
+                    for k in ["timeout", "temporarily unavailable", "connection"]
+                ):
+                    return (
+                        "LLM API error: Network or service error talking to the provider. "
+                        f"{base}. Check your connection or try again."
+                    )
+                # Default fallback
+                return f"LLM API error: {base}. {_sanitize(text)}"
+
+            friendly = _friendly_message(e)
+            raise RuntimeError(friendly)
 
     def _handle_streaming_response(
         self, response
