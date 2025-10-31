@@ -328,7 +328,7 @@ whai what did I just run?
 2. **LLM Query**: Sends your question with context to the configured LLM
 3. **Response**: Streams the AI's response to your terminal
 4. **Command Approval**: If the AI suggests a command, you approve/reject/modify it
-5. **Execution**: Approved commands run in a persistent shell session
+5. **Execution**: Approved commands run independently via subprocess
 6. **Iteration**: The conversation continues until the task is complete
 
 ## Safety
@@ -354,7 +354,7 @@ Edit `~/.config/whai/config.toml` and add your API key.
 
 ### Commands not preserving state
 
-This is expected. Changes like `cd` and `export` persist only within a whai session, not in your main shell.
+This is by design. Each command runs independently in its own subprocess. Changes like `cd` and `export` do NOT persist between commands. If you need multi-step operations, chain commands using `&&` (e.g., `cd /tmp && ls`).
 
 ### tmux context not working on Windows
 
@@ -417,7 +417,7 @@ MIT License - see LICENSE file for details.
 
 ### How is this different from ChatGPT in a browser?
 
-whai is integrated into your terminal with full context awareness. It sees your command history, can execute commands for you, and maintains state across a session.
+whai is integrated into your terminal with full context awareness. It sees your command history and can execute commands for you with your explicit approval.
 
 ### Does it send my terminal history to the LLM?
 
@@ -427,6 +427,6 @@ Only when you run whai. It captures recent history or tmux scrollback and includ
 
 Yes! Configure any LiteLLM-compatible provider, including Ollama for local models.
 
-### Why do changes not persist after whai exits?
+### Why do changes like `cd` not persist between commands?
 
-This is by design. whai runs commands in a subprocess to keep your main shell safe. Changes like `cd` work within a session but don't affect your parent shell.
+This is by design. Each command runs independently in its own subprocess for safety and simplicity. If you need multi-step operations, chain commands using `&&` (e.g., `cd /tmp && ls`).

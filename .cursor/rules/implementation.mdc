@@ -18,22 +18,21 @@ whai is a modular Python CLI tool. It uses a persistent shell subprocess to run 
 4. LLM setup (`llm.py`):
    - Loads API keys
    - Selects and configures the model and prepares the system prompt (including context note)
-5. Persistent shell session (`interaction.py`):
-   - Starts a shell subprocess (usually `bash` or `cmd.exe`)
-   - Maintains state for all commands during the session (e.g. `cd`/`export`)
+5. Command execution (`interaction.py`):
+   - Each approved command runs independently via subprocess.run()
+   - No state persistence between commands (cd, export, etc.)
 6. Request-Response loop (`main.py`):
    - Prepares prompt for LLM (including system prompt, role, query, context)
    - Streams model responses in real time; prints the LLM's output
    - If the model suggests a command, prints it and prompts `[a]pprove / [r]eject / [m]odify`
    - Only runs commands if the user approves
-   - Follows up every command by echoing a unique marker. The session reads lines until the marker appears, so it knows exactly when the command ends
    - Collects all command output, feeds it back to the conversation
-   - Ends loop when there are no new commands or the user cancels. Shell session shuts down.
+   - Ends loop when there are no new commands or the user cancels
 
 ## Patterns and Constraints
 
 - Command approval is required for every command (implemented in `interaction.py`)
-- End-of-command detection uses a unique marker (echoed after every command), so output is reliably captured up to that point
+- Commands execute independently using subprocess.run() with timeout support
 - Two context types:
   - Deep (when in tmux): commands plus output
   - Shallow (history fallback): recent commands only
@@ -48,7 +47,7 @@ whai is a modular Python CLI tool. It uses a persistent shell subprocess to run 
 - `config.py`: Handles loading, creation, and validation of configuration and user roles, parses YAML in markdown files
 - `context.py`: Implements context capture as described above
 - `llm.py`: Manages LiteLLM backend, system prompt and API key setup, handles model streaming and tool use
-- `interaction.py`: Manages the persistent shell, approval request, command writing, marker protocol, and all subprocess edge cases
+- `interaction.py`: Handles command approval loop and executes approved commands via subprocess.run()
 - `logging_setup.py`: Centralizes logging config, allowing debug toggles
 - `tests/`: Contains unit and integration tests for all logic, using pytest
 
@@ -69,9 +68,9 @@ whai is a modular Python CLI tool. It uses a persistent shell subprocess to run 
 ## Troubleshooting
 
 - The tool fails clearly and loudly if configuration or roles are missing/broken (fail-fast)
-- Timeout and marker handling for long-running commands is in `interaction.py`
+- Timeout handling for long-running commands is in `interaction.py`
 - For debugging, use `whai_DEBUG=1` environment variable
 
 ## Summary
 
-whai separates concerns in its source, requires user approval for every shell action, and can safely manage persistent state for a session. All key logic is unit-tested and designed to be easy to extend or update.
+whai separates concerns in its source, requires user approval for every shell action, and executes commands independently without persistent state. All key logic is unit-tested and designed to be easy to extend or update.
