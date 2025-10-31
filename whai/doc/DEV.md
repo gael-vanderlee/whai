@@ -75,7 +75,7 @@ uv version --bump minor
 
 ```powershell
 # Clean previous builds to avoid PyPI errors about duplicate files
-Remove-Item -Recurse -Force .\dist -ErrorAction SilentlyContinue
+Remove-Item -Recurse .\dist
 uv build
 ```
 
@@ -112,6 +112,10 @@ python -m whai --help
 # Test the installed console script directly (crucial for CLI verification)
 .\.venv_testpypi\Scripts\whai --help
 .\.venv_testpypi\Scripts\whai --version
+
+# Clean up
+Remove-Item -Recurse .\dist
+Remove-Item -Recurse .\.venv_testpypi
 ```
 
 ### 5) Publish to PyPI
@@ -121,7 +125,7 @@ python -m whai --help
 uv version --bump patch
 
 # Clean previous builds to avoid PyPI errors about duplicate files
-Remove-Item -Recurse -Force .\dist -ErrorAction SilentlyContinue
+Remove-Item -Recurse .\dist
 uv build
 
 # Publish to PyPI (regular repository)
@@ -158,5 +162,4 @@ WHAI_PLAIN=1 uv run whai "test query"
 ```bash
 uv run whai "explain git rebase" --no-context
 uv run whai "why did my command fail?" --role debug
-uv run whai "list files" --dry-run
 ```
