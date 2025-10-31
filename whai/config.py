@@ -215,6 +215,13 @@ def validate_llm_config(config: Dict[str, Any]) -> Tuple[bool, str]:
                 False,
                 "Ollama provider configured but api_base is missing. Configure via --interactive-config.",
             )
+    elif default_provider == "lm_studio":
+        api_base = provider_cfg.get("api_base", "").strip()
+        if not api_base:
+            return (
+                False,
+                "LM Studio provider configured but api_base is missing. Configure via --interactive-config.",
+            )
 
     return True, "OK"
 

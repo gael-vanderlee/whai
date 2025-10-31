@@ -149,6 +149,9 @@ class LLMProvider:
         provider_default_model = provider_cfg.get("default_model")
         self.model = model or provider_default_model or DEFAULT_LLM_MODEL
 
+        # Store custom API base for providers that need it
+        self.api_base = provider_cfg.get("api_base")
+
         # Validate model exists
         validate_model(self.model)
 
@@ -159,10 +162,11 @@ class LLMProvider:
         # Set API keys for LiteLLM
         self._configure_api_keys()
         logger.debug(
-            "LLMProvider initialized: provider=%s model=%s temp=%s",
+            "LLMProvider initialized: provider=%s model=%s temp=%s api_base=%s",
             self.default_provider,
             self.model,
             self.temperature if self.temperature is not None else "default",
+            self.api_base or "default",
         )
 
     def _configure_api_keys(self):
@@ -192,6 +196,9 @@ class LLMProvider:
         # Set Ollama base URL if present
         if "ollama" in llm_config and "api_base" in llm_config["ollama"]:
             os.environ["OLLAMA_API_BASE"] = llm_config["ollama"]["api_base"]
+
+        # Note: LM Studio uses custom api_base passed directly to completion() call
+        # No environment variable needed
 
     def send_message(
         self,
@@ -233,6 +240,10 @@ class LLMProvider:
                 "stream": stream,
                 "drop_params": True,  # Automatically drop unsupported params for the model
             }
+
+            # Add custom API base if configured (for LM Studio, Ollama, etc.)
+            if self.api_base:
+                completion_kwargs["api_base"] = self.api_base
 
             # Only include temperature if explicitly set AND model supports it
             if self.temperature is not None and not self.model.startswith("gpt-5"):
@@ -309,7 +320,7 @@ class LLMProvider:
             )
 
             t_start = _t.perf_counter()
-            logger.info("LLM API call started", extra={"category": "perf"})
+            logger.info("LLM API call started")
 
             response = completion(**completion_kwargs)
 

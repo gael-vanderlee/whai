@@ -35,6 +35,13 @@ PROVIDERS = {
         "fields": ["api_base", "default_model"],
         "defaults": {"api_base": "http://localhost:11434", "default_model": "mistral"},
     },
+    "lm_studio": {
+        "fields": ["api_base", "default_model"],
+        "defaults": {
+            "api_base": "http://localhost:1234/v1",
+            "default_model": "openai/rocinante-12b-v1.1",
+        },
+    },
 }
 
 
