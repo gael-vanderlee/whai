@@ -591,7 +591,7 @@ def main(
         raise
     except KeyboardInterrupt:
         ui.console.print("\n\nInterrupted by user.")
-        sys.exit(0)
+        sys.exit(130)
     except Exception as e:
         ui.error(f"Fatal error: {e}")
         sys.exit(1)
