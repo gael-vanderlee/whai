@@ -10,7 +10,7 @@ __pycache__/
 venv/
 ENV/
 env/
-.linux-venv/
+.venv*/
 
 # Testing
 .pytest_cache/
@@ -38,3 +38,6 @@ Thumbs.db
 build/
 dist/
 *.egg-info/
+
+# Local playground (kept locally, not tracked)
+playground/
