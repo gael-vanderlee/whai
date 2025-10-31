@@ -26,3 +26,7 @@ Issues:
 - [x] Timeout issue
     - Note: UGH
 - [x] Linux background
+
+Refactor:
+- [ ] OO approach for config and roles
+- [ ] Centralized defaults and paths
