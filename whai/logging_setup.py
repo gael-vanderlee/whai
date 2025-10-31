@@ -26,10 +26,10 @@ def configure_logging(level: Optional[str] = None) -> None:
     resolved_level_name = (
         (level or "").strip().upper()
         or os.environ.get("WHAI_LOG_LEVEL", "").strip().upper()
-        or "WARNING"
+        or "CRITICAL"
     )
     if resolved_level_name not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
-        resolved_level_name = "WARNING"
+        resolved_level_name = "CRITICAL"
     resolved_level = getattr(logging, resolved_level_name)
 
     root_logger.setLevel(resolved_level)

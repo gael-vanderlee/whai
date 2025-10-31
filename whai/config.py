@@ -10,6 +10,7 @@ import tomllib  # Python 3.11+, use tomli for older versions
 import yaml
 
 from whai.logging_setup import get_logger
+from whai.ui import warn
 
 logger = get_logger(__name__)
 
@@ -82,10 +83,7 @@ class RoleMetadata:
         known_fields = {"model", "temperature"}
         unknown_fields = set(data.keys()) - known_fields
         if unknown_fields:
-            logger.warning(
-                "Role metadata contains unknown fields (ignored): %s",
-                ", ".join(unknown_fields),
-            )
+            warn(f"Role metadata contains unknown fields (ignored): {unknown_fields}")
 
         return cls(
             model=data.get("model"),

@@ -39,7 +39,7 @@ PROVIDERS = {
         "fields": ["api_base", "default_model"],
         "defaults": {
             "api_base": "http://localhost:1234/v1",
-            "default_model": "openai/rocinante-12b-v1.1",
+            "default_model": "lm_studio/llama-3-8b-instruct",
         },
     },
 }
