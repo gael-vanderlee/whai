@@ -137,12 +137,6 @@ def test_flow_2_command_generation_approved(
     Test Flow: Command generation and execution (approved).
     User asks for a command, approves it, sees output.
     """
-    # Mock ShellSession to avoid real command execution
-    mock_session = MagicMock()
-    mock_session.execute_command.return_value = ("test output\n", "", 0)
-    mock_session.__enter__ = MagicMock(return_value=mock_session)
-    mock_session.__exit__ = MagicMock(return_value=False)
-
     # Mock LLM - first call returns tool call, second call returns text only
     call_count = [0]
 
@@ -153,12 +147,12 @@ def test_flow_2_command_generation_approved(
         else:
             return mock_llm_text_only(**kwargs)
 
-    # Mock LLM
+    # Mock execute_command to avoid real command execution
     with (
         patch("litellm.completion", side_effect=mock_completion_sequence),
         patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="a"),  # Approve the command
-        patch("whai.main.ShellSession", return_value=mock_session),
+        patch("whai.main.execute_command", return_value=("test output\n", "", 0)),
     ):
         result = runner.invoke(app, ["echo test", "--no-context"])
 
@@ -172,17 +166,11 @@ def test_flow_3_command_generation_rejected(mock_llm_with_tool_call):
     Test Flow: Command generation and execution (rejected).
     User asks for a command but rejects it.
     """
-    # Mock ShellSession to avoid real command execution
-    mock_session = MagicMock()
-    mock_session.__enter__ = MagicMock(return_value=mock_session)
-    mock_session.__exit__ = MagicMock(return_value=False)
-
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_with_tool_call),
         patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="r"),  # Reject the command
-        patch("whai.main.ShellSession", return_value=mock_session),
     ):
         result = runner.invoke(app, ["echo test", "--no-context"])
 
@@ -227,11 +215,6 @@ def test_cli_with_model_override(mock_llm_text_only):
 
 def test_cli_timeout_default_passed(mock_llm_with_tool_call, mock_llm_text_only):
     """Default timeout (60s) should be passed to execute_command."""
-
-    # Mock ShellSession
-    mock_session = MagicMock()
-    mock_session.execute_command.return_value = ("ok\n", "", 0)
-
     # Sequence: tool call first, then text only
     call_count = [0]
 
@@ -246,24 +229,21 @@ def test_cli_timeout_default_passed(mock_llm_with_tool_call, mock_llm_text_only)
         patch("litellm.completion", side_effect=mock_completion_sequence),
         patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="a"),
-        patch("whai.main.ShellSession", return_value=mock_session),
+        patch("whai.main.execute_command", return_value=("ok\n", "", 0)) as mock_exec,
     ):
         result = runner.invoke(
             app, ["echo test", "--no-context"]
         )  # no explicit --timeout
         assert result.exit_code == 0
         # Ensure default 60 was used
-        assert any(
-            kwargs.get("timeout") == 60
-            for args, kwargs in mock_session.execute_command.call_args_list
-        )
+        assert mock_exec.called
+        # Check that timeout=60 was passed
+        call_kwargs = [call.kwargs for call in mock_exec.call_args_list]
+        assert any(kw.get("timeout") == 60 for kw in call_kwargs)
 
 
 def test_cli_timeout_override_passed(mock_llm_with_tool_call, mock_llm_text_only):
     """Override timeout via --timeout should be passed through."""
-    mock_session = MagicMock()
-    mock_session.execute_command.return_value = ("ok\n", "", 0)
-
     call_count = [0]
 
     def mock_completion_sequence(**kwargs):
@@ -277,17 +257,15 @@ def test_cli_timeout_override_passed(mock_llm_with_tool_call, mock_llm_text_only
         patch("litellm.completion", side_effect=mock_completion_sequence),
         patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="a"),
-        patch("whai.main.ShellSession", return_value=mock_session),
+        patch("whai.main.execute_command", return_value=("ok\n", "", 0)) as mock_exec,
     ):
         result = runner.invoke(app, ["echo test", "--no-context", "--timeout", "30"])
         assert result.exit_code == 0
         # Check that execute_command was called with timeout=30
-        assert mock_session.execute_command.called, "execute_command was not called"
-        # Get the actual calls
-        calls = mock_session.execute_command.call_args_list
-        assert len(calls) > 0, "No calls to execute_command"
+        assert mock_exec.called, "execute_command was not called"
         # Check if any call has timeout=30
-        timeouts = [call.kwargs.get("timeout") for call in calls]
+        call_kwargs = [call.kwargs for call in mock_exec.call_args_list]
+        timeouts = [kw.get("timeout") for kw in call_kwargs]
         assert 30 in timeouts, f"Expected timeout=30, got timeouts: {timeouts}"
 
 
@@ -400,41 +378,23 @@ def test_mixed_options_unquoted(mock_llm_text_only):
 
 
 @pytest.mark.integration
-def test_real_shell_execution():
+def test_real_command_execution():
     """
-    Integration test with real shell execution (no LLM).
+    Integration test with real command execution (no LLM).
 
-    Tests that the shell session can actually execute commands.
+    Tests that commands can actually be executed.
     """
-    from whai.interaction import ShellSession
+    import platform
 
-    with ShellSession() as session:
-        stdout, stderr, code = session.execute_command(
-            'echo "Hello from whai"', timeout=60
+    from whai.interaction import execute_command
+
+    if platform.system() == "Windows":
+        # Windows PowerShell echo behaves differently
+        stdout, stderr, code = execute_command(
+            'Write-Output "Hello from whai"', timeout=60
         )
+    else:
+        stdout, stderr, code = execute_command('echo "Hello from whai"', timeout=60)
 
-        assert "Hello from whai" in stdout
-        assert code == 0
-
-
-@pytest.mark.integration
-def test_state_persistence_in_shell():
-    """
-    Integration test verifying that cd and export persist in shell session.
-    """
-    import os
-
-    from whai.interaction import ShellSession
-
-    with ShellSession() as session:
-        # Change directory
-        if os.name == "nt":
-            # Windows
-            session.execute_command("cd C:\\", timeout=60)
-            stdout, _, _ = session.execute_command("cd", timeout=60)
-            assert "C:\\" in stdout
-        else:
-            # Unix
-            session.execute_command("cd /tmp", timeout=60)
-            stdout, _, _ = session.execute_command("pwd", timeout=60)
-            assert "/tmp" in stdout
+    assert "Hello from whai" in stdout or "Hello" in stdout
+    assert code == 0

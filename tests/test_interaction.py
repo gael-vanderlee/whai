@@ -1,5 +1,6 @@
 """Tests for interaction module."""
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -7,189 +8,116 @@ import pytest
 from whai import interaction
 
 
-def test_shell_session_init_unix():
-    """Test ShellSession initialization on Unix."""
+def test_execute_command_unix_success():
+    """Test successful command execution on Unix."""
     with (
-        patch("os.name", "posix"),
-        patch("subprocess.Popen") as mock_popen,
-        patch("time.sleep"),
+        patch("whai.interaction.is_windows", return_value=False),
+        patch("subprocess.run") as mock_run,
+        patch.dict("os.environ", {"SHELL": "/bin/bash"}),
     ):
-        mock_popen.return_value = MagicMock()
+        mock_result = MagicMock()
+        mock_result.stdout = "file1.txt\nfile2.txt\n"
+        mock_result.stderr = ""
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
 
-        session = interaction.ShellSession("/bin/bash")
+        stdout, stderr, code = interaction.execute_command("ls")
 
-        assert session.shell == "/bin/bash"
-        assert session.process is not None
-        mock_popen.assert_called_once()
-
-
-def test_shell_session_init_windows():
-    """Test ShellSession initialization on Windows."""
-    with patch("os.name", "nt"), patch("subprocess.Popen") as mock_popen:
-        mock_popen.return_value = MagicMock()
-
-        session = interaction.ShellSession("cmd.exe")
-
-        assert session.shell == "cmd.exe"
-        assert session.process is not None
+        assert "file1.txt" in stdout
+        assert "file2.txt" in stdout
+        assert stderr == ""
+        assert code == 0
+        mock_run.assert_called_once()
 
 
-def test_shell_session_default_shell_unix():
-    """Test default shell selection on Unix."""
+def test_execute_command_windows_powershell():
+    """Test command execution on Windows with PowerShell."""
     with (
-        patch("os.name", "posix"),
-        patch("subprocess.Popen") as mock_popen,
-        patch("time.sleep"),
+        patch("whai.interaction.is_windows", return_value=True),
+        patch("whai.interaction.detect_shell", return_value="pwsh"),
+        patch("subprocess.run") as mock_run,
     ):
-        mock_popen.return_value = MagicMock()
+        mock_result = MagicMock()
+        mock_result.stdout = "test output\n"
+        mock_result.stderr = ""
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
 
-        session = interaction.ShellSession()
+        stdout, stderr, code = interaction.execute_command("Get-ChildItem")
 
-        assert session.shell == "/bin/bash"
-
-
-def test_shell_session_default_shell_windows():
-    """Test default shell selection on Windows."""
-    with patch("os.name", "nt"), patch("subprocess.Popen") as mock_popen:
-        mock_popen.return_value = MagicMock()
-
-        session = interaction.ShellSession()
-
-        assert session.shell == "cmd.exe"
+        assert "test output" in stdout
+        assert code == 0
+        # Verify PowerShell was used
+        call_args = mock_run.call_args[0][0]
+        assert "powershell.exe" in call_args
 
 
-def test_execute_command_success():
-    """Test successful command execution."""
+def test_execute_command_windows_cmd():
+    """Test command execution on Windows with cmd.exe."""
     with (
-        patch("os.name", "posix"),
-        patch("subprocess.Popen") as mock_popen,
-        patch("time.sleep"),
-        patch("random.randint", return_value=123456),
+        patch("whai.interaction.is_windows", return_value=True),
+        patch("whai.interaction.detect_shell", return_value="bash"),  # Not pwsh
+        patch("subprocess.run") as mock_run,
     ):
-        # Mock process
-        mock_process = MagicMock()
-        mock_process.poll.return_value = None  # Process is running
+        mock_result = MagicMock()
+        mock_result.stdout = "test output\n"
+        mock_result.stderr = ""
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
 
-        # Mock stdin
-        mock_process.stdin = MagicMock()
+        stdout, stderr, code = interaction.execute_command("dir")
 
-        # Mock stdout and stderr
-        mock_process.stdout = MagicMock()
-        mock_process.stderr = MagicMock()
-
-        mock_popen.return_value = mock_process
-
-        with patch.object(
-            interaction.ShellSession, "_read_line_with_timeout"
-        ) as mock_read:
-            # Simulate reading lines from stdout, then marker
-            # Alternate between stdout and stderr calls
-            def side_effect_func(stream, timeout):
-                # Track which call this is
-                if not hasattr(side_effect_func, "call_count"):
-                    side_effect_func.call_count = 0
-                    side_effect_func.stdout_lines = [
-                        "file1.txt\n",
-                        "file2.txt\n",
-                        "___WHAI_CMD_DONE_123456___\n",
-                    ]
-
-                if stream == mock_process.stdout and side_effect_func.stdout_lines:
-                    result = side_effect_func.stdout_lines.pop(0)
-                    return result
-                else:
-                    return None
-
-            mock_read.side_effect = side_effect_func
-
-            session = interaction.ShellSession()
-            stdout, stderr, code = session.execute_command("ls")
-
-            assert "file1.txt" in stdout
-            assert "file2.txt" in stdout
-            assert "___WHAI_CMD_DONE_123456___" not in stdout
+        assert "test output" in stdout
+        assert code == 0
+        # Verify cmd.exe was used
+        call_args = mock_run.call_args[0][0]
+        assert "cmd.exe" in call_args
 
 
-def test_execute_command_dead_process():
-    """Test that execute_command raises error if process is dead."""
+def test_execute_command_with_stderr():
+    """Test command execution with stderr output."""
     with (
-        patch("os.name", "posix"),
-        patch("subprocess.Popen") as mock_popen,
-        patch("time.sleep"),
+        patch("whai.interaction.is_windows", return_value=False),
+        patch("subprocess.run") as mock_run,
+        patch.dict("os.environ", {"SHELL": "/bin/bash"}),
     ):
-        mock_process = MagicMock()
-        mock_process.poll.return_value = 1  # Process has exited
-        mock_popen.return_value = mock_process
+        mock_result = MagicMock()
+        mock_result.stdout = "output\n"
+        mock_result.stderr = "error message\n"
+        mock_result.returncode = 1
+        mock_run.return_value = mock_result
 
-        session = interaction.ShellSession()
+        stdout, stderr, code = interaction.execute_command("failing_command")
 
-        with pytest.raises(RuntimeError, match="Shell process is not running"):
-            session.execute_command("ls")
+        assert stdout == "output\n"
+        assert "error message" in stderr
+        assert code == 1
 
 
 def test_execute_command_timeout():
-    """Test that execute_command times out appropriately."""
+    """Test that execute_command raises error on timeout."""
     with (
-        patch("os.name", "posix"),
-        patch("subprocess.Popen") as mock_popen,
-        patch("time.sleep"),
-        patch("random.randint", return_value=123456),
+        patch("whai.interaction.is_windows", return_value=False),
+        patch("subprocess.run") as mock_run,
+        patch.dict("os.environ", {"SHELL": "/bin/bash"}),
     ):
-        mock_process = MagicMock()
-        mock_process.poll.return_value = None
-        mock_process.stdin = MagicMock()
-        mock_process.stdout = MagicMock()
-        mock_process.stderr = MagicMock()
-        mock_popen.return_value = mock_process
+        mock_run.side_effect = subprocess.TimeoutExpired("cmd", 30)
 
-        with (
-            patch.object(
-                interaction.ShellSession, "_read_line_with_timeout"
-            ) as mock_read,
-            patch("time.time") as mock_time,
-        ):
-            # Simulate timeout by making time advance rapidly
-            mock_time.side_effect = [0, 0, 31]  # Start, loop iteration, timeout check
-            mock_read.return_value = None  # Never finds the marker
-
-            session = interaction.ShellSession()
-
-            with pytest.raises(RuntimeError, match="timed out"):
-                session.execute_command("sleep 100", timeout=30)
+        with pytest.raises(RuntimeError, match="timed out"):
+            interaction.execute_command("sleep 100", timeout=30)
 
 
-def test_shell_session_close():
-    """Test closing the shell session."""
+def test_execute_command_other_error():
+    """Test that execute_command handles other errors."""
     with (
-        patch("os.name", "posix"),
-        patch("subprocess.Popen") as mock_popen,
-        patch("time.sleep"),
+        patch("whai.interaction.is_windows", return_value=False),
+        patch("subprocess.run") as mock_run,
+        patch.dict("os.environ", {"SHELL": "/bin/bash"}),
     ):
-        mock_process = MagicMock()
-        mock_popen.return_value = mock_process
+        mock_run.side_effect = Exception("Something went wrong")
 
-        session = interaction.ShellSession()
-        session.close()
-
-        mock_process.stdin.close.assert_called_once()
-        mock_process.terminate.assert_called_once()
-
-
-def test_shell_session_context_manager():
-    """Test ShellSession as context manager."""
-    with (
-        patch("os.name", "posix"),
-        patch("subprocess.Popen") as mock_popen,
-        patch("time.sleep"),
-    ):
-        mock_process = MagicMock()
-        mock_popen.return_value = mock_process
-
-        with interaction.ShellSession() as session:
-            assert session.process is not None
-
-        mock_process.stdin.close.assert_called_once()
-        mock_process.terminate.assert_called_once()
+        with pytest.raises(RuntimeError, match="Error executing command"):
+            interaction.execute_command("some_command")
 
 
 def test_approval_loop_approve():
@@ -299,31 +227,3 @@ def test_parse_tool_calls_multiple_tools():
     assert len(result) == 2
     assert result[0]["arguments"]["command"] == "pwd"
     assert result[1]["arguments"]["command"] == "ls"
-
-
-def test_read_line_with_timeout_windows(monkeypatch):
-    """Test reading line with timeout on Windows."""
-    monkeypatch.setattr("os.name", "nt")
-
-    with (
-        patch("os.name", "nt"),
-        patch("subprocess.Popen") as mock_popen,
-        patch("threading.Thread") as mock_thread,
-        patch("queue.Queue") as mock_queue_class,
-    ):
-        mock_process = MagicMock()
-        mock_popen.return_value = mock_process
-
-        # Mock queue
-        mock_queue = MagicMock()
-        mock_queue.get.return_value = "test line\n"
-        mock_queue_class.return_value = mock_queue
-
-        session = interaction.ShellSession()
-
-        # Mock stream
-        mock_stream = MagicMock()
-        session._read_line_with_timeout(mock_stream, 0.1)
-
-        # Verify thread was created
-        mock_thread.assert_called_once()

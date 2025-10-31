@@ -27,7 +27,6 @@ def test_role_precedence_cli_flag(tmp_path, monkeypatch):
     with (
         patch("litellm.completion") as mock_llm,
         patch("whai.context.get_context", return_value=("", False)),
-        patch("whai.interaction.ShellSession"),
     ):
         mock_llm.return_value.choices = []
         mock_llm.return_value.usage = type("obj", (object,), {"total_tokens": 0})
@@ -59,7 +58,6 @@ def test_role_precedence_env_over_config(tmp_path, monkeypatch):
     with (
         patch("litellm.completion") as mock_llm,
         patch("whai.context.get_context", return_value=("", False)),
-        patch("whai.interaction.ShellSession"),
     ):
         # Mock LLM to return immediately
         mock_response = type(
@@ -107,7 +105,6 @@ def test_role_precedence_config_over_default(tmp_path, monkeypatch):
     with (
         patch("litellm.completion") as mock_llm,
         patch("whai.context.get_context", return_value=("", False)),
-        patch("whai.interaction.ShellSession"),
     ):
         # Mock LLM to return immediately
         mock_response = type(
@@ -154,7 +151,6 @@ def test_role_fallback_to_default(tmp_path, monkeypatch):
     with (
         patch("litellm.completion") as mock_llm,
         patch("whai.context.get_context", return_value=("", False)),
-        patch("whai.interaction.ShellSession"),
     ):
         # Mock LLM to return immediately
         mock_response = type(
@@ -203,7 +199,6 @@ def test_role_env_variable_empty_string(tmp_path, monkeypatch):
     with (
         patch("litellm.completion") as mock_llm,
         patch("whai.context.get_context", return_value=("", False)),
-        patch("whai.interaction.ShellSession"),
     ):
         # Mock LLM to return immediately
         mock_response = type(
