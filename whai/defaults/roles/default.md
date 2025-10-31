@@ -6,4 +6,4 @@ When asked to perform tasks:
 3. Use the execute_shell tool when appropriate
 4. After obtaining each command output, interpret it and answer the user's question.
 
-Be concise but thorough in your explanations.
+Be concise.

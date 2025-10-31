@@ -178,7 +178,7 @@ def main(
         whai why did my last command fail? -r debug
         whai "how do I find all .py files modified today?"
 
-    Note: If your query contains spaces, apostrophes ('), or quotation marks, always wrap it in double quotes to avoid shell parsing errors.
+    Note: If your query contains spaces, apostrophes ('), quotation marks, or shell glob characters (? * []), always wrap it in double quotes to avoid shell parsing errors.
     """
     # If a subcommand is invoked, let it handle everything
     if ctx.invoked_subcommand is not None:
