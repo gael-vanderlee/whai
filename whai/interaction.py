@@ -67,7 +67,9 @@ def execute_command(command: str, timeout: int = 60) -> Tuple[str, str, int]:
         return result.stdout, result.stderr, result.returncode
 
     except subprocess.TimeoutExpired:
-        raise RuntimeError(f"Command timed out after {timeout} seconds")
+        raise RuntimeError(
+            f"Command timed out after {timeout} seconds. You can change timeout limits with the --timeout flag"
+        )
     except Exception as e:
         raise RuntimeError(f"Error executing command: {e}")
 
