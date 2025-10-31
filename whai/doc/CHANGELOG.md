@@ -4,6 +4,11 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-10-31] [change] [interaction]: refactor execute_command to use utility functions from utils.py for shell and OS detection
+[2025-10-31] [change] [interaction]: remove persistent shell sessions; execute commands independently via subprocess.run() to fix Linux TTY suspension and simplify architecture
+[2025-10-31] [fix] [linux]: resolve background process suspension issue by removing ShellSession subprocess that took foreground control
+[2025-10-31] [change] [system_prompt]: update capabilities to reflect independent command execution; state no longer persists between commands
+[2025-10-31] [test] [shell]: remove test_shell_detection.py and ShellSession-related tests; add execute_command tests
 [2025-10-31] [fix] [llm]: improve error handling for API authentication, invalid models, and provider errors with user-friendly messages; redact API keys in error output; suggest --interactive-config for configuration issues
 [2025-10-31] [change] [cli]: add --log-level/-v option; appears in help; preserve inline -v after query
 [2025-10-31] [change] [repo]: rename package from terma to whai; update docs and references
