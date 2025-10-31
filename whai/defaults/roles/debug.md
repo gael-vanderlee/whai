@@ -11,4 +11,3 @@ When debugging:
 4. Provide a solution with exact commands
 
 Be systematic and precise in your analysis.
-

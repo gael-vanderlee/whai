@@ -1,6 +1,7 @@
 """Configuration management for whai."""
 
 import os
+from importlib.resources import files
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -53,16 +54,20 @@ def load_config(*, allow_ephemeral: bool = False) -> Dict[str, Any]:
 
     # Handle missing config file
     if not config_file.exists():
-        # Check for test mode via environment variable
-        is_test_mode = os.getenv("WHAI_TEST_MODE") == "1"
+        # Check for test mode via environment variable, but only honor it when tests are running
+        # This prevents accidental activation during real CLI usage.
+        is_test_mode_env = os.getenv("WHAI_TEST_MODE") == "1"
+        is_running_pytest = "PYTEST_CURRENT_TEST" in os.environ
+        is_test_mode = is_test_mode_env and is_running_pytest
 
         if allow_ephemeral or is_test_mode:
             logger.warning("Config missing; returning ephemeral defaults for test mode")
-            # Return minimal test config
+            # Return minimal test config without any secrets
             return {
                 "llm": {
                     "default_provider": "openai",
                     "openai": {
+                        # Ephemeral config includes a dummy key to satisfy validation in tests
                         "api_key": "test-key",
                         "default_model": "gpt-5-mini",
                     },
@@ -227,8 +232,8 @@ def get_default_role(role_name: str) -> str:
     Raises:
         FileNotFoundError: If the default role file doesn't exist.
     """
-    defaults_dir = Path(__file__).parent.parent / "defaults" / "roles"
-    role_file = defaults_dir / f"{role_name}.md"
+    roles_dir = files("whai").joinpath("defaults", "roles")
+    role_file = roles_dir / f"{role_name}.md"
 
     if not role_file.exists():
         raise FileNotFoundError(

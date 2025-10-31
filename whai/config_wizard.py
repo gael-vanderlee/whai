@@ -113,6 +113,8 @@ def _quick_setup(config: Dict[str, Any]) -> None:
     _ensure_llm_section(config)
     config["llm"][provider] = provider_config
     config["llm"]["default_provider"] = provider
+    # Ensure roles.default_role is explicitly set
+    config.setdefault("roles", {})["default_role"] = "default"
 
     # No top-level default model; provider-level defaults are authoritative
 
@@ -383,6 +385,10 @@ def run_wizard(existing_config: bool = False) -> None:
 
     # Save the configuration
     try:
+        # Ensure roles.default_role exists before saving
+        config.setdefault("roles", {})["default_role"] = config.get("roles", {}).get(
+            "default_role", "default"
+        )
         save_config(config)
         config_path = get_config_path()
         typer.echo(f"\n✓ Configuration saved to: {config_path}")

@@ -16,4 +16,3 @@ BEHAVIOR:
 5. After seeing command output, provide clear interpretation and next steps if needed
 
 Remember: You are a collaborative assistant.
-

@@ -7,4 +7,3 @@ When asked to perform tasks:
 4. After obtaining each command output, interpret it for the user and proceed
 
 Be concise but thorough in your explanations.
-
