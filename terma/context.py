@@ -58,7 +58,7 @@ def _get_tmux_context() -> Optional[str]:
             )
 
         if result.returncode == 0:
-            logger.debug(
+            logger.info(
                 "Captured tmux scrollback (%d chars)",
                 len(result.stdout),
                 extra={"category": "perf"},
@@ -282,7 +282,7 @@ def _get_history_context(
     for i, cmd in enumerate(commands, 1):
         formatted += f"{i}. {cmd}\n"
 
-    logger.debug(
+    logger.info(
         "Captured history (%d commands) using shell=%s",
         len(commands),
         shell,
