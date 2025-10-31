@@ -7,10 +7,10 @@ A lightweight, Python-based CLI tool that integrates large language models (LLMs
 - **Natural Language Command Generation**: Ask questions in plain English, get working shell commands
 - **Post-Mortem Analysis**: Analyze failed commands with full context (requires tmux)
 - **Collaborative Execution**: Approve, reject, or modify commands before they run
-- **Context-Aware**: Captures terminal history or tmux scrollback for intelligent responses
+- **Context-Aware**: Captures terminal history for intelligent responses
 - **Multi-LLM Support**: Works with OpenAI, Anthropic, and local models via LiteLLM
-- **Customizable Roles**: Define different AI personas for different tasks
-- **Stateful Sessions**: Commands like `cd` and `export` persist within a conversation
+- **Customizable Roles**: Define different AI personas for different tasks. Don't repeat yourself, write instructions and information once for all sessions.
+- **Stateful Sessions**: Commands like `cd` and `export` persist within a conversation (Donesn't work on Windows powershell for now)
 
 ## Installation
 
@@ -29,7 +29,7 @@ cd terma
 # Create virtual environment and install
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv pip install -e .   # uv pip install .[dev] if you're devvin
+uv sync
 ```
 
 ### Install with pip
@@ -40,14 +40,29 @@ pip install -e .
 
 ## Configuration
 
-On first run, terma creates a configuration file at `~/.config/terma/config.toml` (or `%APPDATA%\terma\config.toml` on Windows).
+### Interactive Configuration Setup
 
-### Add your API key
+On first run, terma will launch an interactive configuration wizard to help you set up your API keys and provider settings.
 
-Edit the config file and add your API key. See [TESTING.md](TESTING.md) for detailed instructions on setting up API keys for different providers.
+You can also run the wizard manually at any time:
 
-**Quick setup for OpenAI:**
+```bash
+terma --interactive-config
+```
 
+The wizard will guide you through:
+- Choosing your LLM provider (OpenAI, Anthropic, Azure OpenAI, or Ollama)
+- Entering your API key
+- Setting your default model
+- Managing multiple providers
+
+Configuration is stored at `~/.config/terma/config.toml` (or `%APPDATA%\terma\config.toml` on Windows).
+
+### Manual Configuration
+
+You can also edit the config file directly:
+
+**OpenAI:**
 ```toml
 [llm]
 default_provider = "openai"
@@ -55,51 +70,115 @@ default_model = "gpt-5-mini"
 
 [llm.openai]
 api_key = "sk-proj-your-actual-api-key-here"
+default_model = "gpt-5-mini"
 ```
 
-Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys).
+**Anthropic:**
+```toml
+[llm.anthropic]
+api_key = "sk-ant-your-actual-api-key-here"
+default_model = "claude-3-5-sonnet-20241022"
+```
 
-**For other providers** (Anthropic, Ollama, etc.), see [TESTING.md](TESTING.md).
+**Azure OpenAI:**
+```toml
+[llm.azure_openai]
+api_key = "your-azure-api-key"
+api_base = "https://your-resource.openai.azure.com"
+api_version = "2023-05-15"
+default_model = "gpt-4"
+```
+
+**Ollama (Local):**
+```toml
+[llm.ollama]
+api_base = "http://localhost:11434"
+default_model = "mistral"
+```
+
+Get API keys from:
+- [OpenAI Platform](https://platform.openai.com/api-keys)
+- [Anthropic Console](https://console.anthropic.com/)
+- [Azure Portal](https://portal.azure.com/) (for Azure OpenAI)
 
 ## Usage
 
 ### Basic Commands
 
+> **Note:**
+> If your query contains shell-sensitive characters (like spaces, apostrophes ('), or quotes (")), always wrap it in quotation marks.
+> For example:
+>   terma "what's the biggest file?"
+>   terma "list all files named \"foo.txt\""
+
 ```bash
-# Ask a question
+# Ask a question (quotes optional for multi-word queries, required for apostrophes)
+terma what is the biggest folder here?
 terma "what's the biggest folder here?"
 
 # Get help with a task
+terma how do I find all .py files modified today?
 terma "how do I find all .py files modified today?"
 
 # Troubleshooting (works best in tmux)
+terma why did my last command fail?
 terma "why did my last command fail?"
 ```
 
 ### Options
 
 ```bash
-terma "your question" [OPTIONS]
+terma your question [OPTIONS]
+terma "your question" [OPTIONS]  # quotes optional
 
 Options:
   -r, --role TEXT        Role to use (assistant, debug, etc.) [default: assistant]
   --no-context          Skip context capture
   -m, --model TEXT      Override the LLM model
   -t, --temperature FLOAT  Override temperature
+  --timeout INTEGER     Per-command timeout in seconds [default: 60]
   --help                Show help message
 ```
+
+### Pretty Output
+
+terma includes enhanced terminal output with:
+- **Spinners** while waiting for AI responses
+- **Code blocks** for shell commands and outputs
+- **Colored text** for errors, warnings, and info messages
+- **Panels** for structured display
+
+Pretty output automatically disables in non-interactive environments (pipes, redirects, CI/CD).
+
+To force plain text output:
+```bash
+export TERMA_PLAIN=1
+terma your question
+```
+
+This is useful for:
+- Logging output to files
+- CI/CD pipelines
+- Screen readers
+- Terminals with limited formatting support
 
 ### Examples
 
 ```bash
 # Use the debug role for troubleshooting
-terma "analyze this error" -r debug
+terma analyze this error -r debug
 
 # Use a different model
-terma "list large files" -m gpt-5-mini
+terma list large files -m gpt-5-mini
 
 # Skip context capture for faster responses
+terma what is a .gitignore file? --no-context
+
+# Quotes still work if you prefer them
 terma "what is a .gitignore file?" --no-context
+
+# Control command timeout (seconds)
+terma "Do this" --timeout 30
 ```
 
 ## Roles
@@ -128,7 +207,7 @@ Help users with containerization, orchestration, and deployment tasks.
 Use it with:
 
 ```bash
-terma "help me debug this pod" -r custom
+terma help me debug this pod -r custom
 ```
 
 ## Context Modes
@@ -141,7 +220,7 @@ Run terma inside a tmux session to get full scrollback (commands + output):
 
 ```bash
 tmux
-terma "why did this fail?"
+terma why did this fail?
 ```
 
 ### Shallow Context (Fallback)
@@ -149,7 +228,7 @@ terma "why did this fail?"
 Without tmux, terma reads shell history (commands only):
 
 ```bash
-terma "what did I just run?"
+terma what did I just run?
 ```
 
 ## How It Works
@@ -240,6 +319,7 @@ MIT License - see LICENSE file for details.
 
 - Built with [LiteLLM](https://github.com/BerriAI/litellm) for multi-provider support
 - CLI powered by [Typer](https://typer.tiangolo.com/)
+- Pretty output by [Rich](https://github.com/Textualize/rich)
 - Inspired by tools like `aichat` and `shell-gpt`
 
 ## FAQ

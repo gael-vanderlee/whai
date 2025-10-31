@@ -1,12 +1,16 @@
 ---
 alwaysApply: true
 ---
+ALWAYS begin your response by telling me what AI model you are using. Just say the name of the model like (claude-3.5-sonnet or gemini-2.5-pro)
 
 # Overall guidelines
 The overall philosophy is to write easy to read, easy to maintain, clean code.
 Avoid boilerplate, avoid making too many checks and too much abstractions. You should still write objects, functions and separate files for clarity, but let's keep things short and simple. Don't write too many files, make a lot of folders and sub folder, and don't write too many functions or checks or abstractions if they are not necessary.
 
 Always use best and modern practices for your code, project structure, naming schemes etc.
+Take a test driven development approach for bug fixing and feature implementation.
+
+DO NOT write anything temporary 
 
 ## Error handling
 Generally, if the code doesn't work as it should, it should crash. 
@@ -34,14 +38,35 @@ Use f strings to keep strings clean.
 Keep languages seperate. Python code in py files, Javascript in js files and HTML in html files. Minimize mixing within one file.
 Likewise, yaml goes in yaml files, toml in toml, markdown in markdown. Don't write markdown in python (for a system prompt for example), it should import from a .md file.
 
+Prefer top level imports over in function imports to make function calls fast.
+Make sure not to re import already imported libraries.
+
 ## Project code
 This project uses `uv` for virtual environment management.
-The virtual environment is located in the project root under .venv
+The virtual environment is located in the project root under .venv.
+IMPORTANT: when running python, make sure you activate the virtual env. You can use uv directly like so `uv run example.py`.
 Add logging for debugging purposes to the code.
+Keep in mind the goal of this tool is to be fast and lightweight.
 
 ## Unit testing
 Every important function should have a corresponding unit test using Pytest. 
 NEVER WRITE DANGEROUS COMMANDS even if it a test that should fail or prevent it. Do not risk it.
+Never adapt the project code or implement contingencies for unit tests. Tests should adapt to the code, never the other way around.
+
+Run units tests yourself before and after changes to verify your impact and make sure you didn't break anything else.
+
+# Evergreen Code and Documentation Guidelines
+Yes
+Avoid Temporal or Transitional Language
+- Do not use time-dependent expressions like “temporary,” “new,” “old,” “before implementation,” or “to be changed later.”
+- All code and comments must remain valid and understandable regardless of project stage or feature lifecycle.
+Write as if the Code Is Final
+- Every comment, docstring, and test description should make sense to a future reader who knows nothing about prior versions or pending changes.
+No Process Commentary in Code
+- Do not include meta-comments about the development process (e.g., “this should fail,” “for now,” “after refactor”).
+- Comments should describe what the code does and why, not how or when it was written.
+Refactor or Remove Obsolete Notes Immediately
+- If a test or comment becomes outdated after implementation, update or remove it as part of the same commit.
 
 ## Documentation
 
@@ -60,3 +85,6 @@ When working on the project, you should always look for:
 1. Changes are made to the files that makes the documentation obsolete or incomplete
 2. If the code and the documentation are not aligned (contradictions, incomplete information etc)
 In those cases, you should inform the user of the situation, and propose a solution.
+
+### Changelog
+Once a feature has been implemented or a bug has been confirmed fixed, update the CHANGELOG.md file in order to document what's been done, and when. Keep it concise, but make sure it contains the important information (what core of the issue was, what decision was taken, how the fix was implemented).

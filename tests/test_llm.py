@@ -11,16 +11,23 @@ from terma import llm
 def test_get_base_system_prompt_deep_context():
     """Test base system prompt with deep context."""
     prompt = llm.get_base_system_prompt(is_deep_context=True)
-    assert "full terminal scrollback" in prompt
+    assert "terminal scrollback" in prompt
+    assert "commands and their output" in prompt
     assert "terma" in prompt
     assert "execute_shell" in prompt
+    # Should include system information
+    assert "System:" in prompt
+    assert "OS:" in prompt
 
 
 def test_get_base_system_prompt_shallow_context():
     """Test base system prompt with shallow context."""
     prompt = llm.get_base_system_prompt(is_deep_context=False)
-    assert "command history only" in prompt
-    assert "no command output" in prompt
+    assert "command history" in prompt
+    assert "commands only, not their outputs" in prompt
+    # Should include system information
+    assert "System:" in prompt
+    assert "OS:" in prompt
 
 
 def test_execute_shell_tool_schema():
@@ -73,7 +80,7 @@ def test_llm_provider_configure_api_keys():
     }
 
     with patch.dict("os.environ", {}, clear=True):
-        provider = llm.LLMProvider(config)
+        llm.LLMProvider(config)
 
         import os
 
@@ -200,6 +207,37 @@ def test_send_message_streaming_with_tool_call():
         assert results[1]["type"] == "tool_call"
         assert results[1]["name"] == "execute_shell"
         assert results[1]["arguments"]["command"] == "pwd"
+
+
+def test_logs_include_llm_request_payload(caplog):
+    """Ensure the debug log includes the exact payload (messages) sent to the LLM."""
+    config = {"llm": {"default_provider": "openai", "default_model": "gpt-5-mini"}}
+
+    # Mock non-streaming minimal response
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message = MagicMock()
+    mock_response.choices[0].message.content = "ok"
+    mock_response.choices[0].message.tool_calls = None
+
+    messages = [
+        {"role": "system", "content": "SYSTEM PROMPT ABC"},
+        {"role": "user", "content": "USER PROMPT XYZ"},
+    ]
+
+    with patch("litellm.completion", return_value=mock_response):
+        provider = llm.LLMProvider(config)
+        with caplog.at_level("DEBUG", logger="terma.llm"):
+            provider.send_message(messages, stream=False, tools=[])
+
+    # Find the payload log line
+    payload_logs = [
+        rec.message for rec in caplog.records if "LLM request payload:" in rec.message
+    ]
+    assert payload_logs, "Expected a debug log line with the LLM request payload"
+    joined = "\n".join(payload_logs)
+    assert "SYSTEM PROMPT ABC" in joined
+    assert "USER PROMPT XYZ" in joined
 
 
 def test_send_message_api_error():

@@ -34,25 +34,48 @@ def test_get_config_dir_unix():
         assert config_dir == Path("/home/test/.config") / "terma"
 
 
-def test_get_default_config():
-    """Test that default config is valid TOML."""
-    default_config = config.get_default_config()
-    assert "[llm]" in default_config
-    assert "default_provider" in default_config
-    assert "api_key" in default_config
+# Removed test_get_default_config - no longer needed as default config is not part of main codebase
 
 
-def test_load_config_creates_default(tmp_path, monkeypatch):
-    """Test that load_config creates a default config if it doesn't exist."""
+def test_load_config_missing_raises_error(tmp_path, monkeypatch):
+    """Test that load_config raises MissingConfigError if config doesn't exist."""
     # Use a temporary directory as the config directory
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
 
-    # Load config (should create default)
+    # Load config without ephemeral mode should raise
+    with pytest.raises(config.MissingConfigError, match="Configuration file not found"):
+        config.load_config()
+
+
+def test_load_config_ephemeral_mode(tmp_path, monkeypatch):
+    """Test that load_config returns default config in ephemeral mode."""
+    # Use a temporary directory as the config directory
+    monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
+
+    # Load config with ephemeral mode should return defaults
+    cfg = config.load_config(allow_ephemeral=True)
+
+    # Check that config file was NOT created
+    config_file = tmp_path / "config.toml"
+    assert not config_file.exists()
+
+    # Check that config has expected structure
+    assert "llm" in cfg
+    assert cfg["llm"]["default_provider"] == "openai"
+
+
+def test_load_config_test_mode_env(tmp_path, monkeypatch):
+    """Test that load_config respects TERMA_TEST_MODE environment variable."""
+    # Use a temporary directory as the config directory
+    monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
+    monkeypatch.setenv("TERMA_TEST_MODE", "1")
+
+    # Load config should return defaults due to env var
     cfg = config.load_config()
 
-    # Check that config file was created
+    # Check that config file was NOT created
     config_file = tmp_path / "config.toml"
-    assert config_file.exists()
+    assert not config_file.exists()
 
     # Check that config has expected structure
     assert "llm" in cfg
@@ -212,3 +235,70 @@ def test_load_role_not_found(tmp_path, monkeypatch):
     # Try to load a role that doesn't exist
     with pytest.raises(FileNotFoundError, match="Role 'nonexistent' not found"):
         config.load_role("nonexistent")
+
+
+def test_save_config(tmp_path, monkeypatch):
+    """Test saving configuration to file."""
+    # Use a temporary directory as the config directory
+    monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
+
+    # Create a config
+    test_config = {
+        "llm": {
+            "default_provider": "anthropic",
+            "default_model": "claude-3-opus",
+            "anthropic": {
+                "api_key": "sk-test-123",
+                "default_model": "claude-3-opus",
+            },
+        }
+    }
+
+    # Save it
+    config.save_config(test_config)
+
+    # Verify file was created
+    config_file = tmp_path / "config.toml"
+    assert config_file.exists()
+
+    # Load it back and verify
+    loaded = config.load_config()
+    assert loaded["llm"]["default_provider"] == "anthropic"
+    assert loaded["llm"]["anthropic"]["api_key"] == "sk-test-123"
+
+
+def test_summarize_config():
+    """Test config summarization."""
+    test_config = {
+        "llm": {
+            "default_provider": "openai",
+            "default_model": "gpt-4",
+            "openai": {
+                "api_key": "sk-verylongapikey123456",
+                "default_model": "gpt-4",
+            },
+            "anthropic": {
+                "api_key": "sk-ant-short",
+                "default_model": "claude-3-opus",
+            },
+        }
+    }
+
+    summary = config.summarize_config(test_config)
+
+    # Check summary contains expected elements
+    assert "Default provider: openai" in summary
+    assert "Default model: gpt-4" in summary
+    assert "openai" in summary
+    assert "anthropic" in summary
+    # Check that API keys are masked
+    assert "sk-veryl..." in summary
+    assert "sk-verylongapikey123456" not in summary
+
+
+def test_get_config_path(tmp_path, monkeypatch):
+    """Test get_config_path returns correct path."""
+    monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
+
+    config_path = config.get_config_path()
+    assert config_path == tmp_path / "config.toml"

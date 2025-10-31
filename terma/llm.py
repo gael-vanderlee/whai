@@ -1,5 +1,6 @@
 """LLM provider wrapper using LiteLLM."""
 
+import json
 from typing import Any, Dict, Generator, List, Optional, Union
 
 from terma.constants import DEFAULT_LLM_MODEL
@@ -57,14 +58,54 @@ def get_base_system_prompt(is_deep_context: bool) -> str:
     Raises:
         FileNotFoundError: If the system prompt template file doesn't exist.
     """
+    import os
+    import platform
     from pathlib import Path
 
-    context_note = (
-        "You have access to the full terminal scrollback (commands and their output)."
-        if is_deep_context
-        else "You have access to recent command history only (no command output). "
-        "You cannot see why commands failed without running them again."
-    )
+    # Build context note with system information
+    context_parts = []
+
+    # Terminal history context
+    if is_deep_context:
+        context_parts.append(
+            "You will be given the recent terminal scrollback (commands and their output) along with the user message."
+        )
+    else:
+        context_parts.append(
+            "You will be given the recent command history of the user (commands only, not their outputs). This also means that after you finish your message, you will not be able to see it once the user responds. So don't finish with a question or suggestions that would require the context of the your current response once the user responds."
+        )
+
+    # System information
+    system_info = []
+
+    # Operating system
+    os_name = platform.system()
+    os_release = platform.release()
+    system_info.append(f"OS: {os_name} {os_release}")
+
+    # Shell (from environment or detect)
+    shell_path = os.environ.get("SHELL", "")
+    if shell_path:
+        shell_name = Path(shell_path).name
+        system_info.append(f"Shell: {shell_name}")
+    elif os.name == "nt":
+        # Windows detection
+        if "PSModulePath" in os.environ:
+            system_info.append("Shell: PowerShell")
+        else:
+            system_info.append("Shell: cmd.exe")
+
+    # Current working directory
+    try:
+        cwd = os.getcwd()
+        system_info.append(f"CWD: {cwd}")
+    except Exception:
+        pass
+
+    if system_info:
+        context_parts.append("System: " + " | ".join(system_info))
+
+    context_note = " ".join(context_parts)
 
     # Read from defaults file
     defaults_dir = Path(__file__).parent.parent / "defaults"
@@ -122,20 +163,32 @@ class LLMProvider:
         )
 
     def _configure_api_keys(self):
-        """Configure API keys from config for LiteLLM."""
+        """Configure API keys and endpoints from config for LiteLLM."""
+        import os
+
         llm_config = self.config.get("llm", {})
 
         # Set OpenAI key if present
         if "openai" in llm_config and "api_key" in llm_config["openai"]:
-            import os
-
             os.environ["OPENAI_API_KEY"] = llm_config["openai"]["api_key"]
 
         # Set Anthropic key if present
         if "anthropic" in llm_config and "api_key" in llm_config["anthropic"]:
-            import os
-
             os.environ["ANTHROPIC_API_KEY"] = llm_config["anthropic"]["api_key"]
+
+        # Set Azure OpenAI configuration if present
+        if "azure_openai" in llm_config:
+            azure_config = llm_config["azure_openai"]
+            if "api_key" in azure_config:
+                os.environ["AZURE_API_KEY"] = azure_config["api_key"]
+            if "api_base" in azure_config:
+                os.environ["AZURE_API_BASE"] = azure_config["api_base"]
+            if "api_version" in azure_config:
+                os.environ["AZURE_API_VERSION"] = azure_config["api_version"]
+
+        # Set Ollama base URL if present
+        if "ollama" in llm_config and "api_base" in llm_config["ollama"]:
+            os.environ["OLLAMA_API_BASE"] = llm_config["ollama"]["api_base"]
 
     def send_message(
         self,
@@ -197,6 +250,42 @@ class LLMProvider:
                 self.temperature if self.temperature is not None else "default",
                 extra={"category": "api"},
             )
+            # Log the exact payload the model will see for debug purposes
+            try:
+                pretty_payload = json.dumps(
+                    {
+                        "model": self.model,
+                        "messages": messages,
+                        "tools": tools or [],
+                        "tool_choice": tool_choice,
+                        **(
+                            {"temperature": self.temperature}
+                            if self.temperature is not None
+                            else {}
+                        ),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                logger.debug("LLM request payload:\n%s", pretty_payload)
+                # Also log human-readable prompts (system/user) with natural line breaks
+                try:
+                    for m in messages:
+                        role = m.get("role")
+                        if role in ("system", "user"):
+                            heading = (
+                                "LLM system prompt"
+                                if role == "system"
+                                else "LLM user message"
+                            )
+                            content = m.get("content", "")
+                            logger.debug("%s:\n%s", heading, content)
+                except Exception:
+                    # Never fail on diagnostic logging
+                    pass
+            except Exception:
+                # Payload logging must never break execution
+                logger.debug("LLM request payload: <unserializable>")
             if tools:
                 logger.debug(
                     "Tool definitions: %s",
@@ -302,11 +391,11 @@ class LLMProvider:
 
             # Check for tool calls
             if hasattr(delta, "tool_calls") and delta.tool_calls:
-                logger.debug(
-                    "Streaming tool_calls chunk: count=%d",
-                    len(delta.tool_calls),
-                    extra={"category": "api"},
-                )
+                # logger.debug(
+                #     "Streaming tool_calls chunk: count=%d",
+                #     len(delta.tool_calls),
+                #     extra={"category": "api"},
+                # )
                 for tool_call in delta.tool_calls:
                     if not hasattr(tool_call, "function"):
                         continue
@@ -317,15 +406,15 @@ class LLMProvider:
                     name = tool_call.function.name
                     arg_chunk = tool_call.function.arguments or ""
 
-                    logger.debug(
-                        "Processing tool_call chunk: id=%s (type=%s), name=%s (type=%s), args_len=%d",
-                        raw_call_id,
-                        type(raw_call_id).__name__,
-                        name,
-                        type(name).__name__,
-                        len(arg_chunk) if arg_chunk else 0,
-                        extra={"category": "api"},
-                    )
+                    # logger.debug(
+                    #     "Processing tool_call chunk: id=%s (type=%s), name=%s (type=%s), args_len=%d",
+                    #     raw_call_id,
+                    #     type(raw_call_id).__name__,
+                    #     name,
+                    #     type(name).__name__,
+                    #     len(arg_chunk) if arg_chunk else 0,
+                    #     extra={"category": "api"},
+                    # )
 
                     # Handle None ids by using the last known call_id
                     # OpenAI sends id and name in first chunk, then None for both in subsequent chunks
@@ -363,12 +452,12 @@ class LLMProvider:
                     # Accumulate arguments
                     if arg_chunk:
                         partial_tool_calls[call_id]["args"] += arg_chunk
-                        logger.debug(
-                            "Accumulated args for id=%s, total_len=%d",
-                            call_id,
-                            len(partial_tool_calls[call_id]["args"]),
-                            extra={"category": "api"},
-                        )
+                        # logger.debug(
+                        #     "Accumulated args for id=%s, total_len=%d",
+                        #     call_id,
+                        #     len(partial_tool_calls[call_id]["args"]),
+                        #     extra={"category": "api"},
+                        # )
 
                     # Try to parse when we have arguments
                     raw_args = partial_tool_calls[call_id]["args"]

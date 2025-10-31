@@ -38,6 +38,7 @@ terma is a modular Python CLI tool. It uses a persistent shell subprocess to run
   - Deep (when in tmux): commands plus output
   - Shallow (history fallback): recent commands only
   - System prompt notes which type is present for best LLM results
+- System context automatically includes OS, shell, and working directory information for platform-specific assistance
 - No sudo/interactive password hacks; subprocess handles interactive commands normally, and authentication is always up to the user's TTY
 - If required config or roles are missing or broken, terma intentionally crashes with a clear error
 
@@ -60,6 +61,7 @@ terma is a modular Python CLI tool. It uses a persistent shell subprocess to run
 ## Configuration and Extensibility
 
 - New LLMs can be added by extending `config.toml` and, if necessary, updating `llm.py`
+   - Default model should (in the docs and code) should be gpt-5-mini, as it is fast, cheap and good.
 - New roles are just markdown+YAML files in `~/.config/terma/roles/`
 - To expand context types, extend `context.py`
 - Extra shell helpers, plugins, or approval logic go in `interaction.py` or can be cleanly added elsewhere

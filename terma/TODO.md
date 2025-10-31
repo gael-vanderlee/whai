@@ -1,12 +1,23 @@
 # TODO
-
-- [ ] No quotes typing
-- [ ] Timeout delay flag
-- [ ] Config commands
+Features:
+- [x] No quotes typing
+- [x] Timeout delay flag
+- [x] Config commands
 - [ ] Role commands
-- [ ] Prettier outputs
-    - [ ] Spinning loading icon
-    - [ ] Shell commands formatting
+- [x] Prettier outputs
+    - [x] Spinning loading icon
+    - [x] Shell commands formatting
 - [ ] Faster shell executions ?
 - [ ] Test mutliple models
-- [ ] Timeout issue
+- [x] Improve dev documentation
+- [ ] Improve Readme.md
+- [ ] Console output instant streaming
+- [ ] Graceful exit
+- [x] Start message: model, role
+- [ ] default model in config
+- [ ] Debug levels
+
+Issues:
+- [x] Timeout issue
+    - Note: UGH
+- [ ] Linux background

@@ -7,7 +7,8 @@ from typing import Optional
 
 import typer
 
-from terma.config import load_config, load_role
+from terma import ui
+from terma.config import MissingConfigError, load_config, load_role, validate_llm_config
 from terma.constants import DEFAULT_LLM_MODEL
 from terma.context import get_context
 from terma.interaction import ShellSession, approval_loop
@@ -19,24 +20,100 @@ app = typer.Typer(help="terma - Your terminal assistant powered by LLMs")
 logger = get_logger(__name__)
 
 
-def print_error(message: str):
-    """Print an error message to stderr."""
-    typer.echo(typer.style(f"Error: {message}", fg=typer.colors.RED), err=True)
+# Helper to parse inline flags that may appear inside the free-form `query` tokens
+# when users place options after the query. This keeps behavior consistent across
+# shells and quoting styles.
+def _extract_inline_overrides(
+    tokens: list[str],
+    *,
+    role: Optional[str],
+    no_context: bool,
+    model: Optional[str],
+    temperature: Optional[float],
+    timeout: int,
+) -> tuple[list[str], dict]:
+    """Extract supported inline flags from free-form tokens.
+
+    Returns a tuple of (cleaned_tokens, overrides_dict).
+    """
+    cleaned: list[str] = []
+    i = 0
+    # Local copies to mutate
+    o_role = role
+    o_no_context = no_context
+    o_model = model
+    o_temperature = temperature
+    o_timeout = timeout
+
+    while i < len(tokens):
+        token = tokens[i]
+        # --timeout <int>
+        if token == "--timeout":
+            if i + 1 >= len(tokens):
+                ui.error("--timeout requires a value (seconds)")
+                raise typer.Exit(2)
+            value_token = tokens[i + 1]
+            try:
+                o_timeout = int(value_token)
+            except ValueError:
+                ui.error("--timeout must be an integer (seconds)")
+                raise typer.Exit(2)
+            i += 2
+            continue
+        # --no-context
+        if token == "--no-context":
+            o_no_context = True
+            i += 1
+            continue
+        # --model/-m <str>
+        if token in ("--model", "-m"):
+            if i + 1 >= len(tokens):
+                ui.error("--model requires a value")
+                raise typer.Exit(2)
+            o_model = tokens[i + 1]
+            i += 2
+            continue
+        # --temperature/-t <float>
+        if token in ("--temperature", "-t"):
+            if i + 1 >= len(tokens):
+                ui.error("--temperature requires a value")
+                raise typer.Exit(2)
+            value_token = tokens[i + 1]
+            try:
+                o_temperature = float(value_token)
+            except ValueError:
+                ui.error("--temperature must be a number")
+                raise typer.Exit(2)
+            i += 2
+            continue
+        # --role/-r <str>
+        if token in ("--role", "-r"):
+            if i + 1 >= len(tokens):
+                ui.error("--role requires a value")
+                raise typer.Exit(2)
+            o_role = tokens[i + 1]
+            i += 2
+            continue
+
+        # Regular token
+        cleaned.append(token)
+        i += 1
+
+    return cleaned, {
+        "role": o_role,
+        "no_context": o_no_context,
+        "model": o_model,
+        "temperature": o_temperature,
+        "timeout": o_timeout,
+    }
 
 
-def print_warning(message: str):
-    """Print a warning message to stderr."""
-    typer.echo(typer.style(f"Warning: {message}", fg=typer.colors.YELLOW), err=True)
-
-
-def print_info(message: str):
-    """Print an info message to stderr."""
-    typer.echo(typer.style(f"Info: {message}", fg=typer.colors.BLUE), err=True)
-
-
-@app.command()
+@app.callback(invoke_without_command=True)
 def main(
-    query: str = typer.Argument(..., help="Your question or request"),
+    ctx: typer.Context,
+    query: list[str] = typer.Argument(
+        None, help="Your question or request (can be multiple words)"
+    ),
     role: str = typer.Option(
         "assistant", "--role", "-r", help="Role to use (assistant, debug, etc.)"
     ),
@@ -47,6 +124,16 @@ def main(
     temperature: Optional[float] = typer.Option(
         None, "--temperature", "-t", help="Override temperature"
     ),
+    timeout: int = typer.Option(
+        60,
+        "--timeout",
+        help="Per-command timeout in seconds (applies to each approved command)",
+    ),
+    interactive_config: bool = typer.Option(
+        False,
+        "--interactive-config",
+        help="Run interactive configuration wizard and exit",
+    ),
 ):
     """
     terma - Your terminal assistant powered by LLMs.
@@ -54,12 +141,64 @@ def main(
     Ask questions, get command suggestions, troubleshoot issues, and more.
 
     Examples:
+        terma what is the biggest folder here?
         terma "what's the biggest folder here?"
-        terma "why did my last command fail?" -r debug
+        terma why did my last command fail? -r debug
         terma "how do I find all .py files modified today?"
+
+    Note: If your query contains spaces, apostrophes ('), or quotation marks, always wrap it in double quotes to avoid shell parsing errors.
     """
-    # Configure logging first thing
+    # If a subcommand is invoked, let it handle everything
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # Handle interactive config flag
+    if interactive_config:
+        from terma.config_wizard import run_wizard
+
+        try:
+            run_wizard(existing_config=True)
+        except typer.Abort:
+            ui.console.print("\nConfiguration cancelled.")
+            raise typer.Exit(0)
+        except Exception as e:
+            ui.error(f"Configuration error: {e}")
+            raise typer.Exit(1)
+        return
+
+    # No query provided and no subcommand - show help
+    if not query:
+        typer.echo(ctx.get_help())
+        raise typer.Exit(0)
+
+    # Workaround for Click/Typer parsing with variadic arguments:
+    # If users place options after the free-form query, those tokens land in `query`.
+    # Extract supported inline options from `query` and apply them.
+    if query:
+        query, overrides = _extract_inline_overrides(
+            query,
+            role=role,
+            no_context=no_context,
+            model=model,
+            temperature=temperature,
+            timeout=timeout,
+        )
+        role = overrides["role"]
+        no_context = overrides["no_context"]
+        model = overrides["model"]
+        temperature = overrides["temperature"]
+        timeout = overrides["timeout"]
+
+    # Validate timeout after possible inline overrides
+    if timeout <= 0:
+        ui.error("--timeout must be a positive integer (seconds)")
+        raise typer.Exit(2)
+
+    # Configure logging
     configure_logging()
+
+    # Join query arguments with spaces
+    query_str = " ".join(query)
 
     t0 = time.perf_counter()
     logger.debug("Startup: entered main()", extra={"category": "perf"})
@@ -70,8 +209,30 @@ def main(
         # 1. Load config and role
         try:
             config = load_config()
+        except MissingConfigError:
+            ui.warn("Configuration not found. Starting interactive setup...")
+            from terma.config_wizard import run_wizard
+
+            try:
+                run_wizard(existing_config=False)
+                # Try loading again after wizard completes
+                config = load_config()
+                ui.info("Configuration complete! Continuing with your query...")
+            except typer.Abort:
+                ui.error("Configuration is required to use terma.")
+                raise typer.Exit(1)
+            except Exception as wizard_error:
+                ui.error(f"Configuration failed: {wizard_error}")
+                raise typer.Exit(1)
         except Exception as e:
-            print_error(f"Failed to load config: {e}")
+            ui.error(f"Failed to load config: {e}")
+            raise typer.Exit(1)
+
+        # Validate minimal config before continuing
+        ok, cfg_msg = validate_llm_config(config)
+        if not ok:
+            ui.error(cfg_msg)
+            ui.info("Run 'terma --interactive-config' to set up your configuration.")
             raise typer.Exit(1)
         t_cfg = time.perf_counter()
         logger.debug(
@@ -83,10 +244,10 @@ def main(
         try:
             role_metadata, role_prompt = load_role(role)
         except FileNotFoundError as e:
-            print_error(str(e))
+            ui.error(str(e))
             raise typer.Exit(1)
         except Exception as e:
-            print_error(f"Failed to load role: {e}")
+            ui.error(f"Failed to load role: {e}")
             raise typer.Exit(1)
         t_role = time.perf_counter()
         logger.debug(
@@ -96,7 +257,17 @@ def main(
             extra={"category": "perf"},
         )
 
-        # 2. Get context (tmux or history)
+        # 2. Detect shell for both context and session
+        from terma.context import get_shell_executable
+
+        shell_executable = get_shell_executable()
+        logger.debug(
+            "Detected shell executable: %s",
+            shell_executable,
+            extra={"category": "perf"},
+        )
+
+        # 3. Get context (tmux or history)
         if no_context:
             context_str = ""
             is_deep_context = False
@@ -113,11 +284,11 @@ def main(
             )
 
             if not is_deep_context and context_str:
-                print_warning(
+                ui.warn(
                     "Using shell history only (no tmux detected). History analysis may be limited."
                 )
             elif not context_str:
-                print_info("No context available (no tmux, no history).")
+                ui.info("No context available (no tmux, no history).")
 
         logger.debug(
             "Startup: context stage done, elapsed %.3f ms",
@@ -125,7 +296,7 @@ def main(
             extra={"category": "perf"},
         )
 
-        # 3. Initialize LLM provider
+        # 4. Initialize LLM provider
         llm_model = (
             model
             or role_metadata.get("model")
@@ -149,7 +320,7 @@ def main(
                 config, model=llm_model, temperature=llm_temperature
             )
         except Exception as e:
-            print_error(f"Failed to initialize LLM provider: {e}")
+            ui.error(f"Failed to initialize LLM provider: {e}")
             raise typer.Exit(1)
         t_llm = time.perf_counter()
         logger.debug(
@@ -160,20 +331,24 @@ def main(
             extra={"category": "perf"},
         )
 
-        # 4. Create shell session
+        # Display loaded configuration
+        ui.info(f"Model: {llm_model} | Role: {role}")
+
+        # 5. Create shell session with detected shell
         try:
-            shell_session = ShellSession()
+            shell_session = ShellSession(shell=shell_executable)
         except Exception as e:
-            print_error(f"Failed to create shell session: {e}")
+            ui.error(f"Failed to create shell session: {e}")
             raise typer.Exit(1)
         t_shell = time.perf_counter()
         logger.debug(
-            "Startup: ShellSession() completed in %.3f ms",
+            "Startup: ShellSession(%s) completed in %.3f ms",
+            shell_executable,
             (t_shell - t_llm) * 1000,
             extra={"category": "perf"},
         )
 
-        # 5. Build initial message
+        # 6. Build initial message
         t_prompt0 = time.perf_counter()
         base_prompt = get_base_system_prompt(is_deep_context)
         system_message = f"{base_prompt}\n\n{role_prompt}"
@@ -187,10 +362,10 @@ def main(
         # Add context to user message if available
         if context_str:
             user_message = (
-                f"TERMINAL CONTEXT:\n```\n{context_str}\n```\n\nUSER QUERY: {query}"
+                f"TERMINAL CONTEXT:\n```\n{context_str}\n```\n\nUSER QUERY: {query_str}"
             )
         else:
-            user_message = query
+            user_message = query_str
 
         messages = [
             {"role": "system", "content": system_message},
@@ -207,21 +382,32 @@ def main(
         # 6. Main conversation loop
         while True:
             try:
-                # Send to LLM with streaming
-                response_stream = llm_provider.send_message(messages, stream=True)
+                # Send to LLM with streaming; show spinner until first chunk arrives
+                start_spinner = time.perf_counter()
+                with ui.spinner("Thinking"):
+                    response_stream = llm_provider.send_message(messages, stream=True)
+                    response_chunks = []
+                    first_chunk = None
+                    for chunk in response_stream:
+                        first_chunk = chunk
+                        break
+                elapsed_spinner = time.perf_counter() - start_spinner
+                logger.debug(
+                    f"Spinner duration before first chunk: {elapsed_spinner:.3f}s",
+                    extra={"category": "ui"},
+                )
 
-                # Collect and display response
-                response_chunks = []
+                # Print first chunk and continue streaming
+                if first_chunk is not None:
+                    response_chunks.append(first_chunk)
+                    if first_chunk["type"] == "text":
+                        ui.console.print(first_chunk["content"], end="", soft_wrap=True)
                 for chunk in response_stream:
                     response_chunks.append(chunk)
-
                     if chunk["type"] == "text":
-                        # Stream text to stdout in real-time
-                        print(chunk["content"], end="", flush=True)
-
-                # Add newline after streaming text if we had any
+                        ui.console.print(chunk["content"], end="", soft_wrap=True)
                 if any(c["type"] == "text" for c in response_chunks):
-                    print()
+                    ui.console.print()
 
                 # Extract tool calls from chunks
                 tool_calls = [c for c in response_chunks if c["type"] == "tool_call"]
@@ -265,10 +451,10 @@ def main(
                                 extra={"category": "cmd"},
                             )
                             stdout, stderr, returncode = shell_session.execute_command(
-                                approved_command
+                                approved_command, timeout=timeout
                             )
 
-                            # Format the result
+                            # Format the result for LLM (plain text)
                             result = f"Command: {approved_command}\n"
                             if stdout:
                                 result += f"\nOutput:\n{stdout}"
@@ -279,16 +465,37 @@ def main(
                                 {"tool_call_id": tool_call["id"], "output": result}
                             )
 
-                            # Display the output
-                            print(f"\n{result}\n")
+                            # Display the output (pretty formatted)
+                            ui.console.print()
+                            ui.print_output(stdout, stderr)
+                            ui.console.print()
 
                         except Exception as e:
-                            error_msg = f"Failed to execute command: {e}"
+                            error_text = str(e)
                             logger.exception("Command execution failed: %s", e)
-                            print_error(error_msg)
-                            tool_results.append(
-                                {"tool_call_id": tool_call["id"], "output": error_msg}
-                            )
+                            # Surface error to user
+                            ui.error(f"Failed to execute command: {error_text}")
+
+                            # If this was a timeout, include a clear, standardized marker
+                            # in the tool result content so the LLM can react appropriately.
+                            if "timed out" in error_text.lower():
+                                timeout_note = (
+                                    f"Command: {approved_command}\n\n"
+                                    f"OUTPUT: NO OUTPUT, {timeout}s TIMEOUT EXCEEDED"
+                                )
+                                tool_results.append(
+                                    {
+                                        "tool_call_id": tool_call["id"],
+                                        "output": timeout_note,
+                                    }
+                                )
+                            else:
+                                tool_results.append(
+                                    {
+                                        "tool_call_id": tool_call["id"],
+                                        "output": f"Failed to execute command: {error_text}",
+                                    }
+                                )
 
                 # Decide whether to end the conversation
                 all_rejected = tool_results and all(
@@ -297,13 +504,11 @@ def main(
 
                 if not tool_results and tool_calls:
                     # Tool calls existed but none were runnable (e.g., empty/missing command)
-                    print_info(
-                        "No runnable tool calls were produced (missing command)."
-                    )
+                    ui.info("No runnable tool calls were produced (missing command).")
                     break
 
                 if not tool_results or all_rejected:
-                    print("\nConversation ended.")
+                    ui.console.print("\nConversation ended.")
                     break
 
                 # Build assistant message for history
@@ -346,23 +551,23 @@ def main(
                 # Continue loop to get LLM's next response
 
             except KeyboardInterrupt:
-                print("\n\nInterrupted by user.")
+                ui.console.print("\n\nInterrupted by user.")
                 break
             except Exception as e:
                 import traceback
 
-                print_error(f"Unexpected error: {e}")
-                print_error(f"Details: {traceback.format_exc()}")
+                ui.error(f"Unexpected error: {e}")
+                ui.error(f"Details: {traceback.format_exc()}")
                 logger.exception("Unexpected error in conversation loop: %s", e)
                 break
 
     except typer.Exit:
         raise
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user.")
+        ui.console.print("\n\nInterrupted by user.")
         sys.exit(0)
     except Exception as e:
-        print_error(f"Fatal error: {e}")
+        ui.error(f"Fatal error: {e}")
         sys.exit(1)
     finally:
         # Cleanup

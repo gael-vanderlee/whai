@@ -101,7 +101,12 @@ def test_get_shell_from_env():
         assert context._get_shell_from_env() == "bash"
 
     with patch.dict("os.environ", {"SHELL": "/usr/bin/fish"}, clear=True):
-        assert context._get_shell_from_env() == "unknown"
+        # Unknown shell, should fallback based on platform
+        detected = context._get_shell_from_env()
+        if os.name == "nt":
+            assert detected == "cmd"
+        else:
+            assert detected == "unknown"
 
     # Explicit PowerShell detection on Windows when PS markers are present
     with patch.dict(
@@ -113,7 +118,12 @@ def test_get_shell_from_env():
             assert context._get_shell_from_env() == "powershell"
 
     with patch.dict("os.environ", {}, clear=True):
-        assert context._get_shell_from_env() == "unknown"
+        # With no environment markers, should fallback based on platform
+        detected = context._get_shell_from_env()
+        if os.name == "nt":
+            assert detected == "cmd"
+        else:
+            assert detected == "unknown"
 
 
 def test_parse_zsh_history(tmp_path):

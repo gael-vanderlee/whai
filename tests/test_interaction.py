@@ -323,7 +323,7 @@ def test_read_line_with_timeout_windows(monkeypatch):
 
         # Mock stream
         mock_stream = MagicMock()
-        result = session._read_line_with_timeout(mock_stream, 0.1)
+        session._read_line_with_timeout(mock_stream, 0.1)
 
         # Verify thread was created
         mock_thread.assert_called_once()

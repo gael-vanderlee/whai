@@ -75,7 +75,7 @@ def _get_shell_from_env() -> str:
     Detect the current shell from environment variables.
 
     Returns:
-        Shell name ('bash', 'zsh', etc.) or 'unknown'.
+        Shell name ('bash', 'zsh', 'powershell', 'cmd') or 'unknown'.
     """
     shell_path = os.environ.get("SHELL", "")
 
@@ -96,8 +96,62 @@ def _get_shell_from_env() -> str:
             or "POWERSHELL_DISTRIBUTION_CHANNEL" in os.environ
         ):
             return "powershell"
+        # Fallback to cmd.exe on Windows
+        return "cmd"
 
     return "unknown"
+
+
+def get_shell_executable(shell_name: Optional[str] = None) -> str:
+    """
+    Get the executable path for a shell.
+
+    Args:
+        shell_name: Shell name ('bash', 'zsh', 'powershell', 'cmd', etc.).
+                   If None, auto-detects from environment.
+
+    Returns:
+        Path to shell executable.
+    """
+    if shell_name is None:
+        shell_name = _get_shell_from_env()
+
+    # Handle known shells
+    if shell_name == "bash":
+        return "/bin/bash"
+    elif shell_name == "zsh":
+        return "/bin/zsh"
+    elif shell_name == "powershell":
+        # Try to find PowerShell executable on Windows
+        if os.name == "nt":
+            # Prefer PowerShell Core (pwsh) if available, otherwise Windows PowerShell
+            for pwsh_path in ["pwsh.exe", "powershell.exe"]:
+                try:
+                    result = subprocess.run(
+                        [pwsh_path, "-Command", "echo test"],
+                        capture_output=True,
+                        timeout=2,
+                    )
+                    if result.returncode == 0:
+                        logger.debug(
+                            "Found PowerShell at: %s",
+                            pwsh_path,
+                            extra={"category": "perf"},
+                        )
+                        return pwsh_path
+                except (subprocess.TimeoutExpired, FileNotFoundError):
+                    continue
+            # Fallback to full path
+            return r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+        return "powershell"  # On non-Windows, shouldn't happen
+    elif shell_name == "cmd":
+        return "cmd.exe"
+    else:
+        # Unknown or unsupported shell, use platform defaults
+        if os.name == "nt":
+            return "cmd.exe"
+        else:
+            return "/bin/bash"
 
 
 def _parse_zsh_history(history_file: Path, max_commands: int = 50) -> list:

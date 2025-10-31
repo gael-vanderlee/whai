@@ -7,11 +7,24 @@ They use mocked LLM responses to avoid API costs.
 from unittest.mock import MagicMock, patch
 
 import pytest
+import typer
 from typer.testing import CliRunner
 
 from terma.main import app
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def integration_test_config(tmp_path, monkeypatch):
+    """
+    Auto-applied fixture for integration tests.
+    Sets up ephemeral config to avoid writing to user's config directory.
+    """
+    # Redirect config to temp directory
+    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
+    # Enable test mode to use ephemeral config (no disk writes)
+    monkeypatch.setenv("TERMA_TEST_MODE", "1")
 
 
 @pytest.fixture
@@ -101,14 +114,11 @@ def mock_llm_with_tool_call():
     return mock_completion
 
 
-def test_flow_1_qna_without_commands(mock_llm_text_only, tmp_path, monkeypatch):
+def test_flow_1_qna_without_commands(mock_llm_text_only):
     """
     Test Flow: Q&A without command execution.
     User asks a general question, LLM provides text-only answer.
     """
-    # Use temp directory for config
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
@@ -121,15 +131,12 @@ def test_flow_1_qna_without_commands(mock_llm_text_only, tmp_path, monkeypatch):
 
 
 def test_flow_2_command_generation_approved(
-    mock_llm_text_only, mock_llm_with_tool_call, tmp_path, monkeypatch
+    mock_llm_text_only, mock_llm_with_tool_call
 ):
     """
     Test Flow: Command generation and execution (approved).
     User asks for a command, approves it, sees output.
     """
-    # Use temp directory for config
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-
     # Mock ShellSession to avoid real command execution
     mock_session = MagicMock()
     mock_session.execute_command.return_value = ("test output\n", "", 0)
@@ -160,16 +167,11 @@ def test_flow_2_command_generation_approved(
         assert "Proposed command" in result.stdout
 
 
-def test_flow_3_command_generation_rejected(
-    mock_llm_with_tool_call, tmp_path, monkeypatch
-):
+def test_flow_3_command_generation_rejected(mock_llm_with_tool_call):
     """
     Test Flow: Command generation and execution (rejected).
     User asks for a command but rejects it.
     """
-    # Use temp directory for config
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-
     # Mock ShellSession to avoid real command execution
     mock_session = MagicMock()
     mock_session.__enter__ = MagicMock(return_value=mock_session)
@@ -190,11 +192,8 @@ def test_flow_3_command_generation_rejected(
         )
 
 
-def test_cli_with_role_option(mock_llm_text_only, tmp_path, monkeypatch):
+def test_cli_with_role_option(mock_llm_text_only):
     """Test that --role option works correctly."""
-    # Use temp directory for config
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
@@ -205,13 +204,13 @@ def test_cli_with_role_option(mock_llm_text_only, tmp_path, monkeypatch):
         )
 
         assert result.exit_code == 0
+        # Verify that role information is displayed
+        output = result.stdout + result.stderr
+        assert "assistant" in output.lower()
 
 
-def test_cli_with_model_override(mock_llm_text_only, tmp_path, monkeypatch):
+def test_cli_with_model_override(mock_llm_text_only):
     """Test that --model option works correctly."""
-    # Use temp directory for config
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
@@ -222,13 +221,88 @@ def test_cli_with_model_override(mock_llm_text_only, tmp_path, monkeypatch):
         )
 
         assert result.exit_code == 0
+        # Verify that model and role information is displayed
+        output = result.stdout + result.stderr
+        assert "gpt-5-mini" in output
+        assert "assistant" in output.lower()
 
 
-def test_cli_with_no_context(mock_llm_text_only, tmp_path, monkeypatch):
+def test_cli_timeout_default_passed(mock_llm_with_tool_call, mock_llm_text_only):
+    """Default timeout (60s) should be passed to execute_command."""
+
+    # Mock ShellSession
+    mock_session = MagicMock()
+    mock_session.execute_command.return_value = ("ok\n", "", 0)
+
+    # Sequence: tool call first, then text only
+    call_count = [0]
+
+    def mock_completion_sequence(**kwargs):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return mock_llm_with_tool_call(**kwargs)
+        else:
+            return mock_llm_text_only(**kwargs)
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion_sequence),
+        patch("terma.context.get_context", return_value=("", False)),
+        patch("builtins.input", return_value="a"),
+        patch("terma.main.ShellSession", return_value=mock_session),
+    ):
+        result = runner.invoke(
+            app, ["echo test", "--no-context"]
+        )  # no explicit --timeout
+        assert result.exit_code == 0
+        # Ensure default 60 was used
+        assert any(
+            kwargs.get("timeout") == 60
+            for args, kwargs in mock_session.execute_command.call_args_list
+        )
+
+
+def test_cli_timeout_override_passed(mock_llm_with_tool_call, mock_llm_text_only):
+    """Override timeout via --timeout should be passed through."""
+    mock_session = MagicMock()
+    mock_session.execute_command.return_value = ("ok\n", "", 0)
+
+    call_count = [0]
+
+    def mock_completion_sequence(**kwargs):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return mock_llm_with_tool_call(**kwargs)
+        else:
+            return mock_llm_text_only(**kwargs)
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion_sequence),
+        patch("terma.context.get_context", return_value=("", False)),
+        patch("builtins.input", return_value="a"),
+        patch("terma.main.ShellSession", return_value=mock_session),
+    ):
+        result = runner.invoke(app, ["echo test", "--no-context", "--timeout", "30"])
+        assert result.exit_code == 0
+        # Check that execute_command was called with timeout=30
+        assert mock_session.execute_command.called, "execute_command was not called"
+        # Get the actual calls
+        calls = mock_session.execute_command.call_args_list
+        assert len(calls) > 0, "No calls to execute_command"
+        # Check if any call has timeout=30
+        timeouts = [call.kwargs.get("timeout") for call in calls]
+        assert 30 in timeouts, f"Expected timeout=30, got timeouts: {timeouts}"
+
+
+def test_cli_timeout_invalid_value(mock_llm_text_only):
+    """Invalid timeout values should fail fast with clear error."""
+    # No mocks needed - validation happens before any LLM/context code
+    result = runner.invoke(app, ["test query", "--no-context", "--timeout", "0"])
+    assert result.exit_code == 2
+    assert "timeout" in (result.stdout + result.stderr).lower()
+
+
+def test_cli_with_no_context(mock_llm_text_only):
     """Test that --no-context flag works correctly."""
-    # Use temp directory for config
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
@@ -241,29 +315,23 @@ def test_cli_with_no_context(mock_llm_text_only, tmp_path, monkeypatch):
         assert result.exit_code == 0
 
 
-def test_cli_missing_config(tmp_path, monkeypatch):
-    """Test behavior when config file doesn't exist (should create it)."""
-    # Use temp directory for config
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
+def test_cli_missing_config(monkeypatch):
+    """Test that interactive config wizard is launched when config is missing."""
+    # Disable test mode so MissingConfigError is raised
+    monkeypatch.delenv("TERMA_TEST_MODE", raising=False)
 
-    # Don't create config beforehand
-    # The app should create it on first run
-    with (
-        patch("litellm.completion"),
-        patch("terma.context.get_context", return_value=("", False)),
-    ):
-        result = runner.invoke(app, ["test", "--no-context"])
-        assert result.exit_code == 0
+    # Mock the wizard to simulate user canceling
+    with patch("terma.config_wizard.run_wizard", side_effect=typer.Abort()):
+        result = runner.invoke(app, ["test query"])
 
-        # Should have created config
-        config_file = tmp_path / "config.toml"
-        assert config_file.exists()
+    assert result.exit_code == 1
+    # Should show config setup message (check both stdout and stderr)
+    output = result.stdout + result.stderr
+    assert "Configuration" in output or "config" in output.lower()
 
 
-def test_cli_keyboard_interrupt(mock_llm_text_only, tmp_path, monkeypatch):
+def test_cli_keyboard_interrupt(mock_llm_text_only):
     """Test that Ctrl+C is handled gracefully."""
-    # Use temp directory for config
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
 
     def mock_completion_with_interrupt(**kwargs):
         raise KeyboardInterrupt()
@@ -278,11 +346,8 @@ def test_cli_keyboard_interrupt(mock_llm_text_only, tmp_path, monkeypatch):
         assert "Interrupted" in result.stdout or result.exit_code == 0
 
 
-def test_cli_with_context_warning(mock_llm_text_only, tmp_path, monkeypatch):
+def test_cli_with_context_warning(mock_llm_text_only):
     """Test that warning is shown when only shallow context is available."""
-    # Use temp directory for config
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
@@ -295,8 +360,49 @@ def test_cli_with_context_warning(mock_llm_text_only, tmp_path, monkeypatch):
         assert "shell history only" in output.lower() or "warning" in output.lower()
 
 
+def test_unquoted_arguments(mock_llm_text_only):
+    """Test that unquoted multi-word queries work correctly."""
+    # Mock LLM
+    with (
+        patch("litellm.completion", side_effect=mock_llm_text_only),
+        patch("terma.context.get_context", return_value=("", False)),
+    ):
+        result = runner.invoke(
+            app, ["what", "is", "a", ".gitignore", "file?", "--no-context"]
+        )
+
+        assert result.exit_code == 0
+        assert "This is a test response" in result.stdout
+
+
+def test_quoted_arguments_backward_compat(mock_llm_text_only):
+    """Test that quoted single argument still works (backward compatibility)."""
+    # Mock LLM
+    with (
+        patch("litellm.completion", side_effect=mock_llm_text_only),
+        patch("terma.context.get_context", return_value=("", False)),
+    ):
+        result = runner.invoke(app, ["what is a .gitignore file?", "--no-context"])
+
+        assert result.exit_code == 0
+        assert "This is a test response" in result.stdout
+
+
+def test_mixed_options_unquoted(mock_llm_text_only):
+    """Test that options work correctly with unquoted arguments."""
+    # Mock LLM
+    with (
+        patch("litellm.completion", side_effect=mock_llm_text_only),
+        patch("terma.context.get_context", return_value=("", False)),
+    ):
+        result = runner.invoke(app, ["--no-context", "what", "is", "this", "file"])
+
+        assert result.exit_code == 0
+        assert "This is a test response" in result.stdout
+
+
 @pytest.mark.integration
-def test_real_shell_execution(tmp_path, monkeypatch):
+def test_real_shell_execution():
     """
     Integration test with real shell execution (no LLM).
 
@@ -305,14 +411,16 @@ def test_real_shell_execution(tmp_path, monkeypatch):
     from terma.interaction import ShellSession
 
     with ShellSession() as session:
-        stdout, stderr, code = session.execute_command('echo "Hello from terma"')
+        stdout, stderr, code = session.execute_command(
+            'echo "Hello from terma"', timeout=60
+        )
 
         assert "Hello from terma" in stdout
         assert code == 0
 
 
 @pytest.mark.integration
-def test_state_persistence_in_shell(tmp_path, monkeypatch):
+def test_state_persistence_in_shell():
     """
     Integration test verifying that cd and export persist in shell session.
     """
@@ -324,11 +432,11 @@ def test_state_persistence_in_shell(tmp_path, monkeypatch):
         # Change directory
         if os.name == "nt":
             # Windows
-            session.execute_command("cd C:\\")
-            stdout, _, _ = session.execute_command("cd")
+            session.execute_command("cd C:\\", timeout=60)
+            stdout, _, _ = session.execute_command("cd", timeout=60)
             assert "C:\\" in stdout
         else:
             # Unix
-            session.execute_command("cd /tmp")
-            stdout, _, _ = session.execute_command("pwd")
+            session.execute_command("cd /tmp", timeout=60)
+            stdout, _, _ = session.execute_command("pwd", timeout=60)
             assert "/tmp" in stdout

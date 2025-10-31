@@ -1,5 +1,6 @@
 """Shell session management and command approval loop."""
 
+import base64
 import os
 import queue
 import random
@@ -8,6 +9,7 @@ import threading
 import time
 from typing import Optional, Tuple
 
+from terma import ui
 from terma.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -41,8 +43,38 @@ class ShellSession:
     def _start_shell(self):
         """Start the shell subprocess."""
         try:
-            # For Windows cmd.exe, we need different handling
-            if os.name == "nt" and "cmd" in self.shell.lower():
+            shell_lower = self.shell.lower()
+
+            # PowerShell (Windows only, typically)
+            if "powershell" in shell_lower or "pwsh" in shell_lower:
+                # Start interactive PowerShell
+                self.process = subprocess.Popen(
+                    [self.shell, "-NoProfile", "-NoLogo"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,  # Line buffered
+                )
+                # Initialize PowerShell: suppress prompt and progress bars
+                # Send multiple init commands then drain all output
+                init_script = (
+                    "function prompt {''}\r\n"
+                    "$ProgressPreference='SilentlyContinue'\r\n"
+                    "Set-PSReadLineOption -HistorySaveStyle SaveNothing -ErrorAction SilentlyContinue 2>$null\r\n"
+                    "$null\r\n"  # Emit something to force a flush
+                )
+                self.process.stdin.write(init_script)
+                self.process.stdin.flush()
+                # Drain all initialization output for up to 0.5s
+                time.sleep(0.2)
+                drain_deadline = time.time() + 0.5
+                while time.time() < drain_deadline:
+                    line = self._read_line_with_timeout(self.process.stdout, 0.02)
+                    if line is None:
+                        break
+            # Windows cmd.exe
+            elif os.name == "nt" and "cmd" in shell_lower:
                 self.process = subprocess.Popen(
                     [self.shell],
                     stdin=subprocess.PIPE,
@@ -51,8 +83,8 @@ class ShellSession:
                     text=True,
                     bufsize=0,  # Unbuffered
                 )
+            # Unix-like shells (bash, zsh)
             else:
-                # Unix-like shells (bash, zsh)
                 self.process = subprocess.Popen(
                     [self.shell, "-i"],  # Interactive mode
                     stdin=subprocess.PIPE,
@@ -63,8 +95,8 @@ class ShellSession:
                     env={**os.environ, "PS1": ""},  # Disable prompt to avoid confusion
                 )
 
-                # Give the shell a moment to start
-                time.sleep(0.1)
+            # Give the shell a moment to start
+            time.sleep(0.1)
 
         except Exception as e:
             raise RuntimeError(f"Failed to start shell: {e}")
@@ -76,13 +108,13 @@ class ShellSession:
                 extra={"category": "cmd"},
             )
 
-    def execute_command(self, command: str, timeout: int = 30) -> Tuple[str, str, int]:
+    def execute_command(self, command: str, timeout: int = 60) -> Tuple[str, str, int]:
         """
         Execute a command in the shell session.
 
         Args:
             command: The command to execute.
-            timeout: Maximum time to wait for command completion (seconds).
+            timeout: Maximum time to wait for command completion (seconds). Defaults to 60.
 
         Returns:
             Tuple of (stdout, stderr, return_code).
@@ -111,9 +143,46 @@ class ShellSession:
                     else:
                         command = stripped
             # Write the command and marker
-            if os.name == "nt" and "cmd" in self.shell.lower():
+            shell_lower = self.shell.lower()
+            if os.name == "nt" and "cmd" in shell_lower:
                 # Windows cmd.exe
                 full_command = f"{command}\necho {marker}\n"
+            elif "powershell" in shell_lower or "pwsh" in shell_lower:
+                # Execute PowerShell non-interactively using -EncodedCommand to avoid
+                # interactive stdin echo/reflow issues and to force materialized output.
+                ps_script = f"& {{ {command} }} | Out-String -Width 4096"
+                encoded = base64.b64encode(ps_script.encode("utf-16le")).decode("ascii")
+                try:
+                    result = subprocess.run(
+                        [
+                            self.shell,
+                            "-NoProfile",
+                            "-NoLogo",
+                            "-NonInteractive",
+                            "-EncodedCommand",
+                            encoded,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout,
+                    )
+                except subprocess.TimeoutExpired:
+                    raise RuntimeError(f"Command timed out after {timeout} seconds")
+
+                stdout = result.stdout or ""
+                stderr_text = result.stderr or ""
+                # Filter CLIXML progress noise sometimes emitted on stderr
+                if stderr_text.lstrip().startswith("#< CLIXML"):
+                    stderr_text = ""
+
+                logger.debug(
+                    "Command completed (non-interactive PS); stdout_len=%d stderr_len=%d rc=%d",
+                    len(stdout),
+                    len(stderr_text),
+                    result.returncode,
+                    extra={"category": "cmd"},
+                )
+                return stdout, stderr_text, result.returncode
             else:
                 # Unix shells
                 full_command = f"{command}\necho {marker}\n"
@@ -236,20 +305,23 @@ def approval_loop(command: str) -> Optional[str]:
     Returns:
         The approved command (possibly modified), or None if rejected.
     """
-    print(f"\n{'=' * 60}")
-    print("Proposed command:")
-    print(f"  > {command}")
-    print(f"{'=' * 60}")
+    ui.console.print()
+    ui.print_command(command)
 
     while True:
         try:
-            response = input("[a]pprove / [r]eject / [m]odify: ").strip().lower()
+            from rich.text import Text
+
+            ui.console.print(
+                Text("[a]pprove / [r]eject / [m]odify: ", style="yellow"), end=""
+            )
+            response = input().strip().lower()
 
             if response == "a" or response == "approve":
                 logger.debug("Command approved as-is", extra={"category": "cmd"})
                 return command
             elif response == "r" or response == "reject":
-                print("Command rejected.")
+                ui.console.print("Command rejected.")
                 logger.debug("Command rejected by user", extra={"category": "cmd"})
                 return None
             elif response == "m" or response == "modify":
@@ -262,11 +334,11 @@ def approval_loop(command: str) -> Optional[str]:
                     )
                     return modified
                 else:
-                    print("No command entered. Please try again.")
+                    ui.console.print("No command entered. Please try again.")
             else:
-                print("Invalid response. Please enter 'a', 'r', or 'm'.")
+                ui.console.print("Invalid response. Please enter 'a', 'r', or 'm'.")
         except (EOFError, KeyboardInterrupt):
-            print("\nRejected.")
+            ui.console.print("\nRejected.")
             logger.debug(
                 "Command rejected via interrupt/EOF", extra={"category": "cmd"}
             )
