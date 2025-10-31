@@ -10,7 +10,7 @@ Features:
 - [x] Faster shell executions ?
 - [x] Test mutliple models
 - [x] Improve dev documentation
-- [ ] Improve Readme.md
+- [x] Improve Readme.md
 - [?] Console output instant streaming
     - Powershell subprocess.run fix prevents it. Maybe for linux once I get to it.
 - [x] Graceful exit?
@@ -25,4 +25,4 @@ Features:
 Issues:
 - [x] Timeout issue
     - Note: UGH
-- [ ] Linux background
+- [x] Linux background
