@@ -4,21 +4,21 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from terma import config
-from terma.role_cli import (
+from whai import config
+from whai.role_cli import (
     _get_clear_command,
     _get_set_command,
     role_app,
 )
-from terma.utils import detect_shell
+from whai.utils import detect_shell
 
 runner = CliRunner()
 
 
 def test_list_roles_empty(tmp_path, monkeypatch):
     """Test list command with no roles."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
 
     # Create roles dir but no files
     # Note: list calls ensure_default_roles(), so we skip that test
@@ -33,8 +33,8 @@ def test_list_roles_empty(tmp_path, monkeypatch):
 
 def test_list_roles_with_defaults(tmp_path, monkeypatch):
     """Test list command with default roles."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
 
     # Ensure default roles are created
     config.ensure_default_roles()
@@ -47,12 +47,12 @@ def test_list_roles_with_defaults(tmp_path, monkeypatch):
 def test_create_role(tmp_path, monkeypatch):
     """Test creating a new role."""
     # Patch get_config_dir in both modules
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     # Mock click.edit to avoid opening an editor
-    with patch("terma.role_cli.click.edit"):
+    with patch("whai.role_cli.click.edit"):
         result = runner.invoke(role_app, ["create", "test-role"])
 
     assert result.exit_code == 0
@@ -67,17 +67,17 @@ def test_create_role(tmp_path, monkeypatch):
 
 def test_create_role_duplicate(tmp_path, monkeypatch):
     """Test creating a role that already exists fails."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     # Create role first time
-    with patch("terma.role_cli.click.edit"):
+    with patch("whai.role_cli.click.edit"):
         result1 = runner.invoke(role_app, ["create", "test-role"])
     assert result1.exit_code == 0
 
     # Try to create again
-    with patch("terma.role_cli.click.edit"):
+    with patch("whai.role_cli.click.edit"):
         result2 = runner.invoke(role_app, ["create", "test-role"])
     assert result2.exit_code != 0
     output = result2.stdout + result2.stderr
@@ -86,8 +86,8 @@ def test_create_role_duplicate(tmp_path, monkeypatch):
 
 def test_create_role_invalid_name(tmp_path, monkeypatch):
     """Test creating a role with invalid name fails."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
 
     result = runner.invoke(role_app, ["create", "invalid name!"])
     assert result.exit_code != 0
@@ -97,11 +97,11 @@ def test_create_role_invalid_name(tmp_path, monkeypatch):
 
 def test_edit_role(tmp_path, monkeypatch):
     """Test editing an existing role."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
-    with patch("terma.role_cli.click.edit"):
+    with patch("whai.role_cli.click.edit"):
         result = runner.invoke(role_app, ["edit", "default"])
 
     assert result.exit_code == 0
@@ -109,8 +109,8 @@ def test_edit_role(tmp_path, monkeypatch):
 
 def test_edit_role_not_found(tmp_path, monkeypatch):
     """Test editing a non-existent role fails."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     result = runner.invoke(role_app, ["edit", "nonexistent"])
@@ -121,8 +121,8 @@ def test_edit_role_not_found(tmp_path, monkeypatch):
 
 def test_remove_role(tmp_path, monkeypatch):
     """Test removing a role."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     # Create a test role
@@ -138,8 +138,8 @@ def test_remove_role(tmp_path, monkeypatch):
 
 def test_remove_role_cancelled(tmp_path, monkeypatch):
     """Test cancelling role removal."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     # Create a test role
@@ -155,8 +155,8 @@ def test_remove_role_cancelled(tmp_path, monkeypatch):
 
 def test_set_default_role(tmp_path, monkeypatch):
     """Test setting default role in config."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     result = runner.invoke(role_app, ["set-default", "default"])
@@ -170,8 +170,8 @@ def test_set_default_role(tmp_path, monkeypatch):
 
 def test_set_default_role_not_found(tmp_path, monkeypatch):
     """Test setting default to non-existent role fails."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     result = runner.invoke(role_app, ["set-default", "nonexistent"])
@@ -182,8 +182,8 @@ def test_set_default_role_not_found(tmp_path, monkeypatch):
 
 def test_reset_default(tmp_path, monkeypatch):
     """Test resetting default role from packaged defaults."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     # Modify the default role
@@ -206,8 +206,8 @@ def test_reset_default(tmp_path, monkeypatch):
 
 def test_reset_default_cancelled(tmp_path, monkeypatch):
     """Test cancelling default role reset."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     # Modify the default role
@@ -226,8 +226,8 @@ def test_reset_default_cancelled(tmp_path, monkeypatch):
 
 def test_open_folder(tmp_path, monkeypatch):
     """Test opening roles folder."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     # Mock the system calls
@@ -243,44 +243,44 @@ def test_open_folder(tmp_path, monkeypatch):
 
 def test_use_role(tmp_path, monkeypatch):
     """Test use command shows shell commands."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     result = runner.invoke(role_app, ["use", "default", "--shell", "bash"])
     assert result.exit_code == 0
-    assert 'export TERMA_ROLE="default"' in result.stdout
-    assert "unset TERMA_ROLE" in result.stdout
+    assert 'export WHAI_ROLE="default"' in result.stdout
+    assert "unset WHAI_ROLE" in result.stdout
 
 
 def test_use_role_powershell(tmp_path, monkeypatch):
     """Test use command with PowerShell."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     result = runner.invoke(role_app, ["use", "default", "--shell", "pwsh"])
     assert result.exit_code == 0
-    assert '$env:TERMA_ROLE = "default"' in result.stdout
-    assert "Remove-Item Env:TERMA_ROLE" in result.stdout
+    assert '$env:WHAI_ROLE = "default"' in result.stdout
+    assert "Remove-Item Env:WHAI_ROLE" in result.stdout
 
 
 def test_use_role_fish(tmp_path, monkeypatch):
     """Test use command with fish shell."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     result = runner.invoke(role_app, ["use", "default", "--shell", "fish"])
     assert result.exit_code == 0
-    assert 'set -x TERMA_ROLE "default"' in result.stdout
-    assert "set -e TERMA_ROLE" in result.stdout
+    assert 'set -x WHAI_ROLE "default"' in result.stdout
+    assert "set -e WHAI_ROLE" in result.stdout
 
 
 def test_use_role_not_found(tmp_path, monkeypatch):
     """Test use command with non-existent role fails."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     result = runner.invoke(role_app, ["use", "nonexistent", "--shell", "bash"])
@@ -308,27 +308,27 @@ def test_detect_shell():
 
 def test_get_set_command():
     """Test generating set commands for different shells."""
-    assert _get_set_command("bash", "test") == 'export TERMA_ROLE="test"'
-    assert _get_set_command("zsh", "test") == 'export TERMA_ROLE="test"'
-    assert _get_set_command("fish", "test") == 'set -x TERMA_ROLE "test"'
-    assert _get_set_command("pwsh", "test") == '$env:TERMA_ROLE = "test"'
+    assert _get_set_command("bash", "test") == 'export WHAI_ROLE="test"'
+    assert _get_set_command("zsh", "test") == 'export WHAI_ROLE="test"'
+    assert _get_set_command("fish", "test") == 'set -x WHAI_ROLE "test"'
+    assert _get_set_command("pwsh", "test") == '$env:WHAI_ROLE = "test"'
 
 
 def test_get_clear_command():
     """Test generating clear commands for different shells."""
-    assert _get_clear_command("bash") == "unset TERMA_ROLE"
-    assert _get_clear_command("zsh") == "unset TERMA_ROLE"
-    assert _get_clear_command("fish") == "set -e TERMA_ROLE"
+    assert _get_clear_command("bash") == "unset WHAI_ROLE"
+    assert _get_clear_command("zsh") == "unset WHAI_ROLE"
+    assert _get_clear_command("fish") == "set -e WHAI_ROLE"
     assert (
         _get_clear_command("pwsh")
-        == "Remove-Item Env:TERMA_ROLE -ErrorAction SilentlyContinue"
+        == "Remove-Item Env:WHAI_ROLE -ErrorAction SilentlyContinue"
     )
 
 
 def test_interactive_menu_cancel(tmp_path, monkeypatch):
     """Test interactive menu cancellation."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     result = runner.invoke(role_app, [], input="cancel\n")
@@ -338,8 +338,8 @@ def test_interactive_menu_cancel(tmp_path, monkeypatch):
 
 def test_interactive_menu_list(tmp_path, monkeypatch):
     """Test interactive menu list action."""
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
-    monkeypatch.setattr("terma.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
     result = runner.invoke(role_app, [], input="list\n")

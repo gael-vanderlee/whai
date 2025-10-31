@@ -1,4 +1,4 @@
-"""Integration tests for terma.
+"""Integration tests for whai.
 
 These tests verify end-to-end functionality with real components.
 They use mocked LLM responses to avoid API costs.
@@ -10,7 +10,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from terma.main import app
+from whai.main import app
 
 runner = CliRunner()
 
@@ -22,9 +22,9 @@ def integration_test_config(tmp_path, monkeypatch):
     Sets up ephemeral config to avoid writing to user's config directory.
     """
     # Redirect config to temp directory
-    monkeypatch.setattr("terma.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
     # Enable test mode to use ephemeral config (no disk writes)
-    monkeypatch.setenv("TERMA_TEST_MODE", "1")
+    monkeypatch.setenv("WHAI_TEST_MODE", "1")
 
 
 @pytest.fixture
@@ -122,7 +122,7 @@ def test_flow_1_qna_without_commands(mock_llm_text_only):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
     ):
         result = runner.invoke(app, ["what is a .gitignore file?", "--no-context"])
 
@@ -156,9 +156,9 @@ def test_flow_2_command_generation_approved(
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_completion_sequence),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="a"),  # Approve the command
-        patch("terma.main.ShellSession", return_value=mock_session),
+        patch("whai.main.ShellSession", return_value=mock_session),
     ):
         result = runner.invoke(app, ["echo test", "--no-context"])
 
@@ -180,9 +180,9 @@ def test_flow_3_command_generation_rejected(mock_llm_with_tool_call):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_with_tool_call),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="r"),  # Reject the command
-        patch("terma.main.ShellSession", return_value=mock_session),
+        patch("whai.main.ShellSession", return_value=mock_session),
     ):
         result = runner.invoke(app, ["echo test", "--no-context"])
 
@@ -197,7 +197,7 @@ def test_cli_with_role_option(mock_llm_text_only):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
     ):
         result = runner.invoke(app, ["test query", "--role", "default", "--no-context"])
 
@@ -212,7 +212,7 @@ def test_cli_with_model_override(mock_llm_text_only):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
     ):
         result = runner.invoke(
             app, ["test query", "--model", "gpt-5-mini", "--no-context"]
@@ -244,9 +244,9 @@ def test_cli_timeout_default_passed(mock_llm_with_tool_call, mock_llm_text_only)
 
     with (
         patch("litellm.completion", side_effect=mock_completion_sequence),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="a"),
-        patch("terma.main.ShellSession", return_value=mock_session),
+        patch("whai.main.ShellSession", return_value=mock_session),
     ):
         result = runner.invoke(
             app, ["echo test", "--no-context"]
@@ -275,9 +275,9 @@ def test_cli_timeout_override_passed(mock_llm_with_tool_call, mock_llm_text_only
 
     with (
         patch("litellm.completion", side_effect=mock_completion_sequence),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="a"),
-        patch("terma.main.ShellSession", return_value=mock_session),
+        patch("whai.main.ShellSession", return_value=mock_session),
     ):
         result = runner.invoke(app, ["echo test", "--no-context", "--timeout", "30"])
         assert result.exit_code == 0
@@ -304,7 +304,7 @@ def test_cli_with_no_context(mock_llm_text_only):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("terma.context.get_context") as mock_context,
+        patch("whai.context.get_context") as mock_context,
     ):
         result = runner.invoke(app, ["test query", "--no-context"])
 
@@ -316,10 +316,10 @@ def test_cli_with_no_context(mock_llm_text_only):
 def test_cli_missing_config(monkeypatch):
     """Test that interactive config wizard is launched when config is missing."""
     # Disable test mode so MissingConfigError is raised
-    monkeypatch.delenv("TERMA_TEST_MODE", raising=False)
+    monkeypatch.delenv("WHAI_TEST_MODE", raising=False)
 
     # Mock the wizard to simulate user canceling
-    with patch("terma.config_wizard.run_wizard", side_effect=typer.Abort()):
+    with patch("whai.config_wizard.run_wizard", side_effect=typer.Abort()):
         result = runner.invoke(app, ["test query"])
 
     assert result.exit_code == 1
@@ -336,7 +336,7 @@ def test_cli_keyboard_interrupt(mock_llm_text_only):
 
     with (
         patch("litellm.completion", side_effect=mock_completion_with_interrupt),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
     ):
         result = runner.invoke(app, ["test", "--no-context"])
 
@@ -349,7 +349,7 @@ def test_cli_with_context_warning(mock_llm_text_only):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("terma.context.get_context", return_value=("some history", False)),
+        patch("whai.context.get_context", return_value=("some history", False)),
     ):  # Shallow context
         result = runner.invoke(app, ["test query"])
 
@@ -363,7 +363,7 @@ def test_unquoted_arguments(mock_llm_text_only):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
     ):
         result = runner.invoke(
             app, ["what", "is", "a", ".gitignore", "file?", "--no-context"]
@@ -378,7 +378,7 @@ def test_quoted_arguments_backward_compat(mock_llm_text_only):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
     ):
         result = runner.invoke(app, ["what is a .gitignore file?", "--no-context"])
 
@@ -391,7 +391,7 @@ def test_mixed_options_unquoted(mock_llm_text_only):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("terma.context.get_context", return_value=("", False)),
+        patch("whai.context.get_context", return_value=("", False)),
     ):
         result = runner.invoke(app, ["--no-context", "what", "is", "this", "file"])
 
@@ -406,14 +406,14 @@ def test_real_shell_execution():
 
     Tests that the shell session can actually execute commands.
     """
-    from terma.interaction import ShellSession
+    from whai.interaction import ShellSession
 
     with ShellSession() as session:
         stdout, stderr, code = session.execute_command(
-            'echo "Hello from terma"', timeout=60
+            'echo "Hello from whai"', timeout=60
         )
 
-        assert "Hello from terma" in stdout
+        assert "Hello from whai" in stdout
         assert code == 0
 
 
@@ -424,7 +424,7 @@ def test_state_persistence_in_shell():
     """
     import os
 
-    from terma.interaction import ShellSession
+    from whai.interaction import ShellSession
 
     with ShellSession() as session:
         # Change directory

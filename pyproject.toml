@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "terma"
+name = "whai"
 version = "0.1.0"
 description = "A lightweight, Python-based CLI tool that integrates LLMs directly into your terminal"
 readme = "README.md"
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["terma", "defaults"]
+packages = ["whai", "defaults"]
 
 [project.optional-dependencies]
 dev = [
@@ -31,7 +31,7 @@ dev = [
 ]
 
 [project.scripts]
-terma = "terma.main:app"
+whai = "whai.main:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

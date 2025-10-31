@@ -1,6 +1,6 @@
 """Tests for LLM temperature handling and parameter support."""
 
-from terma import llm
+from whai import llm
 
 
 def test_llm_provider_accepts_no_temperature():

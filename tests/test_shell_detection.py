@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from terma.context import _get_shell_from_env, get_shell_executable
-from terma.interaction import ShellSession
+from whai.context import _get_shell_from_env, get_shell_executable
+from whai.interaction import ShellSession
 
 
 class TestShellDetection:
@@ -172,7 +172,7 @@ class TestShellMismatchBug:
         """
         Regression test: Ensure detected shell matches spawned shell.
 
-        This test verifies the fix for the bug where terma would detect PowerShell
+        This test verifies the fix for the bug where whai would detect PowerShell
         from the environment but spawn cmd.exe for command execution, causing
         PowerShell commands to fail or timeout.
         """

@@ -1,7 +1,7 @@
 """Mock litellm module for subprocess-based E2E tests.
 
 Placed under tests/mocks and injected via PYTHONPATH from tests to avoid
-network calls during `python -m terma` subprocess runs. This file is only
+network calls during `python -m whai` subprocess runs. This file is only
 used in tests and never shipped with the package.
 """
 
@@ -13,12 +13,12 @@ def completion(**kwargs):  # pragma: no cover - exercised via subprocess
     """Return a deterministic mock completion response.
 
     Behavior is controlled by environment variables:
-    - TERMA_MOCK_TOOLCALL=1: emit a single execute_shell tool call.
+    - WHAI_MOCK_TOOLCALL=1: emit a single execute_shell tool call.
     - otherwise: emit text-only streaming response.
     """
     stream = kwargs.get("stream", True)
 
-    if os.getenv("TERMA_MOCK_TOOLCALL") == "1":
+    if os.getenv("WHAI_MOCK_TOOLCALL") == "1":
         # Emit a tool call to execute an echo
         import json as _json
 

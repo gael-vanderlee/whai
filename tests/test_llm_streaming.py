@@ -1,6 +1,6 @@
 from typing import Any
 
-from terma.llm import LLMProvider
+from whai.llm import LLMProvider
 
 
 class _DeltaFunction:

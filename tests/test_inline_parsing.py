@@ -1,4 +1,4 @@
-from terma.main import _extract_inline_overrides
+from whai.main import _extract_inline_overrides
 
 
 def test_extract_inline_overrides_parses_all_supported_flags():

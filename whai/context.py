@@ -5,8 +5,8 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
 
-from terma.logging_setup import get_logger
-from terma.utils import detect_shell
+from whai.logging_setup import get_logger
+from whai.utils import detect_shell
 
 logger = get_logger(__name__)
 

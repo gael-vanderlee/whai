@@ -3,7 +3,7 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
-from terma import context
+from whai import context
 
 
 def test_is_wsl_on_windows():
@@ -65,7 +65,7 @@ def test_get_tmux_context_windows_wsl():
     with (
         patch.dict("os.environ", {"TMUX": "/tmp/tmux-1000/default,12345,0"}),
         patch("os.name", "nt"),
-        patch("terma.context._is_wsl", return_value=True),
+        patch("whai.context._is_wsl", return_value=True),
         patch("subprocess.run") as mock_run,
     ):
         mock_run.return_value = MagicMock(returncode=0, stdout=mock_output)
@@ -193,7 +193,7 @@ def test_get_history_context_zsh(tmp_path):
     history_file.write_text(": 1234567890:0;ls\n: 1234567891:0;cd /tmp\n")
 
     with (
-        patch("terma.context._get_shell_from_env", return_value="zsh"),
+        patch("whai.context._get_shell_from_env", return_value="zsh"),
         patch("pathlib.Path.home", return_value=tmp_path),
     ):
         result = context._get_history_context(max_commands=10)
@@ -210,7 +210,7 @@ def test_get_history_context_bash(tmp_path):
     history_file.write_text("ls\ncd /tmp\n")
 
     with (
-        patch("terma.context._get_shell_from_env", return_value="bash"),
+        patch("whai.context._get_shell_from_env", return_value="bash"),
         patch("pathlib.Path.home", return_value=tmp_path),
     ):
         result = context._get_history_context(max_commands=10)
@@ -223,7 +223,7 @@ def test_get_history_context_bash(tmp_path):
 def test_get_history_context_no_history(tmp_path):
     """Test getting history context when no history file exists."""
     with (
-        patch("terma.context._get_shell_from_env", return_value="bash"),
+        patch("whai.context._get_shell_from_env", return_value="bash"),
         patch("pathlib.Path.home", return_value=tmp_path),
     ):
         result = context._get_history_context(max_commands=10)
@@ -233,8 +233,8 @@ def test_get_history_context_no_history(tmp_path):
 def test_get_context_prefers_tmux():
     """Test that get_context prefers tmux over history."""
     with (
-        patch("terma.context._get_tmux_context", return_value="tmux output"),
-        patch("terma.context._get_history_context", return_value="history output"),
+        patch("whai.context._get_tmux_context", return_value="tmux output"),
+        patch("whai.context._get_history_context", return_value="history output"),
     ):
         context_str, is_deep = context.get_context()
 
@@ -245,8 +245,8 @@ def test_get_context_prefers_tmux():
 def test_get_context_falls_back_to_history():
     """Test that get_context falls back to history when tmux is unavailable."""
     with (
-        patch("terma.context._get_tmux_context", return_value=None),
-        patch("terma.context._get_history_context", return_value="history output"),
+        patch("whai.context._get_tmux_context", return_value=None),
+        patch("whai.context._get_history_context", return_value="history output"),
     ):
         context_str, is_deep = context.get_context()
 
@@ -257,8 +257,8 @@ def test_get_context_falls_back_to_history():
 def test_get_context_no_context_available():
     """Test get_context when no context is available."""
     with (
-        patch("terma.context._get_tmux_context", return_value=None),
-        patch("terma.context._get_history_context", return_value=None),
+        patch("whai.context._get_tmux_context", return_value=None),
+        patch("whai.context._get_history_context", return_value=None),
     ):
         context_str, is_deep = context.get_context()
 

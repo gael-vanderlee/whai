@@ -1,4 +1,4 @@
-"""Configuration management for terma."""
+"""Configuration management for whai."""
 
 import os
 from pathlib import Path
@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Tuple
 import tomllib  # Python 3.11+, use tomli for older versions
 import yaml
 
-from terma.logging_setup import get_logger
+from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,7 @@ class MissingConfigError(RuntimeError):
 
 
 def get_config_dir() -> Path:
-    """Get the terma configuration directory."""
+    """Get the whai configuration directory."""
     if os.name == "nt":  # Windows
         config_base = Path(
             os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")
@@ -27,7 +27,7 @@ def get_config_dir() -> Path:
     else:  # Unix-like
         config_base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 
-    return config_base / "terma"
+    return config_base / "whai"
 
 
 def get_config_path() -> Path:
@@ -37,11 +37,11 @@ def get_config_path() -> Path:
 
 def load_config(*, allow_ephemeral: bool = False) -> Dict[str, Any]:
     """
-    Load configuration from ~/.config/terma/config.toml.
+    Load configuration from ~/.config/whai/config.toml.
 
     Args:
         allow_ephemeral: If True, return in-memory default config when file doesn't exist
-                        instead of raising an error. Also enabled via TERMA_TEST_MODE=1.
+                        instead of raising an error. Also enabled via WHAI_TEST_MODE=1.
 
     Returns:
         Dictionary containing configuration settings.
@@ -54,7 +54,7 @@ def load_config(*, allow_ephemeral: bool = False) -> Dict[str, Any]:
     # Handle missing config file
     if not config_file.exists():
         # Check for test mode via environment variable
-        is_test_mode = os.getenv("TERMA_TEST_MODE") == "1"
+        is_test_mode = os.getenv("WHAI_TEST_MODE") == "1"
 
         if allow_ephemeral or is_test_mode:
             logger.warning("Config missing; returning ephemeral defaults for test mode")
@@ -71,7 +71,7 @@ def load_config(*, allow_ephemeral: bool = False) -> Dict[str, Any]:
 
         raise MissingConfigError(
             f"Configuration file not found at {config_file}. "
-            f"Run 'terma --interactive-config' to create your configuration."
+            f"Run 'whai --interactive-config' to create your configuration."
         )
 
     # Load and parse the config file
@@ -84,7 +84,7 @@ def load_config(*, allow_ephemeral: bool = False) -> Dict[str, Any]:
 
 def save_config(config: Dict[str, Any]) -> None:
     """
-    Save configuration to ~/.config/terma/config.toml.
+    Save configuration to ~/.config/whai/config.toml.
 
     Args:
         config: Configuration dictionary to save.
@@ -155,7 +155,7 @@ def summarize_config(config: Dict[str, Any]) -> str:
 
 def validate_llm_config(config: Dict[str, Any]) -> Tuple[bool, str]:
     """
-    Validate minimal LLM configuration needed to run terma.
+    Validate minimal LLM configuration needed to run whai.
 
     Returns:
         (is_valid, message). On failure, message explains what to fix.
@@ -233,7 +233,7 @@ def get_default_role(role_name: str) -> str:
     if not role_file.exists():
         raise FileNotFoundError(
             f"Default role file for '{role_name}' not found at {role_file}. "
-            "This indicates a broken installation. Please reinstall terma."
+            "This indicates a broken installation. Please reinstall whai."
         )
 
     logger.debug("Loaded default role '%s' from %s", role_name, role_file)
@@ -289,7 +289,7 @@ def parse_role_file(content: str) -> Tuple[Dict[str, Any], str]:
 
 def load_role(role_name: str = "default") -> Tuple[Dict[str, Any], str]:
     """
-    Load a role from ~/.config/terma/roles/{role_name}.md.
+    Load a role from ~/.config/whai/roles/{role_name}.md.
 
     Args:
         role_name: Name of the role to load (without .md extension).
@@ -319,7 +319,7 @@ def resolve_role(
 ) -> str:
     """Resolve the role to use based on precedence.
 
-    Precedence: explicit CLI value > TERMA_ROLE env var > config default > "default".
+    Precedence: explicit CLI value > WHAI_ROLE env var > config default > "default".
 
     Args:
         cli_role: Role name provided explicitly by CLI options.
@@ -333,7 +333,7 @@ def resolve_role(
         return cli_role
 
     # 2) Environment variable
-    env_role = os.getenv("TERMA_ROLE")
+    env_role = os.getenv("WHAI_ROLE")
     if env_role:
         return env_role
 

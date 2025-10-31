@@ -6,14 +6,14 @@ from typing import Any, Dict
 import click
 import typer
 
-from terma.config import (
+from whai.config import (
     ensure_default_roles,
     get_config_path,
     load_config,
     save_config,
     summarize_config,
 )
-from terma.logging_setup import get_logger
+from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
 

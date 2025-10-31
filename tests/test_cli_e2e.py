@@ -1,6 +1,6 @@
 """Subprocess-based CLI end-to-end tests.
 
-These tests invoke the real CLI via `python -m terma` to validate that
+These tests invoke the real CLI via `python -m whai` to validate that
 the packaging entrypoint, Typer parsing, config handling, and LLM/Shell
 integration paths work together. Network calls are avoided by prepending
 `tests/mocks` to `PYTHONPATH`, which provides a mock `litellm` module.
@@ -16,9 +16,9 @@ def _base_env(tmp_path: Path, *, toolcall: bool = False) -> dict:
     """Construct a clean environment for subprocess CLI runs.
 
     - Adds tests directory to PYTHONPATH so sitecustomize is auto-imported.
-    - Sets TERMA_TEST_MODE=1 to trigger ephemeral config and mocked LLM.
+    - Sets WHAI_TEST_MODE=1 to trigger ephemeral config and mocked LLM.
     - Redirects config base dir to tmp_path for isolation.
-    - Optionally enables tool-call streaming via TERMA_MOCK_TOOLCALL=1.
+    - Optionally enables tool-call streaming via WHAI_MOCK_TOOLCALL=1.
     """
     env = {k: v for k, v in os.environ.items()}
     project_root = Path(__file__).resolve().parents[1]
@@ -28,7 +28,7 @@ def _base_env(tmp_path: Path, *, toolcall: bool = False) -> dict:
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = str(mocks_dir) + (os.pathsep + existing if existing else "")
 
-    env["TERMA_TEST_MODE"] = "1"
+    env["WHAI_TEST_MODE"] = "1"
 
     # Redirect config location
     if os.name == "nt":
@@ -37,7 +37,7 @@ def _base_env(tmp_path: Path, *, toolcall: bool = False) -> dict:
         env["XDG_CONFIG_HOME"] = str(tmp_path)
 
     if toolcall:
-        env["TERMA_MOCK_TOOLCALL"] = "1"
+        env["WHAI_MOCK_TOOLCALL"] = "1"
 
     return env
 
@@ -45,8 +45,8 @@ def _base_env(tmp_path: Path, *, toolcall: bool = False) -> dict:
 def _run_cli(
     args: list[str], *, env: dict, input_text: str | None = None, timeout: int = 20
 ):
-    """Run `python -m terma` with provided args as a subprocess."""
-    cmd = [sys.executable, "-m", "terma", *args]
+    """Run `python -m whai` with provided args as a subprocess."""
+    cmd = [sys.executable, "-m", "whai", *args]
     proc = subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE,
@@ -65,7 +65,7 @@ def _run_cli(
 
 
 def test_cli_module_text_only(tmp_path):
-    """`python -m terma` prints mocked text-only response and exits 0."""
+    """`python -m whai` prints mocked text-only response and exits 0."""
     env = _base_env(tmp_path)
     code, out, err = _run_cli(["--no-context", "what is a .gitignore file?"], env=env)
     assert code == 0
@@ -83,7 +83,7 @@ def test_cli_module_help_when_no_args(tmp_path):
 
 
 def test_cli_role_list_subcommand(tmp_path):
-    """`python -m terma role list` works in isolated config dir."""
+    """`python -m whai role list` works in isolated config dir."""
     env = _base_env(tmp_path)
     code, out, err = _run_cli(["role", "list"], env=env)
     assert code == 0

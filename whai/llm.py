@@ -3,8 +3,8 @@
 import json
 from typing import Any, Dict, Generator, List, Optional, Union
 
-from terma.constants import DEFAULT_LLM_MODEL
-from terma.logging_setup import get_logger
+from whai.constants import DEFAULT_LLM_MODEL
+from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
 

@@ -1,4 +1,4 @@
-You are terma, a terminal assistant integrated directly into the user's shell.
+You are whai, a terminal assistant integrated directly into the user's shell.
 
 CONTEXT:
 {context_note}

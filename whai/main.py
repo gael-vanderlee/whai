@@ -1,4 +1,4 @@
-"""Main CLI entry point for terma."""
+"""Main CLI entry point for whai."""
 
 import json
 import sys
@@ -7,22 +7,22 @@ from typing import Optional
 
 import typer
 
-from terma import ui
-from terma.config import (
+from whai import ui
+from whai.config import (
     MissingConfigError,
     load_config,
     load_role,
     resolve_role,
     validate_llm_config,
 )
-from terma.constants import DEFAULT_LLM_MODEL
-from terma.context import get_context
-from terma.interaction import ShellSession, approval_loop
-from terma.llm import LLMProvider, get_base_system_prompt
-from terma.logging_setup import configure_logging, get_logger
-from terma.role_cli import role_app
+from whai.constants import DEFAULT_LLM_MODEL
+from whai.context import get_context
+from whai.interaction import ShellSession, approval_loop
+from whai.llm import LLMProvider, get_base_system_prompt
+from whai.logging_setup import configure_logging, get_logger
+from whai.role_cli import role_app
 
-app = typer.Typer(help="terma - Your terminal assistant powered by LLMs")
+app = typer.Typer(help="whai - Your terminal assistant powered by LLMs")
 app.add_typer(role_app, name="role")
 
 logger = get_logger(__name__)
@@ -162,15 +162,15 @@ def main(
     ),
 ):
     """
-    terma - Your terminal assistant powered by LLMs.
+    whai - Your terminal assistant powered by LLMs.
 
     Ask questions, get command suggestions, troubleshoot issues, and more.
 
     Examples:
-        terma what is the biggest folder here?
-        terma "what's the biggest folder here?"
-        terma why did my last command fail? -r debug
-        terma "how do I find all .py files modified today?"
+        whai what is the biggest folder here?
+        whai "what's the biggest folder here?"
+        whai why did my last command fail? -r debug
+        whai "how do I find all .py files modified today?"
 
     Note: If your query contains spaces, apostrophes ('), or quotation marks, always wrap it in double quotes to avoid shell parsing errors.
     """
@@ -194,7 +194,7 @@ def main(
 
     # Handle interactive config flag
     if interactive_config:
-        from terma.config_wizard import run_wizard
+        from whai.config_wizard import run_wizard
 
         try:
             run_wizard(existing_config=True)
@@ -251,7 +251,7 @@ def main(
             config = load_config()
         except MissingConfigError:
             ui.warn("Configuration not found. Starting interactive setup...")
-            from terma.config_wizard import run_wizard
+            from whai.config_wizard import run_wizard
 
             try:
                 run_wizard(existing_config=False)
@@ -272,7 +272,7 @@ def main(
         ok, cfg_msg = validate_llm_config(config)
         if not ok:
             ui.error(cfg_msg)
-            ui.info("Run 'terma --interactive-config' to set up your configuration.")
+            ui.info("Run 'whai --interactive-config' to set up your configuration.")
             raise typer.Exit(1)
 
         # Resolve role using shared function (CLI > env > config > default)
@@ -302,7 +302,7 @@ def main(
         )
 
         # 2. Detect shell for both context and session
-        from terma.context import get_shell_executable
+        from whai.context import get_shell_executable
 
         shell_executable = get_shell_executable()
         logger.info(

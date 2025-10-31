@@ -2,7 +2,7 @@
 
 import logging
 
-from terma.logging_setup import configure_logging
+from whai.logging_setup import configure_logging
 
 if __name__ == "__main__":
     # Configure logging BEFORE importing heavy modules to get early debug output
@@ -10,6 +10,6 @@ if __name__ == "__main__":
     logging.getLogger(__name__).debug("terma module entry starting up")
 
     # Import CLI app only after logging is configured to observe import-time delays
-    from terma.main import app
+    from whai.main import app
 
     app()

@@ -19,8 +19,8 @@ def _is_tty() -> bool:
         return False
 
 
-# Detect plain mode: enabled when TERMA_PLAIN=1 or not a TTY
-PLAIN_MODE = os.getenv("TERMA_PLAIN", "").strip() == "1" or not _is_tty()
+# Detect plain mode: enabled when WHAI_PLAIN=1 or not a TTY
+PLAIN_MODE = os.getenv("WHAI_PLAIN", "").strip() == "1" or not _is_tty()
 
 # Create console with appropriate settings
 console = Console(

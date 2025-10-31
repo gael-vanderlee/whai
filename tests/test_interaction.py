@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from terma import interaction
+from whai import interaction
 
 
 def test_shell_session_init_unix():
@@ -91,7 +91,7 @@ def test_execute_command_success():
                     side_effect_func.stdout_lines = [
                         "file1.txt\n",
                         "file2.txt\n",
-                        "___TERMA_CMD_DONE_123456___\n",
+                        "___WHAI_CMD_DONE_123456___\n",
                     ]
 
                 if stream == mock_process.stdout and side_effect_func.stdout_lines:
@@ -107,7 +107,7 @@ def test_execute_command_success():
 
             assert "file1.txt" in stdout
             assert "file2.txt" in stdout
-            assert "___TERMA_CMD_DONE_123456___" not in stdout
+            assert "___WHAI_CMD_DONE_123456___" not in stdout
 
 
 def test_execute_command_dead_process():

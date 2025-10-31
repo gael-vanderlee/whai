@@ -9,8 +9,8 @@ import threading
 import time
 from typing import Optional, Tuple
 
-from terma import ui
-from terma.logging_setup import get_logger
+from whai import ui
+from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
@@ -128,7 +128,7 @@ class ShellSession:
 
         # Generate a unique marker for this command
         # Use a random number to make it unique
-        marker = f"___TERMA_CMD_DONE_{random.randint(100000, 999999)}___"
+        marker = f"___WHAI_CMD_DONE_{random.randint(100000, 999999)}___"
 
         try:
             # Normalize Windows 'cd' to allow drive changes in cmd.exe

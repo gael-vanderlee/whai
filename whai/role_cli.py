@@ -1,4 +1,4 @@
-"""Role management CLI for terma."""
+"""Role management CLI for whai."""
 
 import os
 import re
@@ -9,7 +9,7 @@ from typing import Optional
 import click
 import typer
 
-from terma.config import (
+from whai.config import (
     ensure_default_roles,
     get_config_dir,
     get_default_role,
@@ -17,11 +17,11 @@ from terma.config import (
     resolve_role,
     save_config,
 )
-from terma.logging_setup import get_logger
-from terma.utils import SUPPORTED_SHELLS, ShellType, detect_shell
+from whai.logging_setup import get_logger
+from whai.utils import SUPPORTED_SHELLS, ShellType, detect_shell
 
 logger = get_logger(__name__)
-role_app = typer.Typer(help="Manage terma roles", no_args_is_help=False)
+role_app = typer.Typer(help="Manage whai roles", no_args_is_help=False)
 
 ROLE_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
@@ -64,23 +64,23 @@ def _open_in_editor(path: Path) -> None:
 
 
 def _get_set_command(shell: ShellType, role_name: str) -> str:
-    """Get the command to set TERMA_ROLE for the given shell."""
+    """Get the command to set WHAI_ROLE for the given shell."""
     if shell == "pwsh":
-        return f'$env:TERMA_ROLE = "{role_name}"'
+        return f'$env:WHAI_ROLE = "{role_name}"'
     elif shell == "fish":
-        return f'set -x TERMA_ROLE "{role_name}"'
+        return f'set -x WHAI_ROLE "{role_name}"'
     else:  # bash/zsh
-        return f'export TERMA_ROLE="{role_name}"'
+        return f'export WHAI_ROLE="{role_name}"'
 
 
 def _get_clear_command(shell: ShellType) -> str:
-    """Get the command to clear TERMA_ROLE for the given shell."""
+    """Get the command to clear WHAI_ROLE for the given shell."""
     if shell == "pwsh":
-        return "Remove-Item Env:TERMA_ROLE -ErrorAction SilentlyContinue"
+        return "Remove-Item Env:WHAI_ROLE -ErrorAction SilentlyContinue"
     elif shell == "fish":
-        return "set -e TERMA_ROLE"
+        return "set -e WHAI_ROLE"
     else:  # bash/zsh
-        return "unset TERMA_ROLE"
+        return "unset WHAI_ROLE"
 
 
 @role_app.command("list")
@@ -235,7 +235,7 @@ def use_role(
     """
     Show how to set the role for the current shell session.
 
-    This prints the command to set TERMA_ROLE for your shell.
+    This prints the command to set WHAI_ROLE for your shell.
     Copy and run it, or use eval/Invoke-Expression.
     """
     try:
@@ -289,7 +289,7 @@ def role_manager(ctx: typer.Context) -> None:
         typer.echo(
             f"'{bad}' is not a recognized role command.\n"
             "If you want to send a message starting with the word 'role', wrap it in quotes:\n"
-            '  terma "role play as a bad assistant"\n',
+            '  whai "role play as a bad assistant"\n',
             err=True,
         )
         raise typer.Exit(2)

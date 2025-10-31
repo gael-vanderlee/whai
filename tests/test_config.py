@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from terma import config
+from whai import config
 
 
 def test_get_config_dir_windows():
@@ -15,7 +15,7 @@ def test_get_config_dir_windows():
         patch.dict("os.environ", {"APPDATA": "C:\\Users\\Test\\AppData\\Roaming"}),
     ):
         config_dir = config.get_config_dir()
-        assert config_dir == Path("C:\\Users\\Test\\AppData\\Roaming") / "terma"
+        assert config_dir == Path("C:\\Users\\Test\\AppData\\Roaming") / "whai"
 
 
 def test_get_config_dir_unix():
@@ -31,7 +31,7 @@ def test_get_config_dir_unix():
         patch.dict("os.environ", {"XDG_CONFIG_HOME": "/home/test/.config"}),
     ):
         config_dir = config.get_config_dir()
-        assert config_dir == Path("/home/test/.config") / "terma"
+        assert config_dir == Path("/home/test/.config") / "whai"
 
 
 # Removed test_get_default_config - no longer needed as default config is not part of main codebase
@@ -65,10 +65,10 @@ def test_load_config_ephemeral_mode(tmp_path, monkeypatch):
 
 
 def test_load_config_test_mode_env(tmp_path, monkeypatch):
-    """Test that load_config respects TERMA_TEST_MODE environment variable."""
+    """Test that load_config respects WHAI_TEST_MODE environment variable."""
     # Use a temporary directory as the config directory
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
-    monkeypatch.setenv("TERMA_TEST_MODE", "1")
+    monkeypatch.setenv("WHAI_TEST_MODE", "1")
 
     # Load config should return defaults due to env var
     cfg = config.load_config()

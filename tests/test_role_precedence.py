@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from terma import config
-from terma.main import app
+from whai import config
+from whai.main import app
 
 runner = CliRunner()
 
@@ -21,13 +21,13 @@ def test_role_precedence_cli_flag(tmp_path, monkeypatch):
     config.save_config(cfg)
 
     # Set environment variable
-    monkeypatch.setenv("TERMA_ROLE", "default")
+    monkeypatch.setenv("WHAI_ROLE", "default")
 
     # Use CLI flag - should override both env and config
     with (
         patch("litellm.completion") as mock_llm,
-        patch("terma.context.get_context", return_value=("", False)),
-        patch("terma.interaction.ShellSession"),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.interaction.ShellSession"),
     ):
         mock_llm.return_value.choices = []
         mock_llm.return_value.usage = type("obj", (object,), {"total_tokens": 0})
@@ -35,7 +35,7 @@ def test_role_precedence_cli_flag(tmp_path, monkeypatch):
         result = runner.invoke(
             app,
             ["test query", "--role", "custom", "--no-context"],
-            env={"TERMA_ROLE": "default"},
+            env={"WHAI_ROLE": "default"},
         )
 
         # The test should attempt to load the "custom" role
@@ -54,12 +54,12 @@ def test_role_precedence_env_over_config(tmp_path, monkeypatch):
     config.save_config(cfg)
 
     # Set environment variable to "debug"
-    monkeypatch.setenv("TERMA_ROLE", "debug")
+    monkeypatch.setenv("WHAI_ROLE", "debug")
 
     with (
         patch("litellm.completion") as mock_llm,
-        patch("terma.context.get_context", return_value=("", False)),
-        patch("terma.interaction.ShellSession"),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.interaction.ShellSession"),
     ):
         # Mock LLM to return immediately
         mock_response = type(
@@ -86,7 +86,7 @@ def test_role_precedence_env_over_config(tmp_path, monkeypatch):
         mock_llm.return_value = mock_response
 
         result = runner.invoke(
-            app, ["test query", "--no-context"], env={"TERMA_ROLE": "debug"}
+            app, ["test query", "--no-context"], env={"WHAI_ROLE": "debug"}
         )
 
         # Verify that "debug" role was loaded (appears in output)
@@ -106,8 +106,8 @@ def test_role_precedence_config_over_default(tmp_path, monkeypatch):
 
     with (
         patch("litellm.completion") as mock_llm,
-        patch("terma.context.get_context", return_value=("", False)),
-        patch("terma.interaction.ShellSession"),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.interaction.ShellSession"),
     ):
         # Mock LLM to return immediately
         mock_response = type(
@@ -153,8 +153,8 @@ def test_role_fallback_to_default(tmp_path, monkeypatch):
 
     with (
         patch("litellm.completion") as mock_llm,
-        patch("terma.context.get_context", return_value=("", False)),
-        patch("terma.interaction.ShellSession"),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.interaction.ShellSession"),
     ):
         # Mock LLM to return immediately
         mock_response = type(
@@ -188,7 +188,7 @@ def test_role_fallback_to_default(tmp_path, monkeypatch):
 
 
 def test_role_env_variable_empty_string(tmp_path, monkeypatch):
-    """Test that empty TERMA_ROLE env variable doesn't override config."""
+    """Test that empty WHAI_ROLE env variable doesn't override config."""
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
     config.ensure_default_roles()
 
@@ -198,12 +198,12 @@ def test_role_env_variable_empty_string(tmp_path, monkeypatch):
     config.save_config(cfg)
 
     # Set environment variable to empty string (should be ignored)
-    monkeypatch.setenv("TERMA_ROLE", "")
+    monkeypatch.setenv("WHAI_ROLE", "")
 
     with (
         patch("litellm.completion") as mock_llm,
-        patch("terma.context.get_context", return_value=("", False)),
-        patch("terma.interaction.ShellSession"),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.interaction.ShellSession"),
     ):
         # Mock LLM to return immediately
         mock_response = type(
@@ -230,7 +230,7 @@ def test_role_env_variable_empty_string(tmp_path, monkeypatch):
         mock_llm.return_value = mock_response
 
         result = runner.invoke(
-            app, ["test query", "--no-context"], env={"TERMA_ROLE": ""}
+            app, ["test query", "--no-context"], env={"WHAI_ROLE": ""}
         )
 
         # Verify that config's "debug" role was loaded

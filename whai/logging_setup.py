@@ -1,4 +1,4 @@
-"""Logging configuration for terma.
+"""Logging configuration for whai.
 
 Centralizes logging setup with simple, level-based control. Defaults to
 INFO for concise, useful output; DEBUG enables verbose diagnostics.
@@ -10,11 +10,11 @@ from typing import Optional
 
 
 def configure_logging(level: Optional[str] = None) -> None:
-    """Configure root logging handlers/levels for terma.
+    """Configure root logging handlers/levels for whai.
 
     Args:
         level: Optional log level name (e.g., "INFO", "DEBUG"). Defaults to INFO.
-               Can also be provided via TERMA_LOG_LEVEL env var.
+               Can also be provided via WHAI_LOG_LEVEL env var.
     """
     root_logger = logging.getLogger()
 
@@ -25,7 +25,7 @@ def configure_logging(level: Optional[str] = None) -> None:
     # Resolve target level
     resolved_level_name = (
         (level or "").strip().upper()
-        or os.environ.get("TERMA_LOG_LEVEL", "").strip().upper()
+        or os.environ.get("WHAI_LOG_LEVEL", "").strip().upper()
         or "ERROR"
     )
     if resolved_level_name not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
@@ -44,7 +44,7 @@ def configure_logging(level: Optional[str] = None) -> None:
     root_logger.addHandler(console)
 
     # Tame noisy third-party loggers unless explicitly requested
-    if os.environ.get("TERMA_VERBOSE_DEPS", "").lower() not in {"1", "true", "yes"}:
+    if os.environ.get("WHAI_VERBOSE_DEPS", "").lower() not in {"1", "true", "yes"}:
         noisy_names = (
             "litellm",
             "LiteLLM",
@@ -137,7 +137,7 @@ class _ColorFormatter(logging.Formatter):
 
 def _get_dev_color_formatter() -> logging.Formatter:
     """Create the dev formatter with color when supported."""
-    # Tabs for alignment; use logger name with line number: terma.llm:289
+    # Tabs for alignment; use logger name with line number: whai.llm:289
     fmt = "[%(levelname)s]\t%(asctime)s.%(msecs)03d\t%(name)s:%(lineno)d\t%(message)s"
     datefmt = "%H:%M:%S"
 

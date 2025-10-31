@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from terma import llm
+from whai import llm
 
 
 def test_get_base_system_prompt_deep_context():
@@ -13,7 +13,7 @@ def test_get_base_system_prompt_deep_context():
     prompt = llm.get_base_system_prompt(is_deep_context=True)
     assert "terminal scrollback" in prompt
     assert "commands and their output" in prompt
-    assert "terma" in prompt
+    assert "whai" in prompt
     assert "execute_shell" in prompt
     # Should include system information
     assert "System:" in prompt
@@ -227,7 +227,7 @@ def test_logs_include_llm_request_payload(caplog):
 
     with patch("litellm.completion", return_value=mock_response):
         provider = llm.LLMProvider(config)
-        with caplog.at_level("DEBUG", logger="terma.llm"):
+        with caplog.at_level("DEBUG", logger="whai.llm"):
             provider.send_message(messages, stream=False, tools=[])
 
     # Find the payload log line
@@ -262,9 +262,9 @@ def test_send_message_real_api():
     """
     import os
 
-    from terma import config as terma_config
+    from whai import config as terma_config
 
-    # Determine API key from environment or terma config
+    # Determine API key from environment or whai config
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         try:
@@ -275,7 +275,7 @@ def test_send_message_real_api():
 
     # Skip if no API key from env or config, or if it's a dummy/test key
     if not api_key or api_key in ("test-key-123", "your-api-key-here"):
-        pytest.skip("No valid OpenAI API key in environment or terma config")
+        pytest.skip("No valid OpenAI API key in environment or whai config")
 
     config = {
         "llm": {

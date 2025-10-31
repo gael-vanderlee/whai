@@ -1,21 +1,21 @@
-# terma - Terminal Assistant
+# whai - Terminal Assistant
 
-`terma` is a **lightweight and fast** AI terminal assistant that integrates directly into your native shell.
+`whai` is a **lightweight and fast** AI terminal assistant that integrates directly into your native shell.
 
-The philosophy of `terma` is to **never interrupt your workflow**. You use your terminal as you normally would. It is not a sub-shell or a separate REPL; it is a single, fast binary that you call on-demand.
+The philosophy of `whai` is to **never interrupt your workflow**. You use your terminal as you normally would. It is not a sub-shell or a separate REPL; it is a single, fast binary that you call on-demand.
 
-When you get stuck, need a command, or encounter an error, you simply call `terma` for immediate help.
+When you get stuck, need a command, or encounter an error, you simply call `whai` for immediate help.
 
 ### Core Features
 
 * **Analyze Previous Errors:** If a command fails, you don't need to copy-paste. Just ask:
-    `> terma why did that fail?`
+    `> whai why did that fail?`
     It reads the failed command and its full error output from your `tmux` history to provide an immediate diagnosis and solution.
-* **Persistent Roles (Memory):** `terma` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*—what machine you are on, what tools are available, your personal preferences, and how you like to work—and `terma` retains this context for all future interactions.
-* **Full Session Context:** By securely reading your `tmux` scrollback, `terma` understands not just the commands you ran, but also *what those commands returned*. This provides intelligent, multi-step assistance based on the actual state of your terminal.
+* **Persistent Roles (Memory):** `whai` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*—what machine you are on, what tools are available, your personal preferences, and how you like to work—and `whai` retains this context for all future interactions.
+* **Full Session Context:** By securely reading your `tmux` scrollback, `whai` understands not just the commands you ran, but also *what those commands returned*. This provides intelligent, multi-step assistance based on the actual state of your terminal.
 * **On-Demand Assistance:** Get help exactly when you need it, from command generation to complex debugging, right in your active shell:
-    `> terma find all folders over G`
-    `> terma how do I debug this high resource usage?`
+    `> whai find all folders over G`
+    `> whai how do I debug this high resource usage?`
 * **Safe by Design:** No command is *ever* executed without your explicit `[a]pprove` / `[r]eject` confirmation.
 * **Model-Agnostic:** Natively supports OpenAI, Gemini, Anthropic, local Ollama models, and more.
 
@@ -30,8 +30,8 @@ When you get stuck, need a command, or encounter an error, you simply call `term
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/terma.git
-cd terma
+git clone https://github.com/gael-vanderlee/whai.git
+cd whai
 
 # Create virtual environment and install
 uv venv
@@ -49,12 +49,12 @@ pip install -e .
 
 ### Interactive Configuration Setup
 
-On first run, terma will launch an interactive configuration wizard to help you set up your API keys and provider settings.
+On first run, whai will launch an interactive configuration wizard to help you set up your API keys and provider settings.
 
 You can also run the wizard manually at any time:
 
 ```bash
-terma --interactive-config
+whai --interactive-config
 ```
 
 The wizard will guide you through:
@@ -63,7 +63,7 @@ The wizard will guide you through:
 - Setting your provider's default model
 - Managing multiple providers
 
-Configuration is stored at `~/.config/terma/config.toml` (or `%APPDATA%\terma\config.toml` on Windows).
+Configuration is stored at `~/.config/whai/config.toml` (or `%APPDATA%\whai\config.toml` on Windows).
 
 ### Manual Configuration
 
@@ -119,23 +119,23 @@ Get API keys from:
 
 ```bash
 # Ask a question (quotes optional for multi-word queries, required for apostrophes)
-terma what is the biggest folder here?
-terma "what's the biggest folder here?"
+whai what is the biggest folder here?
+whai "what's the biggest folder here?"
 
 # Get help with a task
-terma how do I find all .py files modified today?
-terma "how do I find all .py files modified today?"
+whai how do I find all .py files modified today?
+whai "how do I find all .py files modified today?"
 
 # Troubleshooting (works best in tmux)
-terma why did my last command fail?
-terma "why did my last command fail?"
+whai why did my last command fail?
+whai "why did my last command fail?"
 ```
 
 ### Options
 
 ```bash
-terma your question [OPTIONS]
-terma "your question" [OPTIONS]  # quotes optional
+whai your question [OPTIONS]
+whai "your question" [OPTIONS]  # quotes optional
 
 Options:
   -r, --role TEXT        Role to use (default or a custom role)
@@ -151,13 +151,13 @@ Options:
 
 ```bash
 # Default (ERROR)
-terma "your question"
+whai "your question"
 
 # Show timings and key steps
-terma "your question" -v INFO
+whai "your question" -v INFO
 
 # Full diagnostics (payloads, prompts)
-terma "your question" -v DEBUG
+whai "your question" -v DEBUG
 ```
 
 ### Pretty Output
@@ -172,8 +172,8 @@ Pretty output automatically disables in non-interactive environments (pipes, red
 
 To force plain text output:
 ```bash
-export TERMA_PLAIN=1
-terma your question
+export WHAI_PLAIN=1
+whai your question
 ```
 
 This is useful for:
@@ -186,24 +186,24 @@ This is useful for:
 
 ```bash
 # Use a custom role for troubleshooting (if you created one)
-terma analyze this error -r troubleshooting
+whai analyze this error -r troubleshooting
 
 # Use a different model
-terma list large files -m gpt-5-mini
+whai list large files -m gpt-5-mini
 
 # Skip context capture for faster responses
-terma what is a .gitignore file? --no-context
+whai what is a .gitignore file? --no-context
 
 # Quotes still work if you prefer them
-terma "what is a .gitignore file?" --no-context
+whai "what is a .gitignore file?" --no-context
 
 # Control command timeout (seconds)
-terma "Do this" --timeout 30
+whai "Do this" --timeout 30
 ```
 
 ## Roles
 
-Roles are defined in `~/.config/terma/roles/` as Markdown files with YAML frontmatter.
+Roles are defined in `~/.config/whai/roles/` as Markdown files with YAML frontmatter.
 
 ### Default Role
 
@@ -211,35 +211,35 @@ Roles are defined in `~/.config/terma/roles/` as Markdown files with YAML frontm
 
 ### Managing Roles
 
-terma provides a comprehensive role management system:
+whai provides a comprehensive role management system:
 
 ```bash
 # List all available roles
-terma role list
+whai role list
 
 # Create a new role (opens in editor)
-terma role create my-role
+whai role create my-role
 
 # Edit an existing role
-terma role edit my-role
+whai role edit my-role
 
 # Remove a role
-terma role remove my-role
+whai role remove my-role
 
 # Set default role (used when --role isn't specified)
-terma role set-default my-role
+whai role set-default my-role
 
 # Reset default role to packaged version
-terma role reset-default
+whai role reset-default
 
 # Open roles folder in file explorer
-terma role open-folder
+whai role open-folder
 
 # Interactive role manager (shows menu)
-terma role
+whai role
 
-# Show which role terma would use right now
-terma role which
+# Show which role whai would use right now
+whai role which
 ```
 
 ### Creating Custom Roles
@@ -247,10 +247,10 @@ terma role which
 Create a new role using the CLI:
 
 ```bash
-terma role create devops
+whai role create devops
 ```
 
-This creates and opens `~/.config/terma/roles/devops.md` in your editor:
+This creates and opens `~/.config/whai/roles/devops.md` in your editor:
 
 ```markdown
 ---
@@ -265,7 +265,7 @@ Help users with containerization, orchestration, and deployment tasks.
 Use it with:
 
 ```bash
-terma help me debug this pod -r devops
+whai help me debug this pod -r devops
 ```
 
 ### Session Roles
@@ -274,52 +274,52 @@ Set a role for your current shell session using environment variables:
 
 ```bash
 # Show how to set role for your shell
-terma role use devops
+whai role use devops
 
 # Then run the command it shows, e.g. for bash/zsh:
-export TERMA_ROLE="devops"
+export WHAI_ROLE="devops"
 
-# Now all terma commands use that role
-terma "help me with kubernetes"
+# Now all whai commands use that role
+whai "help me with kubernetes"
 
 # Clear the session role
-unset TERMA_ROLE
+unset WHAI_ROLE
 ```
 
 ### Role Precedence
 
-When determining which role to use, terma follows this precedence (highest first):
+When determining which role to use, whai follows this precedence (highest first):
 
 1. CLI flag: `-r/--role`
-2. Environment variable: `TERMA_ROLE`
+2. Environment variable: `WHAI_ROLE`
 3. Config default: `roles.default_role` in `config.toml`
 4. Fallback: `default`
 
 To quickly check the effective role based on the above rules, run:
 
 ```bash
-terma role which
+whai role which
 ```
 
 ## Context Modes
 
-terma captures terminal context to provide better assistance:
+whai captures terminal context to provide better assistance:
 
 ### Deep Context (Recommended)
 
-Run terma inside a tmux session to get full scrollback (commands + output):
+Run whai inside a tmux session to get full scrollback (commands + output):
 
 ```bash
 tmux
-terma why did this fail?
+whai why did this fail?
 ```
 
 ### Shallow Context (Fallback)
 
-Without tmux, terma reads shell history (commands only):
+Without tmux, whai reads shell history (commands only):
 
 ```bash
-terma what did I just run?
+whai what did I just run?
 ```
 
 ## How It Works
@@ -340,7 +340,7 @@ terma what did I just run?
 
 ## Troubleshooting
 
-### "No module named 'terma'"
+### "No module named 'whai'"
 
 Make sure you've activated the virtual environment:
 
@@ -350,15 +350,15 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 ### "API key not found"
 
-Edit `~/.config/terma/config.toml` and add your API key.
+Edit `~/.config/whai/config.toml` and add your API key.
 
 ### Commands not preserving state
 
-This is expected. Changes like `cd` and `export` persist only within a terma session, not in your main shell.
+This is expected. Changes like `cd` and `export` persist only within a whai session, not in your main shell.
 
 ### tmux context not working on Windows
 
-Use WSL with tmux installed. terma will automatically detect and use WSL's tmux.
+Use WSL with tmux installed. whai will automatically detect and use WSL's tmux.
 
 ## Development
 
@@ -378,8 +378,8 @@ pytest tests/ -v -m integration
 ### Project Structure
 
 ```
-terma/
-├── terma/              # Main package
+whai/
+├── whai/               # Main package
 │   ├── __init__.py
 │   ├── __main__.py     # Entry point
 │   ├── main.py         # CLI logic
@@ -417,16 +417,16 @@ MIT License - see LICENSE file for details.
 
 ### How is this different from ChatGPT in a browser?
 
-terma is integrated into your terminal with full context awareness. It sees your command history, can execute commands for you, and maintains state across a session.
+whai is integrated into your terminal with full context awareness. It sees your command history, can execute commands for you, and maintains state across a session.
 
 ### Does it send my terminal history to the LLM?
 
-Only when you run terma. It captures recent history or tmux scrollback and includes it in the request. You can use `--no-context` to disable this.
+Only when you run whai. It captures recent history or tmux scrollback and includes it in the request. You can use `--no-context` to disable this.
 
 ### Can I use it with local models?
 
 Yes! Configure any LiteLLM-compatible provider, including Ollama for local models.
 
-### Why do changes not persist after terma exits?
+### Why do changes not persist after whai exits?
 
-This is by design. terma runs commands in a subprocess to keep your main shell safe. Changes like `cd` work within a session but don't affect your parent shell.
+This is by design. whai runs commands in a subprocess to keep your main shell safe. Changes like `cd` work within a session but don't affect your parent shell.

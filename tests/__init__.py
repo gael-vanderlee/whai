@@ -1,2 +1,2 @@
-"""Test suite for terma."""
+"""Test suite for whai."""
 
