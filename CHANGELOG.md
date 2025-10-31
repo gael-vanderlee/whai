@@ -5,6 +5,7 @@ Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
 [2025-10-31] [fix] [context/windows]: use PSReadLine for pwsh history (wrong bash history shown). Detected shell was 'pwsh' after centralization; fallback only handled 'powershell' and 'unknown'. Updated Windows history branch to include 'pwsh'.
+[2025-10-31] [change] [logging]: default level ERROR; add -v LEVEL; move performance timings to INFO; keep payload/system/user dumps under DEBUG; remove TERMA_DEBUG handling.
 [2025-10-31] [change] [roles]: ship only one default role (default.md). Removed assumptions and tests referencing a built-in debug role.
 [2025-10-30] [feature] [roles]: add role management CLI (list, create, edit, remove, set-default, reset-default, use, open-folder, interactive)
 [2025-10-30] [feature] [roles]: implement role precedence (cli flag, env TERMA_ROLE, config default, fallback)
