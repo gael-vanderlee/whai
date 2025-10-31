@@ -262,13 +262,13 @@ def test_send_message_real_api():
     """
     import os
 
-    from whai import config as terma_config
+    from whai import config as whai_config
 
     # Determine API key from environment or whai config
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         try:
-            loaded = terma_config.load_config()
+            loaded = whai_config.load_config()
             api_key = loaded.get("llm", {}).get("openai", {}).get("api_key")
         except Exception:
             api_key = None

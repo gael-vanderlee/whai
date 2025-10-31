@@ -1,4 +1,3 @@
-import base64
 import os
 import queue
 import random
@@ -67,7 +66,7 @@ def main():
 
 # ================================================================
 # Below is a local, minimal copy of interaction.ShellSession
-# (embedded here to iterate independently of terma/interaction.py)
+# (embedded here to iterate independently of whai/interaction.py)
 # ================================================================
 
 
@@ -143,7 +142,7 @@ class ShellSession:
             # Wrap command to force materialization (prevents Format-Table hangs)
             ps_script = f"& {{ {command} }} | Out-String -Width 4096"
             print(f"[DEBUG PS HYBRID] Script to execute: {repr(ps_script)}")
-            
+
             try:
                 # Use Popen to enable streaming
                 ps_process = subprocess.Popen(
@@ -161,15 +160,15 @@ class ShellSession:
                     bufsize=1,  # Line buffered for streaming
                     cwd=PROJECT_ROOT,
                 )
-                
+
                 print(f"[DEBUG PS HYBRID] Process started, PID={ps_process.pid}")
-                
+
                 # Stream output as it arrives
                 stdout_lines = []
                 stderr_lines = []
                 start_time = time.time()
                 line_count = 0
-                
+
                 # Read until process completes
                 while True:
                     # Check timeout
@@ -177,63 +176,75 @@ class ShellSession:
                         ps_process.kill()
                         ps_process.wait()
                         raise RuntimeError(f"Command timed out after {timeout} seconds")
-                    
+
                     # Check if process has exited
                     returncode = ps_process.poll()
-                    
+
                     # Read from stdout
                     if ps_process.stdout:
                         line = self._read_line_with_timeout(ps_process.stdout, 0.1)
                         if line is not None:
                             line_count += 1
-                            print(f"[DEBUG PS HYBRID] stdout line {line_count}: {repr(line[:100])}{'...' if len(line) > 100 else ''}")
+                            print(
+                                f"[DEBUG PS HYBRID] stdout line {line_count}: {repr(line[:100])}{'...' if len(line) > 100 else ''}"
+                            )
                             stdout_lines.append(line)
                             # In real implementation, would yield here for streaming display
-                    
+
                     # Read from stderr
                     if ps_process.stderr:
                         line = self._read_line_with_timeout(ps_process.stderr, 0.01)
                         if line is not None:
-                            print(f"[DEBUG PS HYBRID] stderr line: {repr(line[:100])}{'...' if len(line) > 100 else ''}")
+                            print(
+                                f"[DEBUG PS HYBRID] stderr line: {repr(line[:100])}{'...' if len(line) > 100 else ''}"
+                            )
                             stderr_lines.append(line)
-                    
+
                     # If process exited and no more output available, break
                     if returncode is not None:
                         # Drain any remaining output
-                        print(f"[DEBUG PS HYBRID] Process exited with code {returncode}, draining remaining output")
+                        print(
+                            f"[DEBUG PS HYBRID] Process exited with code {returncode}, draining remaining output"
+                        )
                         while True:
                             line = self._read_line_with_timeout(ps_process.stdout, 0.05)
                             if line is None:
                                 break
                             line_count += 1
-                            print(f"[DEBUG PS HYBRID] drain stdout line {line_count}: {repr(line[:100])}")
+                            print(
+                                f"[DEBUG PS HYBRID] drain stdout line {line_count}: {repr(line[:100])}"
+                            )
                             stdout_lines.append(line)
                         while True:
                             line = self._read_line_with_timeout(ps_process.stderr, 0.05)
                             if line is None:
                                 break
-                            print(f"[DEBUG PS HYBRID] drain stderr line: {repr(line[:100])}")
+                            print(
+                                f"[DEBUG PS HYBRID] drain stderr line: {repr(line[:100])}"
+                            )
                             stderr_lines.append(line)
                         break
-                
+
                 stdout = "".join(stdout_lines)
                 stderr = "".join(stderr_lines)
-                
+
                 # Filter CLIXML progress noise
                 if stderr.lstrip().startswith("#< CLIXML"):
                     stderr = ""
-                
-                print(f"[DEBUG PS HYBRID] Completed: rc={returncode} stdout_len={len(stdout)} stderr_len={len(stderr)}")
+
+                print(
+                    f"[DEBUG PS HYBRID] Completed: rc={returncode} stdout_len={len(stdout)} stderr_len={len(stderr)}"
+                )
                 return (stdout, stderr, returncode)
-                
+
             except subprocess.TimeoutExpired:
                 raise RuntimeError(f"Command timed out after {timeout} seconds")
-        
+
         # For non-PowerShell shells: use existing marker-based approach
         if self.process is None or self.process.poll() is not None:
             raise RuntimeError("Shell process is not running")
 
-        marker = f"___TERMA_CMD_DONE_{random.randint(100000, 999999)}___"
+        marker = f"___WHAI_CMD_DONE_{random.randint(100000, 999999)}___"
         print(f"[DEBUG] Generated marker: {marker}")
 
         # Windows cmd drive-change convenience
@@ -285,10 +296,12 @@ class ShellSession:
                 if line is not None:
                     print(f"[DEBUG] stderr line: {repr(line)}")
                     stderr_lines.append(line)
-        
+
         stdout = "".join(stdout_lines)
         stderr = "".join(stderr_lines)
-        print(f"[DEBUG] Command completed: stdout_len={len(stdout)} stderr_len={len(stderr)}")
+        print(
+            f"[DEBUG] Command completed: stdout_len={len(stdout)} stderr_len={len(stderr)}"
+        )
         return (stdout, stderr, 0)
 
     def _read_line_with_timeout(self, stream, timeout: float):

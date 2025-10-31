@@ -2,29 +2,29 @@
 
 ## Target Command (primary objective)
 
-When using terma normally, I noticed a command generated when running `python -m terma list the 3 biggest directories here --no-context` never worked.
+When using whai normally, I noticed a command generated when running `python -m whai list the 3 biggest directories here --no-context` never worked.
 This is the exact command that must run successfully:
 
 ```
 Get-ChildItem -Directory | ForEach-Object { $sum = (Get-ChildItem -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {!$_.PSIsContainer} | Measure-Object -Property Length -Sum).Sum; [PSCustomObject]@{Name=$_.Name; SizeBytes=$sum} } | Sort-Object SizeBytes -Descending | Select-Object -First 3 | Select-Object Name,@{Name='Size';Expression = { if ($_.SizeBytes -ge 1GB) { '{0:N2} GB' -f ($_.SizeBytes/1GB) } elseif ($_.SizeBytes -ge 1MB) { '{0:N2} MB' -f ($_.SizeBytes/1MB) } else { '{0:N0} KB' -f ($_.SizeBytes/1KB) } } }
 ```
 
-When run manually in the user's PowerShell in the terma project root directory, this command completes in about 2 seconds. Therefore, the slowness/timeout observed through `terma` is not due to the command's inherent complexity; the program should be able to execute it within a 5-second timeout.
+When run manually in the user's PowerShell in the whai project root directory, this command completes in about 2 seconds. Therefore, the slowness/timeout observed through `whai` is not due to the command's inherent complexity; the program should be able to execute it within a 5-second timeout.
 
 ## Issue Description
 
-PowerShell commands executed via `terma.interaction.ShellSession` were timing out and not returning expected output. The tool would wait for a completion marker that never appeared, eventually hitting the timeout.
+PowerShell commands executed via `whai.interaction.ShellSession` were timing out and not returning expected output. The tool would wait for a completion marker that never appeared, eventually hitting the timeout.
 
 ## Environment
 
 - OS: Windows 11
 - Shell: PowerShell (powershell.exe)
 - Python subprocess with `text=True` mode
-- Project: E:\PycharmProjects\terma
+- Project: E:\PycharmProjects\whai
 
 ## Initial Symptom
 
-Running: `python -m terma "list the 3 biggest directories here" --no-context`
+Running: `python -m whai "list the 3 biggest directories here" --no-context`
 
 Result: Command timed out after 60 seconds with error:
 ```
@@ -32,7 +32,7 @@ RuntimeError: Command timed out after 60 seconds
 ```
 
 Debug output showed:
-- Marker: `___TERMA_CMD_DONE_916193___`
+- Marker: `___WHAI_CMD_DONE_916193___`
 - Command submitted successfully
 - No stdout lines captured
 - Timeout occurred
@@ -104,7 +104,7 @@ Result: **SUCCESS**
 ```
 [repro] STDOUT:
 Hello from PowerShell
-PS E:\PycharmProjects\terma> 
+PS E:\PycharmProjects\whai> 
 
 [repro] STDERR:
 ```
@@ -204,7 +204,7 @@ This is the current state - the command appears to execute but output is missing
 
 ## Current Code State
 
-### terma/interaction.py - PowerShell startup (lines ~48-74)
+### whai/interaction.py - PowerShell startup (lines ~48-74)
 ```python
 if "powershell" in shell_lower or "pwsh" in shell_lower:
     self.process = subprocess.Popen(
@@ -233,7 +233,7 @@ if "powershell" in shell_lower or "pwsh" in shell_lower:
             break
 ```
 
-### terma/interaction.py - Command execution (lines ~144-148)
+### whai/interaction.py - Command execution (lines ~144-148)
 ```python
 elif "powershell" in shell_lower or "pwsh" in shell_lower:
     # PowerShell needs CRLF line endings for interactive stdin
@@ -319,6 +319,6 @@ Results:
   - Observed lines:
     - `\n` (first command output reduced to newline)
     - `PS>\n` (prompt)
-    - `PS>Write-Output ___TERMA_CMD_DONE_xxx___\n` (echo of marker)
-    - `___TERMA_CMD_DONE_xxx___\n` (actual marker output)
+    - `PS>Write-Output ___WHAI_CMD_DONE_xxx___\n` (echo of marker)
+    - `___WHAI_CMD_DONE_xxx___\n` (actual marker output)
 
