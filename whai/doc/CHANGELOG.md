@@ -4,6 +4,9 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-10-31] [feature] [config]: add structured RoleMetadata dataclass with validation for role metadata; only allow model and temperature fields with type and range validation; raise InvalidRoleMetadataError for invalid values; warn on unknown fields
+[2025-10-31] [change] [config]: refactor model and temperature resolution into resolve_model() and resolve_temperature() functions for clearer precedence logic
+[2025-10-31] [change] [logging]: change default logging level from ERROR to WARNING to show warnings by default
 [2025-10-31] [feature] [llm]: add LM Studio provider support with OpenAI-compatible API; pass api_base directly to completion() call for custom endpoints
 [2025-10-31] [feature] [config]: add LM Studio to provider list in config wizard with default settings (localhost:1234/v1, openai/ prefix)
 [2025-10-31] [fix] [main]: fix model resolution to read from provider config instead of top-level llm section
