@@ -52,6 +52,7 @@ def _extract_inline_overrides(
     o_model = model
     o_temperature = temperature
     o_timeout = timeout
+    o_log_level: Optional[str] = None
 
     while i < len(tokens):
         token = tokens[i]
@@ -103,6 +104,22 @@ def _extract_inline_overrides(
             i += 2
             continue
 
+        # -v [LEVEL]
+        if token == "-v":
+            # If followed by a level token, consume it; otherwise default to INFO
+            level_token = None
+            if i + 1 < len(tokens):
+                candidate = tokens[i + 1].upper()
+                if candidate in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
+                    level_token = candidate
+                    i += 2
+                else:
+                    i += 1
+            else:
+                i += 1
+            o_log_level = level_token or "INFO"
+            continue
+
         # Regular token
         cleaned.append(token)
         i += 1
@@ -113,6 +130,7 @@ def _extract_inline_overrides(
         "model": o_model,
         "temperature": o_temperature,
         "timeout": o_timeout,
+        "log_level": o_log_level,
     }
 
 
@@ -216,14 +234,14 @@ def main(
         ui.error("--timeout must be a positive integer (seconds)")
         raise typer.Exit(2)
 
-    # Configure logging
-    configure_logging()
+    # Configure logging (level from inline overrides if provided)
+    configure_logging(overrides.get("log_level"))
 
     # Join query arguments with spaces
     query_str = " ".join(query)
 
     t0 = time.perf_counter()
-    logger.debug("Startup: entered main()", extra={"category": "perf"})
+    logger.info("Startup: entered main()", extra={"category": "perf"})
 
     shell_session = None
 
@@ -261,7 +279,7 @@ def main(
         role = resolve_role(role, config)
 
         t_cfg = time.perf_counter()
-        logger.debug(
+        logger.info(
             "Startup: load_config() completed in %.3f ms",
             (t_cfg - t0) * 1000,
             extra={"category": "perf"},
@@ -276,7 +294,7 @@ def main(
             ui.error(f"Failed to load role: {e}")
             raise typer.Exit(1)
         t_role = time.perf_counter()
-        logger.debug(
+        logger.info(
             "Startup: load_role('%s') completed in %.3f ms",
             role,
             (t_role - t_cfg) * 1000,
@@ -287,7 +305,7 @@ def main(
         from terma.context import get_shell_executable
 
         shell_executable = get_shell_executable()
-        logger.debug(
+        logger.info(
             "Detected shell executable: %s",
             shell_executable,
             extra={"category": "perf"},
@@ -301,7 +319,7 @@ def main(
             t_ctx0 = time.perf_counter()
             context_str, is_deep_context = get_context()
             t_ctx1 = time.perf_counter()
-            logger.debug(
+            logger.info(
                 "Startup: get_context() completed in %.3f ms (deep=%s, has_content=%s)",
                 (t_ctx1 - t_ctx0) * 1000,
                 is_deep_context,
@@ -316,7 +334,7 @@ def main(
             elif not context_str:
                 ui.info("No context available (no tmux, no history).")
 
-        logger.debug(
+        logger.info(
             "Startup: context stage done, elapsed %.3f ms",
             (time.perf_counter() - t0) * 1000,
             extra={"category": "perf"},
@@ -334,7 +352,7 @@ def main(
             else role_metadata.get("temperature", None)
         )
 
-        logger.debug(
+        logger.info(
             "Initializing LLMProvider with model=%s, temperature=%s",
             llm_model,
             llm_temperature,
@@ -349,7 +367,7 @@ def main(
             ui.error(f"Failed to initialize LLM provider: {e}")
             raise typer.Exit(1)
         t_llm = time.perf_counter()
-        logger.debug(
+        logger.info(
             "Startup: LLMProvider init completed in %.3f ms (model=%s, temp=%s)",
             (t_llm - t_role) * 1000,
             llm_model,
@@ -367,7 +385,7 @@ def main(
             ui.error(f"Failed to create shell session: {e}")
             raise typer.Exit(1)
         t_shell = time.perf_counter()
-        logger.debug(
+        logger.info(
             "Startup: ShellSession(%s) completed in %.3f ms",
             shell_executable,
             (t_shell - t_llm) * 1000,
@@ -379,7 +397,7 @@ def main(
         base_prompt = get_base_system_prompt(is_deep_context)
         system_message = f"{base_prompt}\n\n{role_prompt}"
         t_prompt1 = time.perf_counter()
-        logger.debug(
+        logger.info(
             "Startup: get_base_system_prompt() completed in %.3f ms",
             (t_prompt1 - t_prompt0) * 1000,
             extra={"category": "perf"},
@@ -398,7 +416,7 @@ def main(
             {"role": "user", "content": user_message},
         ]
 
-        logger.debug(
+        logger.info(
             "Startup: conversation initialized (%d messages), total startup %.3f ms",
             len(messages),
             (time.perf_counter() - t0) * 1000,
@@ -418,7 +436,7 @@ def main(
                         first_chunk = chunk
                         break
                 elapsed_spinner = time.perf_counter() - start_spinner
-                logger.debug(
+                logger.info(
                     f"Spinner duration before first chunk: {elapsed_spinner:.3f}s",
                     extra={"category": "ui"},
                 )
