@@ -183,6 +183,10 @@ class LLMProvider:
         if "anthropic" in llm_config and "api_key" in llm_config["anthropic"]:
             os.environ["ANTHROPIC_API_KEY"] = llm_config["anthropic"]["api_key"]
 
+        # Set Gemini key if present
+        if "gemini" in llm_config and "api_key" in llm_config["gemini"]:
+            os.environ["GEMINI_API_KEY"] = llm_config["gemini"]["api_key"]
+
         # Set Azure OpenAI configuration if present
         if "azure_openai" in llm_config:
             azure_config = llm_config["azure_openai"]

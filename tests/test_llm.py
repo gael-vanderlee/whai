@@ -76,6 +76,7 @@ def test_llm_provider_configure_api_keys():
             "default_model": "gpt-5-mini",
             "openai": {"api_key": "sk-test-123"},
             "anthropic": {"api_key": "sk-ant-test-456"},
+            "gemini": {"api_key": "AIzaSy-test-789"},
         }
     }
 
@@ -86,6 +87,7 @@ def test_llm_provider_configure_api_keys():
 
         assert os.environ.get("OPENAI_API_KEY") == "sk-test-123"
         assert os.environ.get("ANTHROPIC_API_KEY") == "sk-ant-test-456"
+        assert os.environ.get("GEMINI_API_KEY") == "AIzaSy-test-789"
 
 
 def test_send_message_non_streaming():

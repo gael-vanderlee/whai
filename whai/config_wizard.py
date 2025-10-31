@@ -27,6 +27,10 @@ PROVIDERS = {
         "fields": ["api_key", "default_model"],
         "defaults": {"default_model": "claude-3-5-sonnet-20241022"},
     },
+    "gemini": {
+        "fields": ["api_key", "default_model"],
+        "defaults": {"default_model": "gemini/gemini-2.5-flash"},
+    },
     "azure_openai": {
         "fields": ["api_key", "api_base", "api_version", "default_model"],
         "defaults": {"api_version": "2023-05-15", "default_model": "gpt-4"},

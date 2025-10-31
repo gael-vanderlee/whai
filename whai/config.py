@@ -284,6 +284,13 @@ def validate_llm_config(config: Dict[str, Any]) -> Tuple[bool, str]:
                 False,
                 "Anthropic provider configured but no api_key set. Add it via --interactive-config.",
             )
+    elif default_provider == "gemini":
+        api_key = provider_cfg.get("api_key", "").strip()
+        if not api_key:
+            return (
+                False,
+                "Gemini provider configured but no api_key set. Add it via --interactive-config.",
+            )
     elif default_provider == "azure_openai":
         required = ["api_key", "api_base", "api_version"]
         missing = [k for k in required if not str(provider_cfg.get(k, "")).strip()]

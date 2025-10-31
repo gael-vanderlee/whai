@@ -182,6 +182,7 @@ Get API keys from:
 - [OpenAI Platform](https://platform.openai.com/api-keys)
 - [Anthropic Console](https://console.anthropic.com/)
 - [Azure Portal](https://portal.azure.com/) (for Azure OpenAI)
+- [Google AI Studio](https://aistudio.google.com/app/api-keys) (for Gemini) 
 
 #### Using Local Models (LM Studio)
 
