@@ -21,6 +21,7 @@ from whai.interaction import approval_loop, execute_command
 from whai.llm import LLMProvider, get_base_system_prompt
 from whai.logging_setup import configure_logging, get_logger
 from whai.role_cli import role_app
+from whai.utils import detect_shell
 
 app = typer.Typer(help="whai - Your terminal assistant powered by LLMs")
 app.add_typer(role_app, name="role")
@@ -253,11 +254,15 @@ def main(
     # Configure logging
     configure_logging(effective_log_level)
 
+    # Detect and log shell
+    detected_shell = detect_shell()
+    logger.info(f"Detected shell: {detected_shell}")
+
     # Join query arguments with spaces
     query_str = " ".join(query)
 
     t0 = time.perf_counter()
-    logger.info("Startup: entered main()", extra={"category": "perf"})
+    logger.info("Startup: entered main()")
 
     try:
         # 1. Load config and role
@@ -345,17 +350,36 @@ def main(
         )
 
         # 4. Initialize LLM provider
-        llm_model = (
-            model
-            or role_metadata.get("model")
-            or config["llm"].get("default_model", DEFAULT_LLM_MODEL)
-        )
+        # Resolve model from CLI > role metadata > provider config > fallback
+        default_provider = config["llm"].get("default_provider")
+        provider_config = config["llm"].get(default_provider, {})
+
+        # Determine model and its source for logging
+        if model:
+            llm_model = model
+            model_source = "CLI override"
+        elif role_metadata.get("model"):
+            llm_model = role_metadata.get("model")
+            model_source = f"role '{role}'"
+        elif provider_config.get("default_model"):
+            llm_model = provider_config.get("default_model")
+            model_source = f"provider config '{default_provider}'"
+        else:
+            llm_model = DEFAULT_LLM_MODEL
+            model_source = "built-in fallback"
+
         llm_temperature = (
             temperature
             if temperature is not None
             else role_metadata.get("temperature", None)
         )
 
+        logger.info(
+            "Model loaded: %s (source: %s)",
+            llm_model,
+            model_source,
+            extra={"category": "api"},
+        )
         logger.info(
             "Initializing LLMProvider with model=%s, temperature=%s",
             llm_model,
