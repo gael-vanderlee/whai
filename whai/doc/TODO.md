@@ -35,7 +35,7 @@ Issues:
 - [x] Linux background
 
 Refactor:
-- [ ] OO approach for config and roles
+- [x] OO approach for config and roles
     - [ ] Better / clearer defaults
     - [ ] Clear errors
     - [ ] Better first time setup
