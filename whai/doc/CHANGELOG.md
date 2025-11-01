@@ -4,6 +4,12 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-02] [feature] [ui]: enhance config wizard with Rich UI components; add numbered choice prompts replacing click.Choice; use colored success/failure/warning messages with emojis; improve section headers with DOUBLE box styling; add celebration message when config is complete
+[2025-11-02] [feature] [ui]: add provider-specific configuration summary; each provider config class implements get_summary_fields() to show relevant fields (e.g., api_base for LM Studio instead of optional api_key); display summary in Rich Table with double-line borders and per-field formatting
+[2025-11-02] [change] [ui]: move configuration summary printing to ui.py as print_configuration_summary(); remove summarize() method from WhaiConfig; use Rich Table for pretty formatting with provider-specific fields displayed on separate lines
+[2025-11-02] [change] [ui]: centralize UI functions throughout codebase; replace typer.echo error/success messages with ui.error/ui.success/ui.failure/ui.warn; add emoji support (✅ success, ❌ failure, ⚠️ warning, 🎉 celebration)
+[2025-11-02] [change] [config]: remove "view" action from config wizard menu; configuration is already displayed when wizard launches
+[2025-11-02] [fix] [tests]: update tests to check stderr for warn/info messages since UI functions output to stderr
 [2025-11-01] [feature] [config]: add dynamic validation with progress feedback in config wizard; display validation steps in real-time with checkmarks aligned; validate API keys, models, and API base connectivity during provider configuration; show validation warnings and prompt user to proceed or cancel
 [2025-11-01] [feature] [config]: add actual model validation using litellm.get_model_info(); checks if model exists in LiteLLM's model registry; validates model name format and availability for configured providers; shows clear error messages for unrecognized models
 [2025-11-01] [change] [config]: add performance logging for provider config validation; measure and log duration of _validate_api_base and _validate_required_fields combined; use perf category for visibility in debug logs
