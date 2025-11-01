@@ -1,10 +1,12 @@
 """User configuration management for whai."""
 
+import contextlib
 import os
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Type
 
 # Use tomllib for Python 3.11+, tomli for older versions
 if sys.version_info >= (3, 11):
@@ -24,6 +26,21 @@ from whai.constants import (
 from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
+
+
+@contextlib.contextmanager
+def _suppress_stdout_stderr():
+    """Context manager to suppress stdout and stderr output."""
+    with open(os.devnull, "w", encoding="utf-8") as devnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        try:
+            sys.stdout = devnull
+            sys.stderr = devnull
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
 
 
 class MissingConfigError(RuntimeError):
@@ -77,8 +94,16 @@ class ProviderConfig:
 
     def __post_init__(self) -> None:
         """Validate configuration values."""
+        t0 = time.perf_counter()
         self._validate_api_base()
         self._validate_required_fields()
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        logger.info(
+            "Provider config validation (%s) completed in %.3f ms",
+            self.provider_name,
+            elapsed_ms,
+            extra={"category": "perf"},
+        )
 
     def _validate_api_base(self) -> None:
         """Validate URL format for api_base if provided."""
@@ -100,19 +125,39 @@ class ProviderConfig:
         """Validate required fields. Override in subclasses if needed."""
         pass
 
-    def validate(self) -> ValidationResult:
+    def validate(
+        self, on_progress: Optional[Callable[[str, Optional[bool]], None]] = None
+    ) -> ValidationResult:
         """
         Validate this provider configuration using external checks.
+
+        Args:
+            on_progress: Optional callback function(message: str, success: Optional[bool])
+                        called for each validation step with progress updates.
+                        None indicates check in progress, True/False indicate result.
 
         Returns:
             ValidationResult with validation outcomes.
         """
+        if on_progress is None:
+            # Default no-op callback
+            def _noop_progress(msg: str, success: Optional[bool]) -> None:
+                pass
+
+            on_progress = _noop_progress
+
         checks_performed = ["Field validation"]
         issues = []
         details: Dict[str, Any] = {}
 
+        # Field validation is already done in __post_init__, just report it
+        # Instant check - print directly with result
+        on_progress("Validating fields", True)
+        checks_performed.append("Field validation")
+
         # API key validation (if applicable)
         if self.api_key:
+            on_progress("Validating API key", None)
             checks_performed.append("API key format")
             try:
                 from litellm import check_valid_key
@@ -128,30 +173,83 @@ class ProviderConfig:
                 socket.setdefaulttimeout(5.0)
 
                 try:
-                    is_key_valid = check_valid_key(model=model, api_key=self.api_key)
+                    # Suppress LiteLLM output during validation
+                    with _suppress_stdout_stderr():
+                        is_key_valid = check_valid_key(
+                            model=model, api_key=self.api_key
+                        )
                     if not is_key_valid:
                         issues.append(
                             f"API key validation failed for {self.provider_name}"
                         )
+                        on_progress("Validating API key", False)
                     else:
                         details["api_key_valid"] = True
+                        on_progress("Validating API key", True)
                 except Exception as e:
                     issues.append(f"Could not validate API key: {str(e)}")
+                    on_progress("Validating API key", False)
                 finally:
                     socket.setdefaulttimeout(old_timeout)
 
             except ImportError:
                 issues.append("LiteLLM not available for validation")
+                on_progress("Validating API key", False)
             except Exception as e:
                 issues.append(f"API key validation error: {str(e)}")
+                on_progress("Validating API key", False)
 
         # Model validation
         if self.default_model:
+            on_progress("Validating model", None)
             checks_performed.append("Model configuration")
             details["default_model"] = self.default_model
 
+            model_valid = False
+            model_issue = None
+
+            # Try to validate model using LiteLLM's get_model_info
+            try:
+                from litellm import get_model_info
+
+                # Get model name in LiteLLM format
+                model = self._get_litellm_model_name()
+
+                # Use get_model_info to check if model exists
+                # This raises an exception if the model doesn't exist
+                try:
+                    # Suppress LiteLLM output during validation
+                    with _suppress_stdout_stderr():
+                        get_model_info(model)
+                    # If we get here, model exists
+                    model_valid = True
+                except Exception as e:
+                    # Model doesn't exist or not recognized by LiteLLM
+                    error_msg = str(e)
+                    if (
+                        "isn't mapped yet" in error_msg
+                        or "not found" in error_msg.lower()
+                    ):
+                        model_issue = f"Model '{self.default_model}' is not recognized"
+                        model_valid = False
+                    else:
+                        # Unknown error - assume valid (could be network issue, etc.)
+                        model_issue = f"Could not validate model: {error_msg}"
+                        model_valid = True
+            except Exception as e:
+                model_issue = f"Could not validate model: {str(e)}"
+                # Assume valid if validation fails (new models, etc.)
+                model_valid = True
+
+            if not model_valid and model_issue:
+                issues.append(model_issue)
+                on_progress("Validating model", False)
+            else:
+                on_progress("Validating model", True)
+
         # API base validation (for local providers)
         if self.api_base:
+            on_progress("Validating API base connectivity", None)
             checks_performed.append("API base configuration")
             details["api_base"] = self.api_base
 
@@ -162,9 +260,11 @@ class ProviderConfig:
                 req = urllib.request.Request(self.api_base, method="HEAD")
                 urllib.request.urlopen(req, timeout=5)
                 details["api_base_reachable"] = True
+                on_progress("Validating API base connectivity", True)
             except Exception as e:
                 issues.append(f"API base not reachable: {str(e)}")
                 details["api_base_reachable"] = False
+                on_progress("Validating API base connectivity", False)
 
         is_valid = len(issues) == 0
 

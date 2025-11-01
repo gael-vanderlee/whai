@@ -5,7 +5,7 @@ import os
 import re
 import subprocess
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import click
 import typer
@@ -30,6 +30,15 @@ from whai.constants import (
     PROVIDER_DEFAULTS,
 )
 from whai.logging_setup import get_logger
+from whai.ui import (
+    celebration,
+    failure,
+    info,
+    print_section,
+    prompt_numbered_choice,
+    success,
+    warn,
+)
 
 logger = get_logger(__name__)
 
@@ -50,7 +59,7 @@ def _get_provider_config(provider: str) -> ProviderConfig:
     provider_info = PROVIDERS[provider]
     config_data: Dict[str, Any] = {}
 
-    typer.echo(f"\n=== Configuring {provider} ===")
+    print_section(f"Configuring {provider}")
 
     for field in provider_info["fields"]:
         default = provider_info["defaults"].get(field, "")
@@ -66,9 +75,9 @@ def _get_provider_config(provider: str) -> ProviderConfig:
                 # Sanitize pasted secrets on Windows/PowerShell (strip control chars like \x16)
                 cleaned = re.sub(r"[\x00-\x1f\x7f]", "", value).strip()
                 if cleaned != value:
-                    typer.echo("Note: Removed non-printable characters from input.")
+                    info("Removed non-printable characters from input.")
                 if not cleaned:
-                    typer.echo("API key cannot be empty. Please paste/type your key.")
+                    warn("API key cannot be empty. Please paste/type your key.")
                     continue
                 value = cleaned
                 break
@@ -81,7 +90,64 @@ def _get_provider_config(provider: str) -> ProviderConfig:
     # Create the appropriate ProviderConfig subclass instance
     try:
         provider_class = get_provider_class(provider)
-        return provider_class.from_dict(config_data)
+        provider_config = provider_class.from_dict(config_data)
+
+        # Validate the configuration with external checks
+        typer.echo("\nValidating configuration...")
+
+        # Track if a message is in progress (waiting for result)
+        in_progress: Dict[str, bool] = {}
+
+        # Target width for alignment (characters including dots)
+        TARGET_WIDTH = 38
+
+        def _format_message(message: str, dots: int = 3) -> str:
+            """Format message with dots to align checkmarks."""
+            # Calculate dots needed to reach target width
+            msg_len = len(f"  {message}")
+            dots_needed = max(1, TARGET_WIDTH - msg_len - 1)  # -1 for the result char
+            return f"  {message}{'.' * dots_needed}"
+
+        def progress_callback(message: str, success: Optional[bool]) -> None:
+            """Progress callback that prints validation steps dynamically."""
+            if success is None:
+                # Check in progress - show message without result yet
+                formatted = _format_message(message)
+                typer.echo(formatted, nl=False)
+                in_progress[message] = True
+            elif success is True:
+                # Success - complete line if in progress, or print full line
+                if in_progress.get(message):
+                    typer.echo(" ✓")
+                    in_progress[message] = False
+                else:
+                    formatted = _format_message(message)
+                    typer.echo(f"{formatted} ✓")
+            elif success is False:
+                # Failure - complete line if in progress, or print full line
+                if in_progress.get(message):
+                    typer.echo(" ✗")
+                    in_progress[message] = False
+                else:
+                    formatted = _format_message(message)
+                    typer.echo(f"{formatted} ✗")
+
+        validation_result = provider_config.validate(on_progress=progress_callback)
+
+        if not validation_result.is_valid:
+            typer.echo("\n⚠ Validation issues found:")
+            for issue in validation_result.issues:
+                typer.echo(f"  - {issue}")
+
+            if not typer.confirm(
+                "\nProceed with configuration despite validation issues?",
+                default=False,
+            ):
+                raise typer.Abort()
+        else:
+            typer.echo("\n✓ Configuration validated successfully!")
+
+        return provider_config
     except (ValueError, InvalidProviderConfigError) as e:
         typer.echo(f"\n✗ Invalid configuration: {e}", err=True)
         raise typer.Exit(1)
@@ -390,10 +456,6 @@ def run_wizard(existing_config: bool = False) -> None:
         config_path = get_config_path()
         typer.echo(f"\n✓ Configuration saved to: {config_path}")
         typer.echo("\nYou can now use whai!")
-        # Show current config for verification
-        typer.echo("\nCurrent configuration:")
-        typer.echo(f"Config path: {config_path}")
-        typer.echo(config.summarize())
     except Exception as e:
         typer.echo(f"\n✗ Error saving configuration: {e}", err=True)
         raise typer.Exit(1)
