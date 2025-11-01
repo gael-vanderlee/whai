@@ -10,6 +10,18 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
 
+from whai.constants import (
+    ENV_WHAI_PLAIN,
+    UI_BORDER_COLOR_COMMAND,
+    UI_BORDER_COLOR_ERROR,
+    UI_BORDER_COLOR_OUTPUT,
+    UI_BORDER_COLOR_STATUS_ERROR,
+    UI_BORDER_COLOR_STATUS_SUCCESS,
+    UI_TEXT_STYLE_ERROR,
+    UI_TEXT_STYLE_WARNING,
+    UI_THEME,
+)
+
 
 def _is_tty() -> bool:
     """Check if stdout is a TTY."""
@@ -20,7 +32,7 @@ def _is_tty() -> bool:
 
 
 # Detect plain mode: enabled when WHAI_PLAIN=1 or not a TTY
-PLAIN_MODE = os.getenv("WHAI_PLAIN", "").strip() == "1" or not _is_tty()
+PLAIN_MODE = os.getenv(ENV_WHAI_PLAIN, "").strip() == "1" or not _is_tty()
 
 # Create console with appropriate settings
 console = Console(
@@ -40,7 +52,7 @@ def error(msg: str) -> None:
         stderr_console = Console(
             stderr=True, highlight=False, force_terminal=not PLAIN_MODE
         )
-        stderr_console.print(Text(f"Error: {msg}", style="bold red"))
+        stderr_console.print(Text(f"Error: {msg}", style=UI_TEXT_STYLE_ERROR))
 
 
 def warn(msg: str) -> None:
@@ -51,7 +63,7 @@ def warn(msg: str) -> None:
         stderr_console = Console(
             stderr=True, highlight=False, force_terminal=not PLAIN_MODE
         )
-        stderr_console.print(Text(f"Warning: {msg}", style="yellow"))
+        stderr_console.print(Text(f"Warning: {msg}", style=UI_TEXT_STYLE_WARNING))
 
 
 def info(msg: str) -> None:
@@ -80,8 +92,10 @@ def print_command(cmd: str) -> None:
         console.print(f"  > {cmd}")
     else:
         # Enable word wrapping so long commands fold onto the next line inside the panel
-        syn = Syntax(cmd, "bash", theme="ansi_dark", word_wrap=True)
-        console.print(Panel(syn, title="Proposed command", border_style="cyan"))
+        syn = Syntax(cmd, "bash", theme=UI_THEME, word_wrap=True)
+        console.print(
+            Panel(syn, title="Proposed command", border_style=UI_BORDER_COLOR_COMMAND)
+        )
 
 
 def print_output(stdout: str, stderr: str, returncode: int = 0) -> None:
@@ -102,16 +116,24 @@ def print_output(stdout: str, stderr: str, returncode: int = 0) -> None:
     else:
         if stdout:
             syn_out = Syntax(
-                stdout.rstrip("\n"), "text", theme="ansi_dark", word_wrap=False
+                stdout.rstrip("\n"), "text", theme=UI_THEME, word_wrap=False
             )
-            console.print(Panel(syn_out, title="Output", border_style="green"))
+            console.print(
+                Panel(syn_out, title="Output", border_style=UI_BORDER_COLOR_OUTPUT)
+            )
         if stderr:
             syn_err = Syntax(
-                stderr.rstrip("\n"), "text", theme="ansi_dark", word_wrap=False
+                stderr.rstrip("\n"), "text", theme=UI_THEME, word_wrap=False
             )
-            console.print(Panel(syn_err, title="Errors", border_style="red"))
+            console.print(
+                Panel(syn_err, title="Errors", border_style=UI_BORDER_COLOR_ERROR)
+            )
         if not has_output:
-            status_color = "green" if returncode == 0 else "yellow"
+            status_color = (
+                UI_BORDER_COLOR_STATUS_SUCCESS
+                if returncode == 0
+                else UI_BORDER_COLOR_STATUS_ERROR
+            )
             console.print(
                 Panel(
                     f"Command completed with no output\nExit code: {returncode}",

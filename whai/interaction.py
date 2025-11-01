@@ -5,14 +5,19 @@ import shlex
 import subprocess
 from typing import Optional, Tuple
 
+from rich.text import Text
+
 from whai import ui
+from whai.constants import DEFAULT_COMMAND_TIMEOUT, UI_TEXT_STYLE_PROMPT
 from whai.logging_setup import get_logger
 from whai.utils import detect_shell, is_windows
 
 logger = get_logger(__name__)
 
 
-def execute_command(command: str, timeout: int = 60) -> Tuple[str, str, int]:
+def execute_command(
+    command: str, timeout: int = DEFAULT_COMMAND_TIMEOUT
+) -> Tuple[str, str, int]:
     """
     Execute a shell command and return its output.
 
@@ -30,6 +35,7 @@ def execute_command(command: str, timeout: int = 60) -> Tuple[str, str, int]:
         subprocess.TimeoutExpired: If command execution exceeds timeout.
         RuntimeError: For other execution errors.
     """
+
     try:
         if is_windows():
             # Windows: use detected shell (PowerShell or cmd)
@@ -89,10 +95,9 @@ def approval_loop(command: str) -> Optional[str]:
 
     while True:
         try:
-            from rich.text import Text
-
             ui.console.print(
-                Text("[a]pprove / [r]eject / [m]odify: ", style="yellow"), end=""
+                Text("[a]pprove / [r]eject / [m]odify: ", style=UI_TEXT_STYLE_PROMPT),
+                end="",
             )
             response = input().strip().lower()
 

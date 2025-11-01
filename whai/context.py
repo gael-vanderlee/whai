@@ -2,10 +2,17 @@
 
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from whai.constants import (
+    CONTEXT_CAPTURE_TIMEOUT,
+    HISTORY_MAX_COMMANDS,
+    TMUX_SCROLLBACK_LINES,
+    WSL_CHECK_TIMEOUT,
+)
 from whai.logging_setup import get_logger
 from whai.utils import detect_shell
 
@@ -23,7 +30,9 @@ def _is_wsl() -> bool:
         return False
 
     try:
-        result = subprocess.run(["wsl", "--status"], capture_output=True, timeout=2)
+        result = subprocess.run(
+            ["wsl", "--status"], capture_output=True, timeout=WSL_CHECK_TIMEOUT
+        )
         return result.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False
@@ -128,18 +137,25 @@ def _get_tmux_context(exclude_command: Optional[str] = None) -> Optional[str]:
         # On Windows with WSL, run tmux command through WSL
         if os.name == "nt" and _is_wsl():
             result = subprocess.run(
-                ["wsl", "tmux", "capture-pane", "-p", "-S", "-200"],
+                [
+                    "wsl",
+                    "tmux",
+                    "capture-pane",
+                    "-p",
+                    "-S",
+                    f"-{TMUX_SCROLLBACK_LINES}",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=CONTEXT_CAPTURE_TIMEOUT,
             )
         else:
             # On Unix-like systems, run tmux directly
             result = subprocess.run(
-                ["tmux", "capture-pane", "-p", "-S", "-200"],
+                ["tmux", "capture-pane", "-p", "-S", f"-{TMUX_SCROLLBACK_LINES}"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=CONTEXT_CAPTURE_TIMEOUT,
             )
 
         if result.returncode == 0:
@@ -219,8 +235,6 @@ def get_shell_executable(shell_name: Optional[str] = None) -> str:
     elif shell_name == "pwsh":
         # PowerShell
         if os.name == "nt":
-            import shutil
-
             # Try PowerShell 7 (pwsh) first
             pwsh_path = shutil.which("pwsh")
             if pwsh_path:
@@ -237,7 +251,9 @@ def get_shell_executable(shell_name: Optional[str] = None) -> str:
         return "/bin/bash"
 
 
-def _parse_zsh_history(history_file: Path, max_commands: int = 50) -> list:
+def _parse_zsh_history(
+    history_file: Path, max_commands: int = HISTORY_MAX_COMMANDS
+) -> list:
     """
     Parse zsh history file.
 
@@ -278,7 +294,9 @@ def _parse_zsh_history(history_file: Path, max_commands: int = 50) -> list:
     return commands[-max_commands:] if commands else []
 
 
-def _parse_bash_history(history_file: Path, max_commands: int = 50) -> list:
+def _parse_bash_history(
+    history_file: Path, max_commands: int = HISTORY_MAX_COMMANDS
+) -> list:
     """
     Parse bash history file.
 
@@ -305,7 +323,7 @@ def _parse_bash_history(history_file: Path, max_commands: int = 50) -> list:
 
 
 def _get_history_context(
-    max_commands: int = 50,
+    max_commands: int = HISTORY_MAX_COMMANDS,
     shell: Optional[str] = None,
     exclude_command: Optional[str] = None,
 ) -> Optional[str]:
@@ -438,7 +456,7 @@ def _get_history_context(
 
 
 def get_context(
-    max_commands: int = 50, exclude_command: Optional[str] = None
+    max_commands: int = HISTORY_MAX_COMMANDS, exclude_command: Optional[str] = None
 ) -> Tuple[str, bool]:
     """
     Get terminal context for the LLM.

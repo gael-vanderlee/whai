@@ -1,6 +1,10 @@
 """Interactive configuration wizard for whai."""
 
+import datetime
+import os
 import re
+import subprocess
+import sys
 from typing import Any, Dict
 
 import click
@@ -13,40 +17,18 @@ from whai.config import (
     save_config,
     summarize_config,
 )
+from whai.constants import (
+    CONFIG_FILENAME,
+    DEFAULT_PROVIDER,
+    DEFAULT_ROLE_NAME,
+    PROVIDER_DEFAULTS,
+)
 from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
-# Supported providers with their configuration requirements
-PROVIDERS = {
-    "openai": {
-        "fields": ["api_key", "default_model"],
-        "defaults": {"default_model": "gpt-5-mini"},
-    },
-    "anthropic": {
-        "fields": ["api_key", "default_model"],
-        "defaults": {"default_model": "claude-3-5-sonnet-20241022"},
-    },
-    "gemini": {
-        "fields": ["api_key", "default_model"],
-        "defaults": {"default_model": "gemini/gemini-2.5-flash"},
-    },
-    "azure_openai": {
-        "fields": ["api_key", "api_base", "api_version", "default_model"],
-        "defaults": {"api_version": "2023-05-15", "default_model": "gpt-4"},
-    },
-    "ollama": {
-        "fields": ["api_base", "default_model"],
-        "defaults": {"api_base": "http://localhost:11434", "default_model": "mistral"},
-    },
-    "lm_studio": {
-        "fields": ["api_base", "default_model"],
-        "defaults": {
-            "api_base": "http://localhost:1234/v1",
-            "default_model": "lm_studio/llama-3-8b-instruct",
-        },
-    },
-}
+# Use centralized provider defaults
+PROVIDERS = PROVIDER_DEFAULTS
 
 
 def _ensure_llm_section(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -114,7 +96,7 @@ def _quick_setup(config: Dict[str, Any]) -> None:
     provider = typer.prompt(
         "Choose a provider",
         type=click.Choice(list(PROVIDERS.keys())),
-        default="openai",
+        default=DEFAULT_PROVIDER,
     )
 
     # Get provider config
@@ -125,7 +107,7 @@ def _quick_setup(config: Dict[str, Any]) -> None:
     config["llm"][provider] = provider_config
     config["llm"]["default_provider"] = provider
     # Ensure roles.default_role is explicitly set
-    config.setdefault("roles", {})["default_role"] = "default"
+    config.setdefault("roles", {})["default_role"] = DEFAULT_ROLE_NAME
 
     # No top-level default model; provider-level defaults are authoritative
 
@@ -215,8 +197,6 @@ def _reset_default() -> None:
     Overwrites the current config file with a minimal default configuration and
     ensures default roles exist.
     """
-    import datetime
-
     typer.echo("\n=== Reset Configuration to Defaults ===")
 
     cfg_path = get_config_path()
@@ -233,7 +213,7 @@ def _reset_default() -> None:
     # Create backup if present
     if cfg_path.exists():
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        backup_path = cfg_dir / f"config.toml.bak-{timestamp}"
+        backup_path = cfg_dir / f"{CONFIG_FILENAME}.bak-{timestamp}"
         try:
             backup_path.write_bytes(cfg_path.read_bytes())
             typer.echo(f"\nBackup created: {backup_path}")
@@ -245,7 +225,7 @@ def _reset_default() -> None:
     default_config: Dict[str, Any] = {
         "llm": {},
         "roles": {
-            "default_role": "default",
+            "default_role": DEFAULT_ROLE_NAME,
         },
     }
 
@@ -380,10 +360,6 @@ def run_wizard(existing_config: bool = False) -> None:
         # Open config directory in system file explorer
         cfg_dir = get_config_path().parent
         try:
-            import os
-            import subprocess
-            import sys
-
             if sys.platform.startswith("win"):
                 os.startfile(str(cfg_dir))  # type: ignore[attr-defined]
             elif sys.platform == "darwin":
@@ -398,7 +374,7 @@ def run_wizard(existing_config: bool = False) -> None:
     try:
         # Ensure roles.default_role exists before saving
         config.setdefault("roles", {})["default_role"] = config.get("roles", {}).get(
-            "default_role", "default"
+            "default_role", DEFAULT_ROLE_NAME
         )
         save_config(config)
         config_path = get_config_path()

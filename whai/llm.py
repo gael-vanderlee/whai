@@ -1,10 +1,12 @@
 """LLM provider wrapper using LiteLLM."""
 
 import json
+import os
+import re
 from importlib.resources import files
 from typing import Any, Dict, Generator, List, Optional, Union
 
-from whai.constants import DEFAULT_LLM_MODEL
+from whai.constants import DEFAULT_PROVIDER, get_default_model_for_provider
 from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -59,7 +61,6 @@ def get_base_system_prompt(is_deep_context: bool) -> str:
     Raises:
         FileNotFoundError: If the system prompt template file doesn't exist.
     """
-    import os
     import platform
     from pathlib import Path
 
@@ -147,7 +148,10 @@ class LLMProvider:
         # Resolve model: CLI override > provider-level default > built-in fallback
         provider_cfg = config.get("llm", {}).get(self.default_provider, {})
         provider_default_model = provider_cfg.get("default_model")
-        self.model = model or provider_default_model or DEFAULT_LLM_MODEL
+        fallback_model = get_default_model_for_provider(
+            self.default_provider or DEFAULT_PROVIDER
+        )
+        self.model = model or provider_default_model or fallback_model
 
         # Store custom API base for providers that need it
         self.api_base = provider_cfg.get("api_base")
@@ -171,8 +175,6 @@ class LLMProvider:
 
     def _configure_api_keys(self):
         """Configure API keys and endpoints from config for LiteLLM."""
-        import os
-
         llm_config = self.config.get("llm", {})
 
         # Set OpenAI key if present
@@ -377,8 +379,6 @@ class LLMProvider:
             # Map LiteLLM/provider errors to concise, actionable messages.
             def _sanitize(secret: str) -> str:
                 try:
-                    import re
-
                     # Redact API key-like tokens (e.g., sk-..., ,sk-...)
                     return re.sub(
                         r"[,]*\b[prsu]?k[-_][A-Za-z0-9]{8,}\b",
@@ -612,8 +612,6 @@ class LLMProvider:
 
         # Extract tool calls if present
         if hasattr(message, "tool_calls") and message.tool_calls:
-            import json
-
             for tool_call in message.tool_calls:
                 # Parse tool arguments defensively; some providers may return
                 # incomplete or malformed JSON strings.

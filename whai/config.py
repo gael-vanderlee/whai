@@ -15,6 +15,16 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
+from whai.constants import (
+    CONFIG_FILENAME,
+    DEFAULT_MODEL_OPENAI,
+    DEFAULT_PROVIDER,
+    DEFAULT_ROLE_FILENAME,
+    DEFAULT_ROLE_NAME,
+    ENV_WHAI_ROLE,
+    ENV_WHAI_TEST_MODE,
+    get_default_model_for_provider,
+)
 from whai.logging_setup import get_logger
 from whai.ui import warn
 
@@ -125,7 +135,7 @@ def get_config_dir() -> Path:
 
 def get_config_path() -> Path:
     """Get the path to the configuration file."""
-    return get_config_dir() / "config.toml"
+    return get_config_dir() / CONFIG_FILENAME
 
 
 def load_config(*, allow_ephemeral: bool = False) -> Dict[str, Any]:
@@ -148,7 +158,7 @@ def load_config(*, allow_ephemeral: bool = False) -> Dict[str, Any]:
     if not config_file.exists():
         # Check for test mode via environment variable, but only honor it when tests are running
         # This prevents accidental activation during real CLI usage.
-        is_test_mode_env = os.getenv("WHAI_TEST_MODE") == "1"
+        is_test_mode_env = os.getenv(ENV_WHAI_TEST_MODE) == "1"
         is_running_pytest = "PYTEST_CURRENT_TEST" in os.environ
         is_test_mode = is_test_mode_env and is_running_pytest
 
@@ -157,11 +167,11 @@ def load_config(*, allow_ephemeral: bool = False) -> Dict[str, Any]:
             # Return minimal test config without any secrets
             return {
                 "llm": {
-                    "default_provider": "openai",
+                    "default_provider": DEFAULT_PROVIDER,
                     "openai": {
                         # Ephemeral config includes a dummy key to satisfy validation in tests
                         "api_key": "test-key",
-                        "default_model": "gpt-5-mini",
+                        "default_model": DEFAULT_MODEL_OPENAI,
                     },
                 }
             }
@@ -215,7 +225,7 @@ def summarize_config(config: Dict[str, Any]) -> str:
     """
     llm = config.get("llm", {})
     default_provider = llm.get("default_provider") or "MISSING"
-    default_role = config.get("roles", {}).get("default_role") or "default"
+    default_role = config.get("roles", {}).get("default_role") or DEFAULT_ROLE_NAME
 
     providers = []
     for key, value in llm.items():
@@ -357,9 +367,9 @@ def ensure_default_roles() -> None:
     roles_dir.mkdir(parents=True, exist_ok=True)
 
     # Create default role if it doesn't exist
-    default_role = roles_dir / "default.md"
+    default_role = roles_dir / DEFAULT_ROLE_FILENAME
     if not default_role.exists():
-        default_role.write_text(get_default_role("default"))
+        default_role.write_text(get_default_role(DEFAULT_ROLE_NAME))
 
 
 def parse_role_file(content: str) -> Tuple[RoleMetadata, str]:
@@ -408,7 +418,7 @@ def parse_role_file(content: str) -> Tuple[RoleMetadata, str]:
     return metadata, body
 
 
-def load_role(role_name: str = "default") -> Tuple[RoleMetadata, str]:
+def load_role(role_name: str = DEFAULT_ROLE_NAME) -> Tuple[RoleMetadata, str]:
     """
     Load a role from ~/.config/whai/roles/{role_name}.md.
 
@@ -455,7 +465,7 @@ def resolve_role(
         return cli_role
 
     # 2) Environment variable
-    env_role = os.getenv("WHAI_ROLE")
+    env_role = os.getenv(ENV_WHAI_ROLE)
     if env_role:
         return env_role
 
@@ -470,7 +480,7 @@ def resolve_role(
         return cfg_default_role
 
     # 4) Hardcoded fallback
-    return "default"
+    return DEFAULT_ROLE_NAME
 
 
 def resolve_model(
@@ -513,10 +523,9 @@ def resolve_model(
         if default_model:
             return default_model, f"provider config '{default_provider}'"
 
-    # 4) Built-in fallback
-    from whai.constants import DEFAULT_LLM_MODEL
-
-    return DEFAULT_LLM_MODEL, "built-in fallback"
+    # 4) Built-in fallback: use default model for default provider
+    fallback_model = get_default_model_for_provider(DEFAULT_PROVIDER)
+    return fallback_model, f"built-in fallback ({DEFAULT_PROVIDER} default)"
 
 
 def resolve_temperature(

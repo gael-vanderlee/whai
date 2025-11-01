@@ -8,6 +8,8 @@ import logging
 import os
 from typing import Optional
 
+from whai.constants import ENV_WHAI_LOG_LEVEL, ENV_WHAI_VERBOSE_DEPS
+
 
 def configure_logging(level: Optional[str] = None) -> None:
     """Configure root logging handlers/levels for whai.
@@ -25,7 +27,7 @@ def configure_logging(level: Optional[str] = None) -> None:
     # Resolve target level
     resolved_level_name = (
         (level or "").strip().upper()
-        or os.environ.get("WHAI_LOG_LEVEL", "").strip().upper()
+        or os.environ.get(ENV_WHAI_LOG_LEVEL, "").strip().upper()
         or "CRITICAL"
     )
     if resolved_level_name not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
@@ -44,7 +46,7 @@ def configure_logging(level: Optional[str] = None) -> None:
     root_logger.addHandler(console)
 
     # Tame noisy third-party loggers unless explicitly requested
-    if os.environ.get("WHAI_VERBOSE_DEPS", "").lower() not in {"1", "true", "yes"}:
+    if os.environ.get(ENV_WHAI_VERBOSE_DEPS, "").lower() not in {"1", "true", "yes"}:
         noisy_names = (
             "litellm",
             "LiteLLM",

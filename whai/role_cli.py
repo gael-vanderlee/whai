@@ -2,6 +2,7 @@
 
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
@@ -17,6 +18,7 @@ from whai.config import (
     resolve_role,
     save_config,
 )
+from whai.constants import DEFAULT_MODEL_OPENAI, DEFAULT_ROLE_NAME
 from whai.logging_setup import get_logger
 from whai.utils import SUPPORTED_SHELLS, ShellType, detect_shell
 
@@ -51,12 +53,12 @@ def _template(name: str) -> str:
     return f"""---
 # Role metadata (optional frontmatter)
 # Allowed fields:
-#   model: string              # LLM model name (e.g., "gpt-5-mini", "claude-3-sonnet")
+#   model: string              # LLM model name (e.g., "{DEFAULT_MODEL_OPENAI}", "claude-3-sonnet")
 #                              # Falls back to provider config if not specified
 #   temperature: float         # Temperature setting (0.0 to 2.0)
 #                              # Only used when supported by the selected model
 #                              # Falls back to provider default if not specified
-model: gpt-5-mini
+model: {DEFAULT_MODEL_OPENAI}
 # temperature: 0.3            # Uncomment and adjust if needed
 ---
 You are a helpful terminal assistant with the '{name}' specialization.
@@ -187,7 +189,7 @@ def reset_default() -> None:
     This will overwrite the local default.md file.
     """
     ensure_default_roles()
-    path = _role_path("default")
+    path = _role_path(DEFAULT_ROLE_NAME)
 
     if path.exists():
         if not typer.confirm(
@@ -198,16 +200,16 @@ def reset_default() -> None:
             raise typer.Exit(0)
 
     # Write packaged default
-    default_content = get_default_role("default")
+    default_content = get_default_role(DEFAULT_ROLE_NAME)
     path.write_text(default_content)
     typer.echo(f"Reset default role at {path}")
 
     # Set as config default
     cfg = load_config(allow_ephemeral=True)
     roles_cfg = cfg.setdefault("roles", {})
-    roles_cfg["default_role"] = "default"
+    roles_cfg["default_role"] = DEFAULT_ROLE_NAME
     save_config(cfg)
-    typer.echo("Set 'default' as the default role in config")
+    typer.echo(f"Set '{DEFAULT_ROLE_NAME}' as the default role in config")
 
 
 @role_app.command("open-folder")
@@ -215,8 +217,6 @@ def open_folder() -> None:
     """Open the roles folder in the system file explorer."""
     d = _roles_dir()
     try:
-        import subprocess
-
         if sys.platform.startswith("win"):
             os.startfile(str(d))  # type: ignore[attr-defined]
         elif sys.platform == "darwin":
