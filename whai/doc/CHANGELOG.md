@@ -4,6 +4,7 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-01] [change] [imports]: remove unnecessary TYPE_CHECKING guard from roles.py; import WhaiConfig directly since there is no circular dependency between roles.py and user_config.py; simplifies type hints by removing forward reference quotes
 [2025-11-01] [change] [config]: refactor configuration to use dataclasses instead of dictionaries; move all config-related code to whai/configuration module (user_config.py, roles.py, config_wizard.py); implement file I/O methods directly in Role and WhaiConfig dataclasses (from_file, to_file); move provider validation into ProviderConfig subclasses as validate() method; remove backward compatibility shims; update all tests and code to use dataclass API instead of dictionary access
 [2025-11-01] [change] [constants]: centralize all configuration defaults into constants.py; move LLM provider defaults, timeouts, context limits, UI styling, file names, and environment variable names to single source of truth; replace hardcoded values across codebase with constants for better maintainability
 [2025-11-01] [fix] [main]: fix timeout validation in inline parsing; validate timeout <= 0 before converting to None to prevent 0 from being treated as default value; ensures invalid timeout values fail fast with clear error message

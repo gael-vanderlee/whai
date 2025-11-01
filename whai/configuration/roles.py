@@ -4,12 +4,11 @@ import os
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import yaml
 
-if TYPE_CHECKING:
-    from whai.configuration.user_config import WhaiConfig
+from whai.configuration.user_config import WhaiConfig
 from whai.constants import (
     DEFAULT_ROLE_FILENAME,
     DEFAULT_ROLE_NAME,
@@ -264,6 +263,11 @@ def ensure_default_roles() -> None:
     # Create default role if it doesn't exist
     default_role = roles_dir / DEFAULT_ROLE_FILENAME
     if not default_role.exists():
+        logger.info(
+            "No default role found, creating default role '%s' at %s",
+            DEFAULT_ROLE_NAME,
+            default_role,
+        )
         default_role.write_text(get_default_role(DEFAULT_ROLE_NAME))
 
 
@@ -293,7 +297,7 @@ def load_role(role_name: str = DEFAULT_ROLE_NAME) -> Role:
 
 
 def resolve_role(
-    cli_role: Optional[str] = None, config: Optional["WhaiConfig"] = None
+    cli_role: Optional[str] = None, config: Optional[WhaiConfig] = None
 ) -> str:
     """Resolve the role to use based on precedence.
 
@@ -333,7 +337,7 @@ def resolve_role(
 def resolve_model(
     cli_model: Optional[str] = None,
     role: Optional[Role] = None,
-    config: Optional["WhaiConfig"] = None,
+    config: Optional[WhaiConfig] = None,
 ) -> Tuple[str, str]:
     """Resolve the LLM model to use based on precedence.
 
