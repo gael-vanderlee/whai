@@ -7,7 +7,6 @@ import subprocess
 import sys
 from typing import Any, Dict, Optional
 
-import click
 import typer
 
 from whai.configuration.roles import ensure_default_roles
@@ -34,6 +33,7 @@ from whai.ui import (
     celebration,
     failure,
     info,
+    print_configuration_summary,
     print_section,
     prompt_numbered_choice,
     success,
@@ -93,7 +93,7 @@ def _get_provider_config(provider: str) -> ProviderConfig:
         provider_config = provider_class.from_dict(config_data)
 
         # Validate the configuration with external checks
-        typer.echo("\nValidating configuration...")
+        info("Validating configuration...")
 
         # Track if a message is in progress (waiting for result)
         in_progress: Dict[str, bool] = {}
@@ -108,14 +108,14 @@ def _get_provider_config(provider: str) -> ProviderConfig:
             dots_needed = max(1, TARGET_WIDTH - msg_len - 1)  # -1 for the result char
             return f"  {message}{'.' * dots_needed}"
 
-        def progress_callback(message: str, success: Optional[bool]) -> None:
+        def progress_callback(message: str, success_flag: Optional[bool]) -> None:
             """Progress callback that prints validation steps dynamically."""
-            if success is None:
+            if success_flag is None:
                 # Check in progress - show message without result yet
                 formatted = _format_message(message)
                 typer.echo(formatted, nl=False)
                 in_progress[message] = True
-            elif success is True:
+            elif success_flag is True:
                 # Success - complete line if in progress, or print full line
                 if in_progress.get(message):
                     typer.echo(" ✓")
@@ -123,7 +123,7 @@ def _get_provider_config(provider: str) -> ProviderConfig:
                 else:
                     formatted = _format_message(message)
                     typer.echo(f"{formatted} ✓")
-            elif success is False:
+            elif success_flag is False:
                 # Failure - complete line if in progress, or print full line
                 if in_progress.get(message):
                     typer.echo(" ✗")
@@ -135,9 +135,9 @@ def _get_provider_config(provider: str) -> ProviderConfig:
         validation_result = provider_config.validate(on_progress=progress_callback)
 
         if not validation_result.is_valid:
-            typer.echo("\n⚠ Validation issues found:")
+            warn("Validation issues found:")
             for issue in validation_result.issues:
-                typer.echo(f"  - {issue}")
+                warn(f"  - {issue}")
 
             if not typer.confirm(
                 "\nProceed with configuration despite validation issues?",
@@ -145,11 +145,11 @@ def _get_provider_config(provider: str) -> ProviderConfig:
             ):
                 raise typer.Abort()
         else:
-            typer.echo("\n✓ Configuration validated successfully!")
+            success("Configuration validated successfully!")
 
         return provider_config
     except (ValueError, InvalidProviderConfigError) as e:
-        typer.echo(f"\n✗ Invalid configuration: {e}", err=True)
+        failure(f"Invalid configuration: {e}")
         raise typer.Exit(1)
 
 
@@ -160,13 +160,12 @@ def _quick_setup(config: WhaiConfig) -> None:
     Args:
         config: WhaiConfig instance to update.
     """
-    typer.echo("\n=== Quick Setup ===")
-    typer.echo("Let's get you started with a single provider.\n")
+    print_section("Quick Setup", "Let's get you started with a single provider.")
 
     # Ask for provider
-    provider = typer.prompt(
+    provider = prompt_numbered_choice(
         "Choose a provider",
-        type=click.Choice(list(PROVIDERS.keys())),
+        list(PROVIDERS.keys()),
         default=DEFAULT_PROVIDER,
     )
 
@@ -177,7 +176,7 @@ def _quick_setup(config: WhaiConfig) -> None:
     config.llm.providers[provider] = provider_config
     config.llm.default_provider = provider
 
-    typer.echo(f"\n✓ {provider} configured successfully!")
+    success(f"{provider} configured successfully!")
 
 
 def _add_or_edit_provider(config: WhaiConfig) -> None:
@@ -187,18 +186,18 @@ def _add_or_edit_provider(config: WhaiConfig) -> None:
     Args:
         config: WhaiConfig instance to update.
     """
-    typer.echo("\n=== Add or Edit Provider ===")
+    print_section("Add or Edit Provider")
 
-    provider = typer.prompt(
+    provider = prompt_numbered_choice(
         "Choose a provider to configure",
-        type=click.Choice(list(PROVIDERS.keys())),
+        list(PROVIDERS.keys()),
     )
 
     # Check if provider already exists
     existing = config.llm.get_provider(provider)
 
     if existing:
-        typer.echo(f"\nProvider '{provider}' already configured.")
+        info(f"Provider '{provider}' already configured.")
         if not typer.confirm("Do you want to edit it?", default=True):
             return
 
@@ -206,7 +205,7 @@ def _add_or_edit_provider(config: WhaiConfig) -> None:
     provider_config = _get_provider_config(provider)
     config.llm.providers[provider] = provider_config
 
-    typer.echo(f"\n✓ {provider} configured successfully!")
+    success(f"{provider} configured successfully!")
 
 
 def _remove_provider(config: WhaiConfig) -> None:
@@ -216,33 +215,33 @@ def _remove_provider(config: WhaiConfig) -> None:
     Args:
         config: WhaiConfig instance to update.
     """
-    typer.echo("\n=== Remove Provider ===")
+    print_section("Remove Provider")
 
     # Find configured providers
     configured = list(config.llm.providers.keys())
 
     if not configured:
-        typer.echo("⚠ NO PROVIDERS CONFIGURED")
+        warn("NO PROVIDERS CONFIGURED")
         return
 
-    provider = typer.prompt(
+    provider = prompt_numbered_choice(
         "Choose a provider to remove",
-        type=click.Choice(configured),
+        configured,
     )
 
     if provider in config.llm.providers:
         del config.llm.providers[provider]
-        typer.echo(f"\n✓ {provider} removed.")
+        success(f"{provider} removed.")
 
         # If this was the default provider, clear it
         if config.llm.default_provider == provider:
             config.llm.default_provider = ""
-            typer.echo("Note: This was your default provider. Set a new default.")
+            warn("This was your default provider. Set a new default.")
 
         # Warn if no providers remain
         if not config.llm.providers:
-            typer.echo(
-                "\n⚠ Warning: NO PROVIDERS CONFIGURED. whai cannot run until you add one.\n"
+            warn(
+                "NO PROVIDERS CONFIGURED. whai cannot run until you add one.\n"
                 "Run 'whai --interactive-config' and choose quick-setup."
             )
 
@@ -257,17 +256,17 @@ def _reset_default() -> WhaiConfig:
     Returns:
         New empty WhaiConfig instance.
     """
-    typer.echo("\n=== Reset Configuration to Defaults ===")
+    print_section("Reset Configuration to Defaults")
 
     cfg_path = get_config_path()
     cfg_dir = cfg_path.parent
-    typer.echo(f"Config path: {cfg_path}")
+    info(f"Config path: {cfg_path}")
 
     if not typer.confirm(
         "This will overwrite your configuration file. A backup will be created. Continue?",
         default=False,
     ):
-        typer.echo("\nReset cancelled.")
+        warn("Reset cancelled.")
         raise typer.Abort()
 
     # Create backup if present
@@ -276,9 +275,9 @@ def _reset_default() -> WhaiConfig:
         backup_path = cfg_dir / f"{CONFIG_FILENAME}.bak-{timestamp}"
         try:
             backup_path.write_bytes(cfg_path.read_bytes())
-            typer.echo(f"\nBackup created: {backup_path}")
+            success(f"Backup created: {backup_path}")
         except Exception as e:
-            typer.echo(f"\n✗ Failed to create backup: {e}", err=True)
+            failure(f"Failed to create backup: {e}")
             raise typer.Exit(1)
 
     # Minimal default configuration: no providers configured
@@ -294,11 +293,11 @@ def _reset_default() -> WhaiConfig:
         save_config(default_config)
         ensure_default_roles()
     except Exception as e:
-        typer.echo(f"\n✗ Error writing default configuration: {e}", err=True)
+        failure(f"Error writing default configuration: {e}")
         raise typer.Exit(1)
 
-    typer.echo(f"\n✓ Configuration reset. Wrote defaults to: {get_config_path()}\n")
-    typer.echo("⚠ NO PROVIDERS CONFIGURED. You'll be prompted to add one now.")
+    success(f"Configuration reset. Wrote defaults to: {get_config_path()}\n")
+    warn("NO PROVIDERS CONFIGURED. You'll be prompted to add one now.")
 
     return default_config
 
@@ -310,24 +309,24 @@ def _set_default_provider(config: WhaiConfig) -> None:
     Args:
         config: WhaiConfig instance to update.
     """
-    typer.echo("\n=== Set Default Provider ===")
+    print_section("Set Default Provider")
 
     # Find configured providers
     configured = list(config.llm.providers.keys())
 
     if not configured:
-        typer.echo("⚠ NO PROVIDERS CONFIGURED. Add a provider first.")
+        warn("NO PROVIDERS CONFIGURED. Add a provider first.")
         return
 
-    provider = typer.prompt(
+    provider = prompt_numbered_choice(
         "Choose default provider",
-        type=click.Choice(configured),
+        configured,
         default=configured[0],
     )
 
     config.llm.default_provider = provider
 
-    typer.echo(f"\n✓ Default provider set to {provider}")
+    success(f"Default provider set to {provider}")
 
 
 def _load_or_create_config(existing_config: bool) -> WhaiConfig:
@@ -369,18 +368,15 @@ def run_wizard(existing_config: bool = False) -> None:
     Args:
         existing_config: If True, config already exists and we're editing it.
     """
-    typer.echo("\n" + "=" * 50)
-    typer.echo("       whai Configuration Wizard")
-    typer.echo("=" * 50)
+    print_section("Whai Configuration Wizard")
 
     # Try to load existing config or start with empty structure
     config = _load_or_create_config(existing_config)
 
     if existing_config:
-        typer.echo("\nCurrent configuration:")
         cfg_path = get_config_path()
-        typer.echo(f"Config path: {cfg_path}")
-        typer.echo(config.summarize())
+        info(f"Config path: {cfg_path}")
+        print_configuration_summary(config)
 
     # Show menu
     configured_now = list(config.llm.providers.keys())
@@ -390,11 +386,18 @@ def run_wizard(existing_config: bool = False) -> None:
             "remove",
             "default-provider",
             "reset-config",
-            "view",
             "open-folder",
             "cancel",
         ]
-        default_action = "view"
+        action_labels = {
+            "add-or-edit": "Add or Edit Provider",
+            "remove": "Remove Provider",
+            "default-provider": "Set Default Provider",
+            "reset-config": "Reset Configuration",
+            "open-folder": "Open Config Folder",
+            "cancel": "Cancel",
+        }
+        default_action = "add-or-edit"
     else:
         # No providers yet - drive user to quick-setup
         actions = [
@@ -404,24 +407,33 @@ def run_wizard(existing_config: bool = False) -> None:
             "open-folder",
             "cancel",
         ]
+        action_labels = {
+            "quick-setup": "Quick Setup",
+            "add-or-edit": "Add or Edit Provider",
+            "reset-config": "Reset Configuration",
+            "open-folder": "Open Config Folder",
+            "cancel": "Cancel",
+        }
         default_action = "quick-setup"
 
-    action = typer.prompt(
-        "\nChoose an action",
-        type=click.Choice(actions),
-        default=default_action,
+    # Display choices with labels
+    choices = [action_labels.get(action, action) for action in actions]
+    default_choice = action_labels.get(default_action, default_action)
+
+    selected_label = prompt_numbered_choice(
+        "Choose an action",
+        choices,
+        default=default_choice,
+    )
+
+    # Find the action key from the selected label
+    action = next(
+        key for key, label in action_labels.items() if label == selected_label
     )
 
     if action == "cancel":
-        typer.echo("\nConfiguration cancelled.")
+        warn("Configuration cancelled.")
         raise typer.Abort()
-
-    if action == "view":
-        typer.echo("\nCurrent configuration:")
-        cfg_path = get_config_path()
-        typer.echo(f"Config path: {cfg_path}")
-        typer.echo(config.summarize())
-        return
 
     # Execute the chosen action
     if action == "quick-setup":
@@ -446,16 +458,16 @@ def run_wizard(existing_config: bool = False) -> None:
                 subprocess.Popen(["open", str(cfg_dir)])
             else:
                 subprocess.Popen(["xdg-open", str(cfg_dir)])
-            typer.echo(f"\n✓ Opened folder: {cfg_dir}")
+            success(f"Opened folder: {cfg_dir}")
         except Exception as e:
-            typer.echo(f"\n✗ Failed to open folder {cfg_dir}: {e}", err=True)
+            failure(f"Failed to open folder {cfg_dir}: {e}")
 
     # Save the configuration
     try:
         save_config(config)
         config_path = get_config_path()
-        typer.echo(f"\n✓ Configuration saved to: {config_path}")
-        typer.echo("\nYou can now use whai!")
+        success(f"Configuration saved to: {config_path}")
+        celebration("You can now use whai!")
     except Exception as e:
-        typer.echo(f"\n✗ Error saving configuration: {e}", err=True)
+        failure(f"Error saving configuration: {e}")
         raise typer.Exit(1)
