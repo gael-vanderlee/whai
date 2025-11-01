@@ -3,7 +3,7 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from whai.logging_setup import get_logger
 from whai.utils import detect_shell
@@ -204,7 +204,7 @@ def _get_history_context(
     home = Path.home()
 
     # Prefer explicit zsh/bash history if the shell is known, regardless of OS
-    commands: list[str] = []
+    commands: List[str] = []
     if shell == "zsh":
         history_file = home / ".zsh_history"
         commands = _parse_zsh_history(history_file, max_commands)

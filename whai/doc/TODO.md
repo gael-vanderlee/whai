@@ -20,7 +20,14 @@ Features:
 - [x] Add "real world" unit tests
 - [x] Find new name
 - [x] Pip installable
-
+- [ ] Delete config ?
+- [ ] Whai standalone running
+- [ ] Explain tmux in readme
+- [ ] Multiple python versions testing
+- [ ] Better first time API setup (clear no API message)
+- [ ] Test flag positioning
+- [ ] No output handling
+- [ ] Prettier code blocs in readme
 
 Issues:
 - [x] Timeout issue

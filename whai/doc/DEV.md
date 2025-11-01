@@ -7,25 +7,28 @@ Compact commands for Windows, macOS, and Linux.
 ### Install (editable, with dev deps)
 ```bash
 uv venv
-uv pip install -e ".[dev]"
+uv sync
 ```
 
 ### Add packages
-- Edit `pyproject.toml` and add the dependency under `[project]` or `[project.optional-dependencies].dev`, then:
 ```bash
-uv pip install -e ".[dev]"
+uv add package
+```
+or 
+```bash
+uv add --dev package
 ```
 
 ### Delete and recreate venv
 ```bash
 # macOS/Linux
-rm -rf .venv && uv venv && uv pip install -e ".[dev]"
+rm -rf .venv && uv venv && uv sync
 
 # Windows PowerShell
-Remove-Item .venv -Recurse -Force; uv venv; uv pip install -e ".[dev]"
+Remove-Item .venv -Recurse -Force; uv venv; uv sync
 
 # Windows CMD
-rmdir /s /q .venv & uv venv & uv pip install -e ".[dev]"
+rmdir /s /q .venv & uv venv & uv sync
 ```
 
 ### Activate venv
@@ -51,11 +54,42 @@ uv run python path/to/script.py
 ```
 
 ## Tests
+
+### Quick test run (current Python version)
 ```bash
 uv run pytest
 # Optional
 uv run pytest -v
 uv run pytest --cov=whai --cov-report=term-missing
+```
+
+### Testing across multiple Python versions (recommended)
+
+Use `nox` to test against Python 3.8, 3.9, 3.10, 3.11, 3.12, and 3.13:
+First time setup:
+```bash
+# One-time setup: Install Python versions with uv
+uv python install 3.10 3.11 3.12 3.13
+
+# Install nox
+uv tool install nox[uv]
+```
+
+Run the tests
+```bash
+nox
+```
+
+Other useful commands
+```bash
+# Test specific Python version
+nox -s tests-3.11
+
+# Run linting across all versions
+nox -s lint
+
+# List all available sessions
+nox -l
 ```
 
 ## Publish to TestPyPI, verify, then publish to PyPI
@@ -68,7 +102,7 @@ The following commands work on Windows PowerShell. They bump the version, build 
 
 ```powershell
 # Options: major | minor | patch | stable | alpha | beta | rc | post | dev
-uv version --bump minor
+uv version --bump patch
 ```
 
 ### 2) Build artifacts

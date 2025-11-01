@@ -4,7 +4,7 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 import typer
 
@@ -36,19 +36,19 @@ logger = get_logger(__name__)
 # when users place options after the query. This keeps behavior consistent across
 # shells and quoting styles.
 def _extract_inline_overrides(
-    tokens: list[str],
+    tokens: List[str],
     *,
     role: Optional[str],
     no_context: bool,
     model: Optional[str],
     temperature: Optional[float],
     timeout: int,
-) -> tuple[list[str], dict]:
+) -> Tuple[List[str], Dict]:
     """Extract supported inline flags from free-form tokens.
 
     Returns a tuple of (cleaned_tokens, overrides_dict).
     """
-    cleaned: list[str] = []
+    cleaned: List[str] = []
     i = 0
     # Local copies to mutate
     o_role = role
@@ -141,7 +141,7 @@ def _extract_inline_overrides(
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    query: list[str] = typer.Argument(
+    query: List[str] = typer.Argument(
         None, help="Your question or request (can be multiple words)"
     ),
     role: Optional[str] = typer.Option(
@@ -214,7 +214,7 @@ def main(
                 except ImportError:
                     # Fallback to tomli for Python 3.10
                     try:
-                        import tomli
+                        import tomli  # pyright: ignore[reportMissingImports]
 
                         with open(pyproject_path, "rb") as f:
                             data = tomli.load(f)
@@ -260,10 +260,9 @@ def main(
             raise typer.Exit(1)
         return
 
-    # No query provided and no subcommand - show help
+    # No query provided and no subcommand - use default query
     if not query:
-        typer.echo(ctx.get_help())
-        raise typer.Exit(0)
+        query = ["The user is confused about the last thing that happened in his terminal, provide assistance"]
 
     # Workaround for Click/Typer parsing with variadic arguments:
     # If users place options after the free-form query, those tokens land in `query`.

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List, Optional
 
 from whai.llm import LLMProvider
 
@@ -16,7 +16,9 @@ class _DeltaToolCall:
 
 
 class _Delta:
-    def __init__(self, content: str = None, tool_calls: list[Any] = None):
+    def __init__(
+        self, content: Optional[str] = None, tool_calls: Optional[List[Any]] = None
+    ):
         self.content = content
         self.tool_calls = tool_calls or []
 

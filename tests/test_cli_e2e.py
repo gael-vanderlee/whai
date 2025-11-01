@@ -10,9 +10,10 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Dict, List, Optional
 
 
-def _base_env(tmp_path: Path, *, toolcall: bool = False) -> dict:
+def _base_env(tmp_path: Path, *, toolcall: bool = False) -> Dict:
     """Construct a clean environment for subprocess CLI runs.
 
     - Adds tests directory to PYTHONPATH so sitecustomize is auto-imported.
@@ -43,7 +44,7 @@ def _base_env(tmp_path: Path, *, toolcall: bool = False) -> dict:
 
 
 def _run_cli(
-    args: list[str], *, env: dict, input_text: str | None = None, timeout: int = 20
+    args: List[str], *, env: Dict, input_text: Optional[str] = None, timeout: int = 20
 ):
     """Run `python -m whai` with provided args as a subprocess."""
     cmd = [sys.executable, "-m", "whai", *args]

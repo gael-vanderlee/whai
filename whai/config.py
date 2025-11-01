@@ -1,13 +1,19 @@
 """Configuration management for whai."""
 
 import os
+import sys
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-import tomllib  # Python 3.11+, use tomli for older versions
 import yaml
+
+# Use tomllib for Python 3.11+, tomli for older versions
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 from whai.logging_setup import get_logger
 from whai.ui import warn
