@@ -111,6 +111,9 @@ def _get_tmux_context(exclude_command: Optional[str] = None) -> Optional[str]:
     """
     Get context from tmux scrollback buffer.
 
+    Captures scrollback history
+    providing deep context including commands and their outputs.
+
     Args:
         exclude_command: Command pattern to filter out from the context.
 
@@ -125,7 +128,7 @@ def _get_tmux_context(exclude_command: Optional[str] = None) -> Optional[str]:
         # On Windows with WSL, run tmux command through WSL
         if os.name == "nt" and _is_wsl():
             result = subprocess.run(
-                ["wsl", "tmux", "capture-pane", "-p"],
+                ["wsl", "tmux", "capture-pane", "-p", "-S", "-200"],
                 capture_output=True,
                 text=True,
                 timeout=5,
@@ -133,7 +136,7 @@ def _get_tmux_context(exclude_command: Optional[str] = None) -> Optional[str]:
         else:
             # On Unix-like systems, run tmux directly
             result = subprocess.run(
-                ["tmux", "capture-pane", "-p"],
+                ["tmux", "capture-pane", "-p", "-S", "-200"],
                 capture_output=True,
                 text=True,
                 timeout=5,

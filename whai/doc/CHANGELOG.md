@@ -4,6 +4,7 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-01] [fix] [context]: fix tmux context capture to use scrollback buffer instead of visible window; use `-S -200` flag to capture up to 200 lines of scrollback history regardless of terminal window size; resolves issue where context amount varied with window dimensions on WSL
 [2025-11-01] [feature] [context]: automatically filter whai command invocation from terminal context; removes last occurrence of command and all subsequent lines from tmux scrollback, or last matching command from history; handles quote differences between terminal and sys.argv, excludes log lines from matching; adds logging to verify filtering behavior
 [2025-11-01] [fix] [ui]: display message when command produces no output; show exit code and "empty output" indicator to both user and LLM; prevents confusion when commands succeed silently
 [2025-11-01] [test] [cli]: update test_cli_module_help_when_no_args to reflect default query behavior when no args provided
