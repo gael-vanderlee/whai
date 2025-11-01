@@ -74,13 +74,14 @@ def test_cli_module_text_only(tmp_path):
     assert "subprocess test" in merged
 
 
-def test_cli_module_help_when_no_args(tmp_path):
-    """Running with no args prints help and exits 0."""
+def test_cli_module_default_query_when_no_args(tmp_path):
+    """Running with no args uses default query and executes."""
     env = _base_env(tmp_path)
     code, out, err = _run_cli([], env=env)
     assert code == 0
     merged = (out or "") + (err or "")
-    assert "Your question or request" in merged
+    # Should execute with default query (confused about last thing)
+    assert "subprocess test" in merged or "Model:" in merged
 
 
 def test_cli_role_list_subcommand(tmp_path):
