@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from whai import llm
+from tests.conftest import create_test_config
 
 
 def test_get_base_system_prompt_deep_context():
@@ -42,13 +43,11 @@ def test_execute_shell_tool_schema():
 
 def test_llm_provider_init():
     """Test LLMProvider initialization."""
-    config = {
-        "llm": {
-            "default_provider": "openai",
-            "default_model": "gpt-5-mini",
-            "openai": {"api_key": "test-key-123"},
-        }
-    }
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-5-mini",
+        api_key="test-key-123",
+    )
 
     provider = llm.LLMProvider(config)
 
@@ -60,7 +59,10 @@ def test_llm_provider_init():
 
 def test_llm_provider_init_with_overrides():
     """Test LLMProvider initialization with overrides."""
-    config = {"llm": {"default_provider": "openai", "default_model": "gpt-5-mini"}}
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-5-mini",
+    )
 
     provider = llm.LLMProvider(config, model="gpt-5-mini", temperature=0.5)
 
@@ -70,15 +72,17 @@ def test_llm_provider_init_with_overrides():
 
 def test_llm_provider_configure_api_keys():
     """Test API key configuration."""
-    config = {
-        "llm": {
-            "default_provider": "openai",
-            "default_model": "gpt-5-mini",
-            "openai": {"api_key": "sk-test-123"},
-            "anthropic": {"api_key": "sk-ant-test-456"},
-            "gemini": {"api_key": "AIzaSy-test-789"},
-        }
-    }
+    from whai.configuration.user_config import AnthropicConfig, GeminiConfig, OpenAIConfig
+
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-5-mini",
+        api_key="sk-test-123",
+        providers={
+            "anthropic": AnthropicConfig(api_key="sk-ant-test-456", default_model="claude-3-sonnet"),
+            "gemini": GeminiConfig(api_key="AIzaSy-test-789", default_model="gemini-pro"),
+        },
+    )
 
     with patch.dict("os.environ", {}, clear=True):
         llm.LLMProvider(config)
@@ -92,7 +96,7 @@ def test_llm_provider_configure_api_keys():
 
 def test_send_message_non_streaming():
     """Test sending a non-streaming message."""
-    config = {"llm": {"default_provider": "openai", "default_model": "gpt-5-mini"}}
+    config = create_test_config(default_provider="openai", default_model="gpt-5-mini")
 
     # Mock response
     mock_response = MagicMock()
@@ -113,7 +117,7 @@ def test_send_message_non_streaming():
 
 def test_send_message_with_tool_calls():
     """Test sending a message that returns tool calls."""
-    config = {"llm": {"default_provider": "openai", "default_model": "gpt-5-mini"}}
+    config = create_test_config(default_provider="openai", default_model="gpt-5-mini")
 
     # Mock response with tool call
     mock_tool_call = MagicMock()
@@ -142,7 +146,7 @@ def test_send_message_with_tool_calls():
 
 def test_send_message_streaming():
     """Test streaming message response."""
-    config = {"llm": {"default_provider": "openai", "default_model": "gpt-5-mini"}}
+    config = create_test_config(default_provider="openai", default_model="gpt-5-mini")
 
     # Mock streaming response
     mock_chunks = []
@@ -169,7 +173,7 @@ def test_send_message_streaming():
 
 def test_send_message_streaming_with_tool_call():
     """Test streaming message with tool call."""
-    config = {"llm": {"default_provider": "openai", "default_model": "gpt-4"}}
+    config = create_test_config(default_provider="openai", default_model="gpt-4")
 
     # Mock streaming response with tool call
     mock_chunks = []
@@ -213,7 +217,7 @@ def test_send_message_streaming_with_tool_call():
 
 def test_logs_include_llm_request_payload(caplog):
     """Ensure the debug log includes the exact payload (messages) sent to the LLM."""
-    config = {"llm": {"default_provider": "openai", "default_model": "gpt-5-mini"}}
+    config = create_test_config(default_provider="openai", default_model="gpt-5-mini")
 
     # Mock non-streaming minimal response
     mock_response = MagicMock()
@@ -244,7 +248,7 @@ def test_logs_include_llm_request_payload(caplog):
 
 def test_send_message_api_error():
     """Test that API errors are properly raised."""
-    config = {"llm": {"default_provider": "openai", "default_model": "gpt-4"}}
+    config = create_test_config(default_provider="openai", default_model="gpt-4")
 
     with patch("litellm.completion", side_effect=Exception("API Error")):
         provider = llm.LLMProvider(config)
@@ -264,14 +268,15 @@ def test_send_message_real_api():
     """
     import os
 
-    from whai import config as whai_config
+    from whai.configuration import user_config as whai_config
 
     # Determine API key from environment or whai config
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         try:
             loaded = whai_config.load_config()
-            api_key = loaded.get("llm", {}).get("openai", {}).get("api_key")
+            openai_cfg = loaded.llm.get_provider("openai")
+            api_key = openai_cfg.api_key if openai_cfg else None
         except Exception:
             api_key = None
 
@@ -279,13 +284,11 @@ def test_send_message_real_api():
     if not api_key or api_key in ("test-key-123", "your-api-key-here"):
         pytest.skip("No valid OpenAI API key in environment or whai config")
 
-    config = {
-        "llm": {
-            "default_provider": "openai",
-            "default_model": "gpt-5-mini",
-            "openai": {"api_key": api_key},
-        }
-    }
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-5-mini",
+        api_key=api_key,
+    )
 
     provider = llm.LLMProvider(config)
     messages = [

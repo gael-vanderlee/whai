@@ -10,14 +10,14 @@ from typing import Optional
 import click
 import typer
 
-from whai.config import (
+from whai.configuration import (
     ensure_default_roles,
-    get_config_dir,
-    get_default_role,
     load_config,
     resolve_role,
     save_config,
 )
+from whai.configuration.roles import get_default_role
+from whai.configuration.user_config import get_config_dir
 from whai.constants import DEFAULT_MODEL_OPENAI, DEFAULT_ROLE_NAME
 from whai.logging_setup import get_logger
 from whai.utils import SUPPORTED_SHELLS, ShellType, detect_shell
@@ -175,9 +175,8 @@ def set_default_role(name: str = typer.Argument(...)) -> None:
     if not _role_path(name).exists():
         typer.echo(f"Role '{name}' not found.", err=True)
         raise typer.Exit(2)
-    cfg = load_config(allow_ephemeral=True)
-    roles_cfg = cfg.setdefault("roles", {})
-    roles_cfg["default_role"] = name
+    cfg = load_config()
+    cfg.roles.default_role = name
     save_config(cfg)
     typer.echo(f"Default role set to '{name}'")
 
@@ -205,9 +204,8 @@ def reset_default() -> None:
     typer.echo(f"Reset default role at {path}")
 
     # Set as config default
-    cfg = load_config(allow_ephemeral=True)
-    roles_cfg = cfg.setdefault("roles", {})
-    roles_cfg["default_role"] = DEFAULT_ROLE_NAME
+    cfg = load_config()
+    cfg.roles.default_role = DEFAULT_ROLE_NAME
     save_config(cfg)
     typer.echo(f"Set '{DEFAULT_ROLE_NAME}' as the default role in config")
 
@@ -270,9 +268,9 @@ def which_role() -> None:
     """Print the role currently in use based on precedence."""
     # Reuse the shared resolver to avoid duplicating logic
     try:
-        cfg = load_config(allow_ephemeral=True)
+        cfg = load_config()
     except Exception:
-        cfg = {}
+        cfg = None
     current = resolve_role(None, cfg)
     typer.echo(current)
 

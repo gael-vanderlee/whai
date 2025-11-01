@@ -1,17 +1,16 @@
 """Tests for LLM temperature handling and parameter support."""
 
+from tests.conftest import create_test_config
 from whai import llm
 
 
 def test_llm_provider_accepts_no_temperature():
     """Test that LLMProvider works without temperature parameter."""
-    config = {
-        "llm": {
-            "default_provider": "openai",
-            "default_model": "gpt-5-mini",
-            "openai": {"api_key": "test-key"},
-        }
-    }
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-5-mini",
+        api_key="test-key",
+    )
 
     provider = llm.LLMProvider(config)
     assert provider.temperature is None
@@ -20,13 +19,11 @@ def test_llm_provider_accepts_no_temperature():
 
 def test_llm_provider_accepts_explicit_temperature():
     """Test that LLMProvider accepts an explicit temperature."""
-    config = {
-        "llm": {
-            "default_provider": "openai",
-            "default_model": "gpt-5-mini",
-            "openai": {"api_key": "test-key"},
-        }
-    }
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-5-mini",
+        api_key="test-key",
+    )
 
     provider = llm.LLMProvider(config, temperature=0.5)
     assert provider.temperature == 0.5
@@ -36,13 +33,11 @@ def test_send_message_includes_drop_params():
     """Test that send_message uses drop_params=True to handle unsupported parameters."""
     from unittest.mock import Mock, patch
 
-    config = {
-        "llm": {
-            "default_provider": "openai",
-            "default_model": "gpt-5-mini",
-            "openai": {"api_key": "test-key"},
-        }
-    }
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-5-mini",
+        api_key="test-key",
+    )
 
     provider = llm.LLMProvider(config, temperature=0.7)
     messages = [{"role": "user", "content": "test"}]
@@ -72,13 +67,11 @@ def test_send_message_no_temperature_when_none():
     """Test that temperature is not included in API call when set to None."""
     from unittest.mock import Mock, patch
 
-    config = {
-        "llm": {
-            "default_provider": "openai",
-            "default_model": "gpt-5-mini",
-            "openai": {"api_key": "test-key"},
-        }
-    }
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-5-mini",
+        api_key="test-key",
+    )
 
     provider = llm.LLMProvider(config)  # No temperature
     messages = [{"role": "user", "content": "test"}]

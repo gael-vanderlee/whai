@@ -10,12 +10,18 @@ from typing import Any, Dict
 import click
 import typer
 
-from whai.config import (
-    ensure_default_roles,
+from whai.configuration.roles import ensure_default_roles
+from whai.configuration.user_config import (
+    InvalidProviderConfigError,
+    LLMConfig,
+    MissingConfigError,
+    ProviderConfig,
+    RolesConfig,
+    WhaiConfig,
     get_config_path,
+    get_provider_class,
     load_config,
     save_config,
-    summarize_config,
 )
 from whai.constants import (
     CONFIG_FILENAME,
@@ -31,14 +37,7 @@ logger = get_logger(__name__)
 PROVIDERS = PROVIDER_DEFAULTS
 
 
-def _ensure_llm_section(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Ensure the config has an 'llm' section."""
-    if "llm" not in config:
-        config["llm"] = {}
-    return config
-
-
-def _get_provider_config(provider: str) -> Dict[str, str]:
+def _get_provider_config(provider: str) -> ProviderConfig:
     """
     Interactively get configuration for a provider.
 
@@ -46,10 +45,10 @@ def _get_provider_config(provider: str) -> Dict[str, str]:
         provider: The provider name (e.g., 'openai', 'anthropic').
 
     Returns:
-        Dictionary with provider configuration.
+        ProviderConfig instance with user-provided configuration.
     """
     provider_info = PROVIDERS[provider]
-    config_data = {}
+    config_data: Dict[str, Any] = {}
 
     typer.echo(f"\n=== Configuring {provider} ===")
 
@@ -79,15 +78,21 @@ def _get_provider_config(provider: str) -> Dict[str, str]:
         if value != "":  # Only add non-empty values
             config_data[field] = value
 
-    return config_data
+    # Create the appropriate ProviderConfig subclass instance
+    try:
+        provider_class = get_provider_class(provider)
+        return provider_class.from_dict(config_data)
+    except (ValueError, InvalidProviderConfigError) as e:
+        typer.echo(f"\n✗ Invalid configuration: {e}", err=True)
+        raise typer.Exit(1)
 
 
-def _quick_setup(config: Dict[str, Any]) -> None:
+def _quick_setup(config: WhaiConfig) -> None:
     """
     Quick setup flow for first-time users.
 
     Args:
-        config: Configuration dictionary to update.
+        config: WhaiConfig instance to update.
     """
     typer.echo("\n=== Quick Setup ===")
     typer.echo("Let's get you started with a single provider.\n")
@@ -103,23 +108,18 @@ def _quick_setup(config: Dict[str, Any]) -> None:
     provider_config = _get_provider_config(provider)
 
     # Update config
-    _ensure_llm_section(config)
-    config["llm"][provider] = provider_config
-    config["llm"]["default_provider"] = provider
-    # Ensure roles.default_role is explicitly set
-    config.setdefault("roles", {})["default_role"] = DEFAULT_ROLE_NAME
-
-    # No top-level default model; provider-level defaults are authoritative
+    config.llm.providers[provider] = provider_config
+    config.llm.default_provider = provider
 
     typer.echo(f"\n✓ {provider} configured successfully!")
 
 
-def _add_or_edit_provider(config: Dict[str, Any]) -> None:
+def _add_or_edit_provider(config: WhaiConfig) -> None:
     """
     Add or edit a provider configuration.
 
     Args:
-        config: Configuration dictionary to update.
+        config: WhaiConfig instance to update.
     """
     typer.echo("\n=== Add or Edit Provider ===")
 
@@ -129,8 +129,7 @@ def _add_or_edit_provider(config: Dict[str, Any]) -> None:
     )
 
     # Check if provider already exists
-    _ensure_llm_section(config)
-    existing = config["llm"].get(provider, {})
+    existing = config.llm.get_provider(provider)
 
     if existing:
         typer.echo(f"\nProvider '{provider}' already configured.")
@@ -139,32 +138,25 @@ def _add_or_edit_provider(config: Dict[str, Any]) -> None:
 
     # Get new configuration
     provider_config = _get_provider_config(provider)
-    config["llm"][provider] = provider_config
+    config.llm.providers[provider] = provider_config
 
     typer.echo(f"\n✓ {provider} configured successfully!")
 
 
-def _remove_provider(config: Dict[str, Any]) -> None:
+def _remove_provider(config: WhaiConfig) -> None:
     """
     Remove a provider configuration.
 
     Args:
-        config: Configuration dictionary to update.
+        config: WhaiConfig instance to update.
     """
     typer.echo("\n=== Remove Provider ===")
 
-    _ensure_llm_section(config)
-    llm = config["llm"]
-
     # Find configured providers
-    configured = [
-        k
-        for k, v in llm.items()
-        if isinstance(v, dict) and "api_key" in v or k == "ollama"
-    ]
+    configured = list(config.llm.providers.keys())
 
     if not configured:
-        typer.echo("No providers configured.")
+        typer.echo("⚠ NO PROVIDERS CONFIGURED")
         return
 
     provider = typer.prompt(
@@ -172,30 +164,32 @@ def _remove_provider(config: Dict[str, Any]) -> None:
         type=click.Choice(configured),
     )
 
-    if provider in llm:
-        del llm[provider]
+    if provider in config.llm.providers:
+        del config.llm.providers[provider]
         typer.echo(f"\n✓ {provider} removed.")
 
         # If this was the default provider, clear it
-        if llm.get("default_provider") == provider:
-            llm["default_provider"] = ""
+        if config.llm.default_provider == provider:
+            config.llm.default_provider = ""
             typer.echo("Note: This was your default provider. Set a new default.")
 
         # Warn if no providers remain
-        remaining = [k for k, v in llm.items() if isinstance(v, dict)]
-        if not remaining:
+        if not config.llm.providers:
             typer.echo(
-                "\nWarning: No providers configured. whai cannot run until you add one.\n"
+                "\n⚠ Warning: NO PROVIDERS CONFIGURED. whai cannot run until you add one.\n"
                 "Run 'whai --interactive-config' and choose quick-setup."
             )
 
 
-def _reset_default() -> None:
+def _reset_default() -> WhaiConfig:
     """
     Reset configuration to a clean default state with a clear warning and backup.
 
     Overwrites the current config file with a minimal default configuration and
     ensures default roles exist.
+
+    Returns:
+        New empty WhaiConfig instance.
     """
     typer.echo("\n=== Reset Configuration to Defaults ===")
 
@@ -208,7 +202,7 @@ def _reset_default() -> None:
         default=False,
     ):
         typer.echo("\nReset cancelled.")
-        return
+        raise typer.Abort()
 
     # Create backup if present
     if cfg_path.exists():
@@ -222,12 +216,13 @@ def _reset_default() -> None:
             raise typer.Exit(1)
 
     # Minimal default configuration: no providers configured
-    default_config: Dict[str, Any] = {
-        "llm": {},
-        "roles": {
-            "default_role": DEFAULT_ROLE_NAME,
-        },
-    }
+    default_config = WhaiConfig(
+        llm=LLMConfig(
+            default_provider=DEFAULT_PROVIDER,
+            providers={},
+        ),
+        roles=RolesConfig(default_role=DEFAULT_ROLE_NAME),
+    )
 
     try:
         save_config(default_config)
@@ -237,26 +232,25 @@ def _reset_default() -> None:
         raise typer.Exit(1)
 
     typer.echo(f"\n✓ Configuration reset. Wrote defaults to: {get_config_path()}\n")
-    typer.echo("No providers configured. You'll be prompted to add one now.")
+    typer.echo("⚠ NO PROVIDERS CONFIGURED. You'll be prompted to add one now.")
+
+    return default_config
 
 
-def _set_default_provider(config: Dict[str, Any]) -> None:
+def _set_default_provider(config: WhaiConfig) -> None:
     """
     Set the default provider.
 
     Args:
-        config: Configuration dictionary to update.
+        config: WhaiConfig instance to update.
     """
     typer.echo("\n=== Set Default Provider ===")
 
-    _ensure_llm_section(config)
-    llm = config["llm"]
-
     # Find configured providers
-    configured = [k for k, v in llm.items() if isinstance(v, dict)]
+    configured = list(config.llm.providers.keys())
 
     if not configured:
-        typer.echo("No providers configured. Add a provider first.")
+        typer.echo("⚠ NO PROVIDERS CONFIGURED. Add a provider first.")
         return
 
     provider = typer.prompt(
@@ -265,11 +259,41 @@ def _set_default_provider(config: Dict[str, Any]) -> None:
         default=configured[0],
     )
 
-    llm["default_provider"] = provider
-
-    # No top-level default model sync; provider-level default is used directly
+    config.llm.default_provider = provider
 
     typer.echo(f"\n✓ Default provider set to {provider}")
+
+
+def _load_or_create_config(existing_config: bool) -> WhaiConfig:
+    """
+    Load existing config or create a new empty one.
+
+    Args:
+        existing_config: Whether config is expected to exist.
+
+    Returns:
+        WhaiConfig instance.
+    """
+    try:
+        return load_config()
+    except MissingConfigError:
+        logger.debug("Config not found, creating new empty config")
+        return WhaiConfig(
+            llm=LLMConfig(
+                default_provider=DEFAULT_PROVIDER,
+                providers={},
+            ),
+            roles=RolesConfig(default_role=DEFAULT_ROLE_NAME),
+        )
+    except Exception as e:
+        logger.warning(f"Could not load config: {e}")
+        return WhaiConfig(
+            llm=LLMConfig(
+                default_provider=DEFAULT_PROVIDER,
+                providers={},
+            ),
+            roles=RolesConfig(default_role=DEFAULT_ROLE_NAME),
+        )
 
 
 def run_wizard(existing_config: bool = False) -> None:
@@ -284,22 +308,16 @@ def run_wizard(existing_config: bool = False) -> None:
     typer.echo("=" * 50)
 
     # Try to load existing config or start with empty structure
-    try:
-        config = load_config(allow_ephemeral=True)
-        if existing_config:
-            typer.echo("\nCurrent configuration:")
-            cfg_path = get_config_path()
-            typer.echo(f"Config path: {cfg_path}")
-            typer.echo(summarize_config(config))
-    except Exception as e:
-        logger.debug(f"Could not load config: {e}")
-        # Start with empty config structure
-        config = {"llm": {}}
+    config = _load_or_create_config(existing_config)
+
+    if existing_config:
+        typer.echo("\nCurrent configuration:")
+        cfg_path = get_config_path()
+        typer.echo(f"Config path: {cfg_path}")
+        typer.echo(config.summarize())
 
     # Show menu
-    configured_now = [
-        k for k, v in config.get("llm", {}).items() if isinstance(v, dict)
-    ]
+    configured_now = list(config.llm.providers.keys())
     if existing_config and configured_now:
         actions = [
             "add-or-edit",
@@ -336,7 +354,7 @@ def run_wizard(existing_config: bool = False) -> None:
         typer.echo("\nCurrent configuration:")
         cfg_path = get_config_path()
         typer.echo(f"Config path: {cfg_path}")
-        typer.echo(summarize_config(config))
+        typer.echo(config.summarize())
         return
 
     # Execute the chosen action
@@ -349,12 +367,8 @@ def run_wizard(existing_config: bool = False) -> None:
     elif action == "default-provider":
         _set_default_provider(config)
     elif action == "reset-config":
-        _reset_default()
+        config = _reset_default()
         # After reset, start quick-setup to add a provider immediately
-        try:
-            config = load_config(allow_ephemeral=True)
-        except Exception:
-            config = {"llm": {}}
         _quick_setup(config)
     elif action == "open-folder":
         # Open config directory in system file explorer
@@ -372,10 +386,6 @@ def run_wizard(existing_config: bool = False) -> None:
 
     # Save the configuration
     try:
-        # Ensure roles.default_role exists before saving
-        config.setdefault("roles", {})["default_role"] = config.get("roles", {}).get(
-            "default_role", DEFAULT_ROLE_NAME
-        )
         save_config(config)
         config_path = get_config_path()
         typer.echo(f"\n✓ Configuration saved to: {config_path}")
@@ -383,7 +393,7 @@ def run_wizard(existing_config: bool = False) -> None:
         # Show current config for verification
         typer.echo("\nCurrent configuration:")
         typer.echo(f"Config path: {config_path}")
-        typer.echo(summarize_config(config))
+        typer.echo(config.summarize())
     except Exception as e:
         typer.echo(f"\n✗ Error saving configuration: {e}", err=True)
         raise typer.Exit(1)

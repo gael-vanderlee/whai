@@ -1,5 +1,6 @@
 from typing import Any, List, Optional
 
+from tests.conftest import create_test_config
 from whai.llm import LLMProvider
 
 
@@ -34,13 +35,7 @@ class _Chunk:
 
 
 def _make_provider() -> LLMProvider:
-    # Minimal config for constructor; keys won't be used here
-    config = {
-        "llm": {
-            "default_provider": "openai",
-            "default_model": "gpt-5-mini",
-        }
-    }
+    config = create_test_config(default_provider="openai", default_model="gpt-5-mini")
     return LLMProvider(config=config)
 
 

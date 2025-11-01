@@ -5,7 +5,13 @@ from unittest.mock import patch
 
 import pytest
 
-from whai import config
+from whai.configuration import user_config as config
+from whai.configuration.roles import (
+    InvalidRoleMetadataError,
+    Role,
+    ensure_default_roles,
+    load_role,
+)
 
 
 def test_get_config_dir_windows():
@@ -42,6 +48,9 @@ def test_load_config_missing_raises_error(tmp_path, monkeypatch):
     # Use a temporary directory as the config directory
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
 
+    # Disable test mode for this test
+    monkeypatch.delenv("WHAI_TEST_MODE", raising=False)
+
     # Load config without ephemeral mode should raise
     with pytest.raises(config.MissingConfigError, match="Configuration file not found"):
         config.load_config()
@@ -53,15 +62,15 @@ def test_load_config_ephemeral_mode(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
 
     # Load config with ephemeral mode should return defaults
-    cfg = config.load_config(allow_ephemeral=True)
+    cfg = config.load_config()
 
     # Check that config file was NOT created
     config_file = tmp_path / "config.toml"
     assert not config_file.exists()
 
-    # Check that config has expected structure
-    assert "llm" in cfg
-    assert cfg["llm"]["default_provider"] == "openai"
+    # Check that config has expected structure (dataclass)
+    assert cfg.llm.default_provider == "openai"
+    assert "openai" in cfg.llm.providers
 
 
 def test_load_config_test_mode_env(tmp_path, monkeypatch):
@@ -77,9 +86,9 @@ def test_load_config_test_mode_env(tmp_path, monkeypatch):
     config_file = tmp_path / "config.toml"
     assert not config_file.exists()
 
-    # Check that config has expected structure
-    assert "llm" in cfg
-    assert cfg["llm"]["default_provider"] == "openai"
+    # Check that config has expected structure (dataclass)
+    assert cfg.llm.default_provider == "openai"
+    assert "openai" in cfg.llm.providers
 
 
 def test_load_config_reads_existing(tmp_path, monkeypatch):
@@ -93,23 +102,27 @@ def test_load_config_reads_existing(tmp_path, monkeypatch):
     config_file.write_text("""
 [llm]
 default_provider = "anthropic"
-default_model = "claude-3-sonnet"
 
 [llm.anthropic]
 api_key = "test-key-123"
+default_model = "claude-3-sonnet"
 """)
 
     # Load config
     cfg = config.load_config()
 
     # Verify it loaded correctly
-    assert cfg["llm"]["default_provider"] == "anthropic"
-    assert cfg["llm"]["default_model"] == "claude-3-sonnet"
-    assert cfg["llm"]["anthropic"]["api_key"] == "test-key-123"
+    assert cfg.llm.default_provider == "anthropic"
+    anthropic_cfg = cfg.llm.get_provider("anthropic")
+    assert anthropic_cfg is not None
+    assert anthropic_cfg.default_model == "claude-3-sonnet"
+    assert anthropic_cfg.api_key == "test-key-123"
 
 
 def test_parse_role_file_with_frontmatter():
     """Test parsing a role file with YAML frontmatter."""
+    from whai.configuration.roles import Role
+
     content = """---
 model: gpt-5-mini
 temperature: 0.7
@@ -119,29 +132,33 @@ This is the system prompt.
 It can have multiple lines.
 """
 
-    metadata, body = config.parse_role_file(content)
+    role = Role.from_markdown("test", content)
 
-    assert isinstance(metadata, config.RoleMetadata)
-    assert metadata.model == "gpt-5-mini"
-    assert metadata.temperature == 0.7
-    assert "This is the system prompt." in body
-    assert "multiple lines" in body
+    assert isinstance(role, Role)
+    assert role.model == "gpt-5-mini"
+    assert role.temperature == 0.7
+    assert "This is the system prompt." in role.body
+    assert "multiple lines" in role.body
 
 
 def test_parse_role_file_without_frontmatter():
     """Test parsing a role file without frontmatter."""
+    from whai.configuration.roles import Role
+
     content = "Just a simple prompt without frontmatter."
 
-    metadata, body = config.parse_role_file(content)
+    role = Role.from_markdown("test", content)
 
-    assert isinstance(metadata, config.RoleMetadata)
-    assert metadata.model is None
-    assert metadata.temperature is None
-    assert body == content
+    assert isinstance(role, Role)
+    assert role.model is None
+    assert role.temperature is None
+    assert role.body == content
 
 
 def test_parse_role_file_invalid_frontmatter():
     """Test that invalid frontmatter raises ValueError."""
+    from whai.configuration.roles import Role
+
     content = """---
 invalid: yaml: syntax: here
 ---
@@ -150,17 +167,19 @@ Body text.
 """
 
     with pytest.raises(ValueError, match="Invalid YAML"):
-        config.parse_role_file(content)
+        Role.from_markdown("test", content)
 
 
 def test_parse_role_file_incomplete_frontmatter():
     """Test that incomplete frontmatter raises ValueError."""
+    from whai.configuration.roles import Role
+
     content = """---
 model: gpt-5-mini
 No closing delimiter"""
 
     with pytest.raises(ValueError, match="Invalid frontmatter format"):
-        config.parse_role_file(content)
+        Role.from_markdown("test", content)
 
 
 def test_ensure_default_roles(tmp_path, monkeypatch):
@@ -169,7 +188,7 @@ def test_ensure_default_roles(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
 
     # Ensure default roles
-    config.ensure_default_roles()
+    ensure_default_roles()
 
     # Check that roles were created
     default_role = tmp_path / "roles" / "default.md"
@@ -187,15 +206,15 @@ def test_load_role_default(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
 
     # Load the default role
-    metadata, prompt = config.load_role("default")
+    role = load_role("default")
 
-    # Verify metadata is RoleMetadata with no values (defaults do not include frontmatter)
-    assert isinstance(metadata, config.RoleMetadata)
-    assert metadata.model is None
-    assert metadata.temperature is None
+    # Verify role is Role with no values (defaults do not include frontmatter)
+    assert isinstance(role, Role)
+    assert role.model is None
+    assert role.temperature is None
 
     # Verify prompt
-    assert "terminal assistant" in prompt.lower()
+    assert "terminal assistant" in role.body.lower()
 
 
 def test_load_role_custom(tmp_path, monkeypatch):
@@ -216,15 +235,15 @@ You are a custom assistant.
 """)
 
     # Load the custom role
-    metadata, prompt = config.load_role("custom")
+    role = load_role("custom")
 
-    # Verify metadata
-    assert isinstance(metadata, config.RoleMetadata)
-    assert metadata.model == "gpt-3.5-turbo"
-    assert metadata.temperature == 0.9
+    # Verify role
+    assert isinstance(role, Role)
+    assert role.model == "gpt-3.5-turbo"
+    assert role.temperature == 0.9
 
     # Verify prompt
-    assert "custom assistant" in prompt.lower()
+    assert "custom assistant" in role.body.lower()
 
 
 def test_load_role_not_found(tmp_path, monkeypatch):
@@ -233,91 +252,92 @@ def test_load_role_not_found(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
 
     # Ensure default roles exist
-    config.ensure_default_roles()
+    ensure_default_roles()
 
     # Try to load a role that doesn't exist
-    with pytest.raises(FileNotFoundError, match="Role 'nonexistent' not found"):
-        config.load_role("nonexistent")
+    with pytest.raises(FileNotFoundError, match="Role file not found"):
+        load_role("nonexistent")
 
 
 def test_role_metadata_validation_invalid_temperature():
     """Test that invalid temperature values raise InvalidRoleMetadataError."""
     with pytest.raises(
-        config.InvalidRoleMetadataError, match="temperature.*between 0.0 and 2.0"
+        InvalidRoleMetadataError, match="temperature.*between 0.0 and 2.0"
     ):
-        config.RoleMetadata(temperature=3.0)
+        Role(name="test", body="body", temperature=3.0)
 
     with pytest.raises(
-        config.InvalidRoleMetadataError, match="temperature.*between 0.0 and 2.0"
+        InvalidRoleMetadataError, match="temperature.*between 0.0 and 2.0"
     ):
-        config.RoleMetadata(temperature=-0.1)
+        Role(name="test", body="body", temperature=-0.1)
 
 
 def test_role_metadata_validation_invalid_model():
     """Test that invalid model values raise InvalidRoleMetadataError."""
-    with pytest.raises(
-        config.InvalidRoleMetadataError, match="model.*non-empty string"
-    ):
-        config.RoleMetadata(model="")
+    with pytest.raises(InvalidRoleMetadataError, match="model.*non-empty string"):
+        Role(name="test", body="body", model="")
 
-    with pytest.raises(
-        config.InvalidRoleMetadataError, match="model.*non-empty string"
-    ):
-        config.RoleMetadata(model="   ")
+    with pytest.raises(InvalidRoleMetadataError, match="model.*non-empty string"):
+        Role(name="test", body="body", model="   ")
 
 
 def test_role_metadata_valid():
     """Test that valid metadata values are accepted."""
-    metadata = config.RoleMetadata(model="gpt-5-mini", temperature=0.7)
+    metadata = Role(name="test", body="body", model="gpt-5-mini", temperature=0.7)
     assert metadata.model == "gpt-5-mini"
     assert metadata.temperature == 0.7
 
     # Test edge cases for temperature
-    metadata_min = config.RoleMetadata(temperature=0.0)
+    metadata_min = Role(name="test", body="body", temperature=0.0)
     assert metadata_min.temperature == 0.0
 
-    metadata_max = config.RoleMetadata(temperature=2.0)
+    metadata_max = Role(name="test", body="body", temperature=2.0)
     assert metadata_max.temperature == 2.0
 
     # Test None values
-    metadata_none = config.RoleMetadata()
+    metadata_none = Role(name="test", body="body")
     assert metadata_none.model is None
     assert metadata_none.temperature is None
 
 
 def test_role_metadata_from_dict():
-    """Test creating RoleMetadata from dictionary."""
+    """Test creating Role from dictionary."""
     data = {"model": "gpt-4", "temperature": 0.5}
-    metadata = config.RoleMetadata.from_dict(data)
+    metadata = Role.from_dict("test", "body", data)
     assert metadata.model == "gpt-4"
     assert metadata.temperature == 0.5
 
     # Test with unknown fields (should warn but not fail)
     data_with_unknown = {"model": "gpt-4", "temperature": 0.5, "unknown": "value"}
-    metadata_with_unknown = config.RoleMetadata.from_dict(data_with_unknown)
+    metadata_with_unknown = Role.from_dict("test", "body", data_with_unknown)
     assert metadata_with_unknown.model == "gpt-4"
     assert metadata_with_unknown.temperature == 0.5
 
 
 def test_role_metadata_to_dict():
-    """Test converting RoleMetadata to dictionary."""
-    metadata = config.RoleMetadata(model="gpt-4", temperature=0.5)
-    result = metadata.to_dict()
-    assert result == {"model": "gpt-4", "temperature": 0.5}
+    """Test converting Role to markdown."""
+    metadata = Role(name="test", body="body", model="gpt-4", temperature=0.5)
+    result = metadata.to_markdown()
+    assert "model: gpt-4" in result
+    assert "temperature: 0.5" in result
+    assert "body" in result
 
-    # Test with None values (should be omitted)
-    metadata_none = config.RoleMetadata()
-    result_none = metadata_none.to_dict()
-    assert result_none == {}
+    # Test with None values (should not be in frontmatter)
+    metadata_none = Role(name="test", body="body")
+    result_none = metadata_none.to_markdown()
+    assert result_none == "body"
 
     # Test with partial values
-    metadata_partial = config.RoleMetadata(model="gpt-4")
-    result_partial = metadata_partial.to_dict()
-    assert result_partial == {"model": "gpt-4"}
+    metadata_partial = Role(name="test", body="body", model="gpt-4")
+    result_partial = metadata_partial.to_markdown()
+    assert "model: gpt-4" in result_partial
+    assert "temperature" not in result_partial
 
 
 def test_parse_role_file_invalid_metadata():
     """Test that invalid metadata in role file raises InvalidRoleMetadataError."""
+    from whai.configuration.roles import InvalidRoleMetadataError, Role
+
     content = """---
 model: 
 temperature: 3.0
@@ -326,8 +346,8 @@ temperature: 3.0
 Body text.
 """
 
-    with pytest.raises(config.InvalidRoleMetadataError):
-        config.parse_role_file(content)
+    with pytest.raises(InvalidRoleMetadataError):
+        Role.from_markdown("test", content)
 
 
 def test_save_config(tmp_path, monkeypatch):
@@ -335,17 +355,26 @@ def test_save_config(tmp_path, monkeypatch):
     # Use a temporary directory as the config directory
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
 
-    # Create a config
-    test_config = {
-        "llm": {
-            "default_provider": "anthropic",
-            "default_model": "claude-3-opus",
-            "anthropic": {
-                "api_key": "sk-test-123",
-                "default_model": "claude-3-opus",
+    # Create a config using dataclasses
+    from whai.configuration.user_config import (
+        AnthropicConfig,
+        LLMConfig,
+        RolesConfig,
+        WhaiConfig,
+    )
+
+    test_config = WhaiConfig(
+        llm=LLMConfig(
+            default_provider="anthropic",
+            providers={
+                "anthropic": AnthropicConfig(
+                    api_key="sk-test-123",
+                    default_model="claude-3-opus",
+                ),
             },
-        }
-    }
+        ),
+        roles=RolesConfig(default_role="default"),
+    )
 
     # Save it
     config.save_config(test_config)
@@ -356,28 +385,40 @@ def test_save_config(tmp_path, monkeypatch):
 
     # Load it back and verify
     loaded = config.load_config()
-    assert loaded["llm"]["default_provider"] == "anthropic"
-    assert loaded["llm"]["anthropic"]["api_key"] == "sk-test-123"
+    assert loaded.llm.default_provider == "anthropic"
+    anthropic_cfg = loaded.llm.get_provider("anthropic")
+    assert anthropic_cfg is not None
+    assert anthropic_cfg.api_key == "sk-test-123"
 
 
 def test_summarize_config():
     """Test config summarization."""
-    test_config = {
-        "llm": {
-            "default_provider": "openai",
-            "default_model": "gpt-4",
-            "openai": {
-                "api_key": "sk-verylongapikey123456",
-                "default_model": "gpt-4",
-            },
-            "anthropic": {
-                "api_key": "sk-ant-short",
-                "default_model": "claude-3-opus",
-            },
-        }
-    }
+    from whai.configuration.user_config import (
+        AnthropicConfig,
+        LLMConfig,
+        OpenAIConfig,
+        RolesConfig,
+        WhaiConfig,
+    )
 
-    summary = config.summarize_config(test_config)
+    test_config = WhaiConfig(
+        llm=LLMConfig(
+            default_provider="openai",
+            providers={
+                "openai": OpenAIConfig(
+                    api_key="sk-verylongapikey123456",
+                    default_model="gpt-4",
+                ),
+                "anthropic": AnthropicConfig(
+                    api_key="sk-ant-short",
+                    default_model="claude-3-opus",
+                ),
+            },
+        ),
+        roles=RolesConfig(default_role="default"),
+    )
+
+    summary = test_config.summarize()
 
     # Check summary contains expected elements
     assert "Default provider: openai" in summary

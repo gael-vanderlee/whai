@@ -22,7 +22,9 @@ def integration_test_config(tmp_path, monkeypatch):
     Sets up ephemeral config to avoid writing to user's config directory.
     """
     # Redirect config to temp directory
-    monkeypatch.setattr("whai.config.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        "whai.configuration.user_config.get_config_dir", lambda: tmp_path
+    )
     # Enable test mode to use ephemeral config (no disk writes)
     monkeypatch.setenv("WHAI_TEST_MODE", "1")
 
@@ -297,7 +299,9 @@ def test_cli_missing_config(monkeypatch):
     monkeypatch.delenv("WHAI_TEST_MODE", raising=False)
 
     # Mock the wizard to simulate user canceling
-    with patch("whai.config_wizard.run_wizard", side_effect=typer.Abort()):
+    with patch(
+        "whai.configuration.config_wizard.run_wizard", side_effect=typer.Abort()
+    ):
         result = runner.invoke(app, ["test query"])
 
     assert result.exit_code == 1

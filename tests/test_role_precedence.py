@@ -4,7 +4,8 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from whai import config
+from whai.configuration import user_config as config
+from whai.configuration.roles import ensure_default_roles
 from whai.main import app
 
 runner = CliRunner()
@@ -13,11 +14,11 @@ runner = CliRunner()
 def test_role_precedence_cli_flag(tmp_path, monkeypatch):
     """Test that CLI flag has highest precedence."""
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
-    config.ensure_default_roles()
+    ensure_default_roles()
 
     # Create config with default role
-    cfg = config.load_config(allow_ephemeral=True)
-    cfg.setdefault("roles", {})["default_role"] = "debug"
+    cfg = config.load_config()
+    cfg.roles.default_role = "debug"
     config.save_config(cfg)
 
     # Set environment variable
@@ -45,11 +46,11 @@ def test_role_precedence_cli_flag(tmp_path, monkeypatch):
 def test_role_precedence_env_over_config(tmp_path, monkeypatch):
     """Test that environment variable has precedence over config."""
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
-    config.ensure_default_roles()
+    ensure_default_roles()
 
     # Create config with default role set to "default"
-    cfg = config.load_config(allow_ephemeral=True)
-    cfg.setdefault("roles", {})["default_role"] = "default"
+    cfg = config.load_config()
+    cfg.roles.default_role = "default"
     config.save_config(cfg)
 
     # Set environment variable to "debug"
@@ -95,11 +96,11 @@ def test_role_precedence_env_over_config(tmp_path, monkeypatch):
 def test_role_precedence_config_over_default(tmp_path, monkeypatch):
     """Test that config default has precedence over hardcoded default."""
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
-    config.ensure_default_roles()
+    ensure_default_roles()
 
     # Create config with default role set to "debug"
-    cfg = config.load_config(allow_ephemeral=True)
-    cfg.setdefault("roles", {})["default_role"] = "debug"
+    cfg = config.load_config()
+    cfg.roles.default_role = "debug"
     config.save_config(cfg)
 
     with (
@@ -140,12 +141,11 @@ def test_role_precedence_config_over_default(tmp_path, monkeypatch):
 def test_role_fallback_to_default(tmp_path, monkeypatch):
     """Test that when no role is specified anywhere, falls back to 'default'."""
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
-    config.ensure_default_roles()
+    ensure_default_roles()
 
-    # Create config without roles section
-    cfg = config.load_config(allow_ephemeral=True)
-    if "roles" in cfg:
-        del cfg["roles"]
+    # Create config with default role
+    cfg = config.load_config()
+    cfg.roles.default_role = "default"
     config.save_config(cfg)
 
     with (
@@ -186,11 +186,11 @@ def test_role_fallback_to_default(tmp_path, monkeypatch):
 def test_role_env_variable_empty_string(tmp_path, monkeypatch):
     """Test that empty WHAI_ROLE env variable doesn't override config."""
     monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
-    config.ensure_default_roles()
+    ensure_default_roles()
 
     # Create config with default role
-    cfg = config.load_config(allow_ephemeral=True)
-    cfg.setdefault("roles", {})["default_role"] = "debug"
+    cfg = config.load_config()
+    cfg.roles.default_role = "debug"
     config.save_config(cfg)
 
     # Set environment variable to empty string (should be ignored)

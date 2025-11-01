@@ -1,0 +1,589 @@
+"""User configuration management for whai."""
+
+import os
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Type
+
+# Use tomllib for Python 3.11+, tomli for older versions
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
+from whai.constants import (
+    CONFIG_FILENAME,
+    DEFAULT_MODEL_OPENAI,
+    DEFAULT_PROVIDER,
+    DEFAULT_ROLE_NAME,
+    ENV_WHAI_TEST_MODE,
+)
+from whai.logging_setup import get_logger
+
+logger = get_logger(__name__)
+
+
+class MissingConfigError(RuntimeError):
+    """Raised when configuration file is missing and not in ephemeral mode."""
+
+    pass
+
+
+class InvalidProviderConfigError(ValueError):
+    """Raised when provider configuration contains invalid values."""
+
+    pass
+
+
+# ============================================================================
+# Validation Result Dataclass
+# ============================================================================
+
+
+@dataclass
+class ValidationResult:
+    """Result of provider configuration validation."""
+
+    is_valid: bool
+    checks_performed: List[str]
+    issues: List[str]
+    details: Dict[str, Any]
+
+
+# ============================================================================
+# Provider Configuration Dataclasses
+# ============================================================================
+
+
+@dataclass
+class ProviderConfig:
+    """
+    Base configuration for LLM providers.
+
+    Contains sensible defaults for all possible provider fields.
+    Subclasses define provider_name and override validation as needed.
+    """
+
+    api_key: Optional[str] = None
+    api_base: Optional[str] = None
+    api_version: Optional[str] = None
+    default_model: Optional[str] = None
+
+    # Subclasses must define this
+    provider_name: str = "unknown"
+
+    def __post_init__(self) -> None:
+        """Validate configuration values."""
+        self._validate_api_base()
+        self._validate_required_fields()
+
+    def _validate_api_base(self) -> None:
+        """Validate URL format for api_base if provided."""
+        if self.api_base is not None:
+            if not isinstance(self.api_base, str) or not self.api_base.strip():
+                raise InvalidProviderConfigError(
+                    f"{self.provider_name} provider 'api_base' must be a non-empty string if provided."
+                )
+            # Basic URL validation
+            if not (
+                self.api_base.startswith("http://")
+                or self.api_base.startswith("https://")
+            ):
+                raise InvalidProviderConfigError(
+                    f"{self.provider_name} provider 'api_base' must be a valid HTTP/HTTPS URL, got: {self.api_base}"
+                )
+
+    def _validate_required_fields(self) -> None:
+        """Validate required fields. Override in subclasses if needed."""
+        pass
+
+    def validate(self) -> ValidationResult:
+        """
+        Validate this provider configuration using external checks.
+
+        Returns:
+            ValidationResult with validation outcomes.
+        """
+        checks_performed = ["Field validation"]
+        issues = []
+        details: Dict[str, Any] = {}
+
+        # API key validation (if applicable)
+        if self.api_key:
+            checks_performed.append("API key format")
+            try:
+                from litellm import check_valid_key
+
+                # Build model name for validation
+                model = self._get_litellm_model_name()
+                checks_performed.append(f"API key validation ({model})")
+
+                # Check if key is valid (with timeout)
+                import socket
+
+                old_timeout = socket.getdefaulttimeout()
+                socket.setdefaulttimeout(5.0)
+
+                try:
+                    is_key_valid = check_valid_key(model=model, api_key=self.api_key)
+                    if not is_key_valid:
+                        issues.append(
+                            f"API key validation failed for {self.provider_name}"
+                        )
+                    else:
+                        details["api_key_valid"] = True
+                except Exception as e:
+                    issues.append(f"Could not validate API key: {str(e)}")
+                finally:
+                    socket.setdefaulttimeout(old_timeout)
+
+            except ImportError:
+                issues.append("LiteLLM not available for validation")
+            except Exception as e:
+                issues.append(f"API key validation error: {str(e)}")
+
+        # Model validation
+        if self.default_model:
+            checks_performed.append("Model configuration")
+            details["default_model"] = self.default_model
+
+        # API base validation (for local providers)
+        if self.api_base:
+            checks_performed.append("API base configuration")
+            details["api_base"] = self.api_base
+
+            try:
+                import urllib.error
+                import urllib.request
+
+                req = urllib.request.Request(self.api_base, method="HEAD")
+                urllib.request.urlopen(req, timeout=5)
+                details["api_base_reachable"] = True
+            except Exception as e:
+                issues.append(f"API base not reachable: {str(e)}")
+                details["api_base_reachable"] = False
+
+        is_valid = len(issues) == 0
+
+        return ValidationResult(
+            is_valid=is_valid,
+            checks_performed=checks_performed,
+            issues=issues,
+            details=details,
+        )
+
+    def _get_litellm_model_name(self) -> str:
+        """Get the model name formatted for LiteLLM validation. Override in subclasses."""
+        return self.default_model or "default"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for TOML serialization, excluding None values."""
+        result: Dict[str, Any] = {}
+        if self.api_key is not None:
+            result["api_key"] = self.api_key
+        if self.api_base is not None:
+            result["api_base"] = self.api_base
+        if self.api_version is not None:
+            result["api_version"] = self.api_version
+        if self.default_model is not None:
+            result["default_model"] = self.default_model
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ProviderConfig":
+        """Create ProviderConfig from dictionary."""
+        return cls(
+            api_key=data.get("api_key"),
+            api_base=data.get("api_base"),
+            api_version=data.get("api_version"),
+            default_model=data.get("default_model"),
+        )
+
+
+@dataclass
+class OpenAIConfig(ProviderConfig):
+    """Configuration for OpenAI provider."""
+
+    provider_name: str = "openai"
+
+    def _validate_required_fields(self) -> None:
+        """Validate OpenAI-specific requirements."""
+        if not self.api_key or not self.api_key.strip():
+            raise InvalidProviderConfigError("OpenAI provider requires 'api_key'")
+        if not self.default_model or not self.default_model.strip():
+            raise InvalidProviderConfigError("OpenAI provider requires 'default_model'")
+
+
+@dataclass
+class AnthropicConfig(ProviderConfig):
+    """Configuration for Anthropic provider."""
+
+    provider_name: str = "anthropic"
+
+    def _validate_required_fields(self) -> None:
+        """Validate Anthropic-specific requirements."""
+        if not self.api_key or not self.api_key.strip():
+            raise InvalidProviderConfigError("Anthropic provider requires 'api_key'")
+        if not self.default_model or not self.default_model.strip():
+            raise InvalidProviderConfigError(
+                "Anthropic provider requires 'default_model'"
+            )
+
+
+@dataclass
+class GeminiConfig(ProviderConfig):
+    """Configuration for Gemini provider."""
+
+    provider_name: str = "gemini"
+
+    def _validate_required_fields(self) -> None:
+        """Validate Gemini-specific requirements."""
+        if not self.api_key or not self.api_key.strip():
+            raise InvalidProviderConfigError("Gemini provider requires 'api_key'")
+        if not self.default_model or not self.default_model.strip():
+            raise InvalidProviderConfigError("Gemini provider requires 'default_model'")
+
+    def _get_litellm_model_name(self) -> str:
+        """Get model name with gemini/ prefix if needed."""
+        model = self.default_model or "default"
+        if not model.startswith("gemini/"):
+            model = f"gemini/{model}"
+        return model
+
+
+@dataclass
+class AzureOpenAIConfig(ProviderConfig):
+    """Configuration for Azure OpenAI provider."""
+
+    provider_name: str = "azure_openai"
+
+    def _validate_required_fields(self) -> None:
+        """Validate Azure OpenAI-specific requirements."""
+        if not self.api_key or not self.api_key.strip():
+            raise InvalidProviderConfigError("Azure OpenAI provider requires 'api_key'")
+        if not self.api_base or not self.api_base.strip():
+            raise InvalidProviderConfigError(
+                "Azure OpenAI provider requires 'api_base'"
+            )
+        if not self.api_version or not self.api_version.strip():
+            raise InvalidProviderConfigError(
+                "Azure OpenAI provider requires 'api_version'"
+            )
+        if not self.default_model or not self.default_model.strip():
+            raise InvalidProviderConfigError(
+                "Azure OpenAI provider requires 'default_model'"
+            )
+
+    def _get_litellm_model_name(self) -> str:
+        """Get model name with azure/ prefix."""
+        return f"azure/{self.default_model or 'default'}"
+
+
+@dataclass
+class OllamaConfig(ProviderConfig):
+    """Configuration for Ollama provider (no API key required)."""
+
+    provider_name: str = "ollama"
+
+    def _validate_required_fields(self) -> None:
+        """Validate Ollama-specific requirements."""
+        if not self.api_base or not self.api_base.strip():
+            raise InvalidProviderConfigError("Ollama provider requires 'api_base'")
+        if not self.default_model or not self.default_model.strip():
+            raise InvalidProviderConfigError("Ollama provider requires 'default_model'")
+
+    def _get_litellm_model_name(self) -> str:
+        """Get model name with ollama/ prefix."""
+        return f"ollama/{self.default_model or 'default'}"
+
+
+@dataclass
+class LMStudioConfig(ProviderConfig):
+    """Configuration for LM Studio provider (no API key required)."""
+
+    provider_name: str = "lm_studio"
+
+    def _validate_required_fields(self) -> None:
+        """Validate LM Studio-specific requirements."""
+        if not self.api_base or not self.api_base.strip():
+            raise InvalidProviderConfigError("LM Studio provider requires 'api_base'")
+        if not self.default_model or not self.default_model.strip():
+            raise InvalidProviderConfigError(
+                "LM Studio provider requires 'default_model'"
+            )
+
+    def _get_litellm_model_name(self) -> str:
+        """Get model name with openai/ prefix (LM Studio uses OpenAI-compatible API)."""
+        return f"openai/{self.default_model or 'default'}"
+
+
+def get_provider_class(name: str) -> Type[ProviderConfig]:
+    """
+    Get the appropriate ProviderConfig subclass for a provider name.
+
+    Args:
+        name: Provider name (e.g., 'openai', 'anthropic')
+
+    Returns:
+        ProviderConfig subclass
+
+    Raises:
+        ValueError: If provider name is unknown
+    """
+    provider_classes = {
+        "openai": OpenAIConfig,
+        "anthropic": AnthropicConfig,
+        "gemini": GeminiConfig,
+        "azure_openai": AzureOpenAIConfig,
+        "ollama": OllamaConfig,
+        "lm_studio": LMStudioConfig,
+    }
+
+    if name not in provider_classes:
+        raise ValueError(
+            f"Unknown provider '{name}'. "
+            f"Supported providers: {', '.join(provider_classes.keys())}"
+        )
+
+    return provider_classes[name]
+
+
+# ============================================================================
+# Main Configuration Dataclasses
+# ============================================================================
+
+
+@dataclass
+class LLMConfig:
+    """Configuration for LLM providers."""
+
+    default_provider: str
+    providers: Dict[str, ProviderConfig]
+
+    def get_provider(self, name: str) -> Optional[ProviderConfig]:
+        """Get a provider configuration by name."""
+        return self.providers.get(name)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for TOML serialization."""
+        result: Dict[str, Any] = {
+            "default_provider": self.default_provider,
+        }
+        # Add each provider's config
+        for name, provider_config in self.providers.items():
+            result[name] = provider_config.to_dict()
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "LLMConfig":
+        """Create LLMConfig from dictionary."""
+        default_provider = data.get("default_provider", DEFAULT_PROVIDER)
+
+        # Parse providers
+        providers: Dict[str, ProviderConfig] = {}
+        for key, value in data.items():
+            if key == "default_provider" or not isinstance(value, dict):
+                continue
+
+            # Get the appropriate provider class and instantiate
+            try:
+                provider_class = get_provider_class(key)
+                providers[key] = provider_class.from_dict(value)
+            except (ValueError, InvalidProviderConfigError) as e:
+                logger.warning(f"Skipping invalid provider '{key}': {e}")
+
+        return cls(
+            default_provider=default_provider,
+            providers=providers,
+        )
+
+
+@dataclass
+class RolesConfig:
+    """Configuration for roles."""
+
+    default_role: str = DEFAULT_ROLE_NAME
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for TOML serialization."""
+        return {"default_role": self.default_role}
+
+
+@dataclass
+class WhaiConfig:
+    """Main whai configuration."""
+
+    llm: LLMConfig
+    roles: RolesConfig
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for TOML serialization."""
+        return {
+            "llm": self.llm.to_dict(),
+            "roles": self.roles.to_dict(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "WhaiConfig":
+        """Create WhaiConfig from dictionary."""
+        llm_data = data.get("llm", {})
+        roles_data = data.get("roles", {})
+
+        return cls(
+            llm=LLMConfig.from_dict(llm_data),
+            roles=RolesConfig(
+                default_role=roles_data.get("default_role", DEFAULT_ROLE_NAME)
+            ),
+        )
+
+    @classmethod
+    def from_file(cls, path: Path) -> "WhaiConfig":
+        """Load configuration from a file (TOML format)."""
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        return cls.from_dict(data)
+
+    def to_file(self, path: Path) -> None:
+        """Save configuration to a file (TOML format)."""
+        try:
+            import tomli_w  # type: ignore
+        except ImportError:
+            raise ImportError(
+                "tomli_w is required to write config files. "
+                "Install it with: pip install tomli-w"
+            )
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "wb") as f:
+            tomli_w.dump(self.to_dict(), f)
+
+    def summarize(self) -> str:
+        """
+        Create a human-readable summary of the configuration.
+
+        Returns:
+            A formatted string summarizing the configuration.
+        """
+        default_provider = self.llm.default_provider or "MISSING"
+        default_role = self.roles.default_role
+
+        providers = []
+        for name, provider_config in self.llm.providers.items():
+            # Model display
+            provider_model = provider_config.default_model or "MISSING"
+
+            # API key display
+            if provider_config.api_key:
+                masked_key = (
+                    provider_config.api_key[:8] + "..."
+                    if len(provider_config.api_key) > 8
+                    else "***"
+                )
+            else:
+                masked_key = "MISSING"
+
+            providers.append(f"{name} (model: {provider_model}, key: {masked_key})")
+
+        summary = f"Default provider: {default_provider}\n"
+
+        # Show effective model from the default provider
+        default_prov_config = self.llm.get_provider(default_provider)
+        effective_model = (
+            default_prov_config.default_model if default_prov_config else "MISSING"
+        )
+
+        summary += f"Default model: {effective_model}\n"
+        summary += f"Default role: {default_role}\n"
+
+        if providers:
+            summary += "Configured providers:\n"
+            for p in providers:
+                summary += f"  - {p}\n"
+        else:
+            summary += "⚠ NO PROVIDERS CONFIGURED\n"
+
+        return summary
+
+
+def get_config_dir() -> Path:
+    """Get the whai configuration directory."""
+    if os.name == "nt":  # Windows
+        config_base = Path(
+            os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")
+        )
+    else:  # Unix-like
+        config_base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+
+    return config_base / "whai"
+
+
+def get_config_path() -> Path:
+    """Get the path to the configuration file."""
+    return get_config_dir() / CONFIG_FILENAME
+
+
+def load_config(path: Optional[Path] = None) -> WhaiConfig:
+    """
+    Load configuration from default path or specified path.
+
+    Args:
+        path: Optional path to config file. If None, uses default path.
+
+    Returns:
+        WhaiConfig instance containing configuration settings.
+
+    Raises:
+        MissingConfigError: If config file doesn't exist.
+    """
+    if path is None:
+        config_file = get_config_path()
+
+        # Handle missing config file - return default config for tests
+        if not config_file.exists():
+            # Check for test mode (only honor when actually running pytest)
+            is_test_mode_env = os.getenv(ENV_WHAI_TEST_MODE) == "1"
+            is_running_pytest = "PYTEST_CURRENT_TEST" in os.environ
+
+            if is_test_mode_env and is_running_pytest:
+                logger.warning(
+                    "Config missing; returning ephemeral defaults for test mode"
+                )
+                # Return minimal test config
+                return WhaiConfig(
+                    llm=LLMConfig(
+                        default_provider=DEFAULT_PROVIDER,
+                        providers={
+                            "openai": OpenAIConfig(
+                                api_key="test-key",
+                                default_model=DEFAULT_MODEL_OPENAI,
+                            )
+                        },
+                    ),
+                    roles=RolesConfig(default_role=DEFAULT_ROLE_NAME),
+                )
+
+            raise MissingConfigError(
+                f"Configuration file not found at {config_file}. "
+                f"Run 'whai --interactive-config' to create your configuration."
+            )
+
+        path = config_file
+
+    logger.debug("Configuration loaded from %s", path)
+    return WhaiConfig.from_file(path)
+
+
+def save_config(config: WhaiConfig, path: Optional[Path] = None) -> None:
+    """
+    Save configuration to default path or specified path.
+
+    Args:
+        config: WhaiConfig instance to save.
+        path: Optional path to save to. If None, uses default path.
+    """
+    if path is None:
+        path = get_config_path()
+
+    config.to_file(path)
+    logger.info("Configuration saved to %s", path)

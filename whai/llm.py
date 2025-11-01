@@ -6,6 +6,7 @@ import re
 from importlib.resources import files
 from typing import Any, Dict, Generator, List, Optional, Union
 
+from whai.configuration.user_config import WhaiConfig
 from whai.constants import DEFAULT_PROVIDER, get_default_model_for_provider
 from whai.logging_setup import get_logger
 
@@ -133,28 +134,28 @@ class LLMProvider:
     """
 
     def __init__(
-        self, config: Dict[str, Any], model: str = None, temperature: float = None
+        self, config: WhaiConfig, model: str = None, temperature: float = None
     ):
         """
         Initialize the LLM provider.
 
         Args:
-            config: Configuration dictionary containing LLM settings.
+            config: WhaiConfig instance containing LLM settings.
             model: Optional model override (uses config default if not provided).
             temperature: Optional temperature override (if None, temperature is not set).
         """
         self.config = config
-        self.default_provider = config["llm"]["default_provider"]
+        self.default_provider = config.llm.default_provider
         # Resolve model: CLI override > provider-level default > built-in fallback
-        provider_cfg = config.get("llm", {}).get(self.default_provider, {})
-        provider_default_model = provider_cfg.get("default_model")
+        provider_cfg = config.llm.get_provider(self.default_provider)
+        provider_default_model = provider_cfg.default_model if provider_cfg else None
         fallback_model = get_default_model_for_provider(
             self.default_provider or DEFAULT_PROVIDER
         )
         self.model = model or provider_default_model or fallback_model
 
         # Store custom API base for providers that need it
-        self.api_base = provider_cfg.get("api_base")
+        self.api_base = provider_cfg.api_base if provider_cfg else None
 
         # Validate model exists
         validate_model(self.model)
@@ -175,33 +176,35 @@ class LLMProvider:
 
     def _configure_api_keys(self):
         """Configure API keys and endpoints from config for LiteLLM."""
-        llm_config = self.config.get("llm", {})
-
         # Set OpenAI key if present
-        if "openai" in llm_config and "api_key" in llm_config["openai"]:
-            os.environ["OPENAI_API_KEY"] = llm_config["openai"]["api_key"]
+        openai_cfg = self.config.llm.get_provider("openai")
+        if openai_cfg and openai_cfg.api_key:
+            os.environ["OPENAI_API_KEY"] = openai_cfg.api_key
 
         # Set Anthropic key if present
-        if "anthropic" in llm_config and "api_key" in llm_config["anthropic"]:
-            os.environ["ANTHROPIC_API_KEY"] = llm_config["anthropic"]["api_key"]
+        anthropic_cfg = self.config.llm.get_provider("anthropic")
+        if anthropic_cfg and anthropic_cfg.api_key:
+            os.environ["ANTHROPIC_API_KEY"] = anthropic_cfg.api_key
 
         # Set Gemini key if present
-        if "gemini" in llm_config and "api_key" in llm_config["gemini"]:
-            os.environ["GEMINI_API_KEY"] = llm_config["gemini"]["api_key"]
+        gemini_cfg = self.config.llm.get_provider("gemini")
+        if gemini_cfg and gemini_cfg.api_key:
+            os.environ["GEMINI_API_KEY"] = gemini_cfg.api_key
 
         # Set Azure OpenAI configuration if present
-        if "azure_openai" in llm_config:
-            azure_config = llm_config["azure_openai"]
-            if "api_key" in azure_config:
-                os.environ["AZURE_API_KEY"] = azure_config["api_key"]
-            if "api_base" in azure_config:
-                os.environ["AZURE_API_BASE"] = azure_config["api_base"]
-            if "api_version" in azure_config:
-                os.environ["AZURE_API_VERSION"] = azure_config["api_version"]
+        azure_cfg = self.config.llm.get_provider("azure_openai")
+        if azure_cfg:
+            if azure_cfg.api_key:
+                os.environ["AZURE_API_KEY"] = azure_cfg.api_key
+            if azure_cfg.api_base:
+                os.environ["AZURE_API_BASE"] = azure_cfg.api_base
+            if azure_cfg.api_version:
+                os.environ["AZURE_API_VERSION"] = azure_cfg.api_version
 
         # Set Ollama base URL if present
-        if "ollama" in llm_config and "api_base" in llm_config["ollama"]:
-            os.environ["OLLAMA_API_BASE"] = llm_config["ollama"]["api_base"]
+        ollama_cfg = self.config.llm.get_provider("ollama")
+        if ollama_cfg and ollama_cfg.api_base:
+            os.environ["OLLAMA_API_BASE"] = ollama_cfg.api_base
 
         # Note: LM Studio uses custom api_base passed directly to completion() call
         # No environment variable needed

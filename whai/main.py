@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 import typer
 
 from whai import ui
-from whai.config import (
+from whai.configuration import (
     InvalidRoleMetadataError,
     MissingConfigError,
     load_config,
@@ -19,9 +19,8 @@ from whai.config import (
     resolve_model,
     resolve_role,
     resolve_temperature,
-    validate_llm_config,
 )
-from whai.config_wizard import run_wizard
+from whai.configuration.config_wizard import run_wizard
 from whai.constants import DEFAULT_COMMAND_TIMEOUT
 from whai.context import get_context
 from whai.interaction import approval_loop, execute_command
@@ -343,13 +342,6 @@ def main(
             ui.error(f"Failed to load config: {e}")
             raise typer.Exit(1)
 
-        # Validate minimal config before continuing
-        ok, cfg_msg = validate_llm_config(config)
-        if not ok:
-            ui.error(cfg_msg)
-            ui.info("Run 'whai --interactive-config' to set up your configuration.")
-            raise typer.Exit(1)
-
         # Resolve role using shared function (CLI > env > config > default)
         role = resolve_role(role, config)
 
@@ -361,7 +353,7 @@ def main(
         )
 
         try:
-            role_metadata, role_prompt = load_role(role)
+            role_obj = load_role(role)
         except FileNotFoundError as e:
             ui.error(str(e))
             raise typer.Exit(1)
@@ -440,8 +432,8 @@ def main(
 
         # 4. Initialize LLM provider
         # Resolve model and temperature using consolidated precedence logic
-        llm_model, model_source = resolve_model(model, role_metadata, config)
-        llm_temperature = resolve_temperature(temperature, role_metadata)
+        llm_model, model_source = resolve_model(model, role_obj, config)
+        llm_temperature = resolve_temperature(temperature, role_obj)
 
         logger.info(
             "Model loaded: %s (source: %s)",
@@ -478,7 +470,7 @@ def main(
         # 5. Build initial message
         t_prompt0 = time.perf_counter()
         base_prompt = get_base_system_prompt(is_deep_context)
-        system_message = f"{base_prompt}\n\n{role_prompt}"
+        system_message = f"{base_prompt}\n\n{role_obj.body}"
         t_prompt1 = time.perf_counter()
         logger.info(
             "Startup: get_base_system_prompt() completed in %.3f ms",
