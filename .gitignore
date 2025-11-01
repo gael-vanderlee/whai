@@ -22,6 +22,7 @@ htmlcov/
 # IDEs
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
@@ -41,3 +42,6 @@ dist/
 
 # Local playground (kept locally, not tracked)
 playground/
+
+# Nox
+.nox/
