@@ -4,6 +4,7 @@ Format: [YYYY-MM-DD] [category] [scope]: description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-02] [fix] [llm]: fix LM Studio model name transformation for LiteLLM compatibility; LM Studio uses OpenAI-compatible API requiring 'openai/{model}' format; add sanitize_model_name() method to ProviderConfig base class that returns model unchanged by default; LMStudioConfig overrides it to strip 'lm_studio/' or 'openai/' prefixes and format as 'openai/{model}'; LLMProvider now calls sanitize_model_name() for all providers, eliminating branching logic; resolves "LLM Provider NOT provided" errors when using LM Studio models
 [2025-11-02] [feature] [ui]: enhance config wizard with Rich UI components; add numbered choice prompts replacing click.Choice; use colored success/failure/warning messages with emojis; improve section headers with DOUBLE box styling; add celebration message when config is complete
 [2025-11-02] [feature] [ui]: add provider-specific configuration summary; each provider config class implements get_summary_fields() to show relevant fields (e.g., api_base for LM Studio instead of optional api_key); display summary in Rich Table with double-line borders and per-field formatting
 [2025-11-02] [change] [ui]: move configuration summary printing to ui.py as print_configuration_summary(); remove summarize() method from WhaiConfig; use Rich Table for pretty formatting with provider-specific fields displayed on separate lines

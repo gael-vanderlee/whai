@@ -299,6 +299,21 @@ class ProviderConfig:
         """Get the model name formatted for LiteLLM validation. Override in subclasses."""
         return self.default_model or "default"
 
+    def sanitize_model_name(self, model: str) -> str:
+        """
+        Sanitize/transform a model name for use with LiteLLM.
+
+        This method can be overridden by subclasses to handle provider-specific
+        model name transformations (e.g., adding prefixes, stripping prefixes).
+
+        Args:
+            model: The raw model name to sanitize.
+
+        Returns:
+            The sanitized model name, by default returns the model unchanged.
+        """
+        return model
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for TOML serialization, excluding None values."""
         result: Dict[str, Any] = {}
@@ -473,6 +488,31 @@ class LMStudioConfig(ProviderConfig):
     def _get_litellm_model_name(self) -> str:
         """Get model name with openai/ prefix (LM Studio uses OpenAI-compatible API)."""
         return f"openai/{self.default_model or 'default'}"
+
+    def sanitize_model_name(self, model: str) -> str:
+        """
+        Transform a model name to the format required by LiteLLM for LM Studio.
+
+        LM Studio uses an OpenAI-compatible API, so LiteLLM expects 'openai/{model}' format.
+        This method handles model names that may come with 'lm_studio/' or 'openai/' prefixes.
+
+        Args:
+            model: The model name to transform (may include 'lm_studio/' or 'openai/' prefix).
+
+        Returns:
+            Model name formatted as 'openai/{base_model}' for LiteLLM.
+        """
+        # Strip 'lm_studio/' prefix if present
+        if model.startswith("lm_studio/"):
+            base_model = model[len("lm_studio/") :]
+        # Strip 'openai/' prefix if present (in case user already formatted it)
+        elif model.startswith("openai/"):
+            base_model = model[len("openai/") :]
+        else:
+            # No prefix, use as-is
+            base_model = model
+        # Format as 'openai/{model}' for LiteLLM
+        return f"openai/{base_model}"
 
 
 def get_provider_class(name: str) -> Type[ProviderConfig]:

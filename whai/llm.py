@@ -152,7 +152,14 @@ class LLMProvider:
         fallback_model = get_default_model_for_provider(
             self.default_provider or DEFAULT_PROVIDER
         )
-        self.model = model or provider_default_model or fallback_model
+        raw_model = model or provider_default_model or fallback_model
+
+        # Sanitize model name for provider-specific formatting (if needed)
+        if provider_cfg:
+            self.model = provider_cfg.sanitize_model_name(raw_model)
+        else:
+            # Fallback if provider config is missing (should not happen in normal usage)
+            self.model = raw_model
 
         # Store custom API base for providers that need it
         self.api_base = provider_cfg.api_base if provider_cfg else None
