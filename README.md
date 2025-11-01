@@ -24,9 +24,9 @@ When you get stuck, need a command, or encounter an error, you simply call `whai
 
 * **Analyze Previous Errors:** If a command fails, you don't need to copy-paste. Just ask:
     `> whai why did that fail?`
-    It reads the failed command and its full error output from your `tmux` history to provide an immediate diagnosis and solution.
+    It reads the failed command and its full error output from your [`tmux`](https://github.com/tmux/tmux) (terminal multiplexer) history to provide an immediate diagnosis and solution. *Note: Command output context is only available when running inside tmux.*
 * **Persistent Roles (Memory):** `whai` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*, what machine you are on, what tools are available, your personal preferences, and how you like to work, and `whai` retains this context for all future interactions.
-* **Full Session Context:** By securely reading your `tmux` scrollback, `whai` understands the commands you ran and what those commands returned. This provides intelligent, multi-step assistance based on the actual state of your terminal.
+* **Full Session Context:** When running inside `tmux`, `whai` securely reads your scrollback to understand both the commands you ran. This provides intelligent, multi-step assistance based on the actual state of your terminal.
 * **On-Demand Assistance:** Get help exactly when you need it, from command generation to complex debugging, right in your active shell:
 
     `> whai check my docker containers logs for errors`
@@ -131,10 +131,14 @@ I'll show the quick ways to exit Vim and what each one does.
 
 ## Installation
 
-### Option 1: uv tool (Recommended)
+### Option 1: uv (Recommended)
 
 ```bash
 uv tool install whai
+```
+Or even without installing it!
+```bash
+uvx whai "your command"
 ```
 
 ### Option 2: pipx
@@ -215,7 +219,7 @@ whai "your question"
 ```
 
 That's it! `whai` will:
-- Read your terminal context (if in tmux)
+- Read your terminal context (commands + output if in tmux, commands only otherwise)
 - Send your question to the configured LLM
 - Suggest commands with `[a]pprove` / `[r]eject` / `[m]odify` prompts
 - Execute approved commands and continue the conversation
@@ -279,8 +283,8 @@ The default role is defined in the config.
 ### Context Awareness
 
 `whai` automatically captures context from:
-- **tmux scrollback** (recommended): Full commands + output for intelligent debugging
-- **Shell history** (fallback): Recent commands when not in tmux
+- **tmux scrollback** (recommended): Full commands + output for intelligent debugging *(only available when running in tmux)*
+- **Shell history** (fallback): Recent commands only when not in tmux *(command output is not available in this mode)*
 
 ### Safety First
 
@@ -300,8 +304,8 @@ I wanted something that's flexible, understands you, and is always ready to help
 ### Does it send my terminal history to the LLM?
 
 Only when you run `whai`.
-It captures recent history (50 last commands) or tmux scrollback and includes it in the request.
-If you use a remote API model, it will see your recent terminal history.
+It captures recent history (50 last commands) or tmux scrollback (commands + output) and includes it in the request.
+If you use a remote API model, it will see your recent terminal history. Note that command output is only available when running inside tmux.
 You can disable this with the `--no-context` flag.
 
 ### Can I use it with local models?
