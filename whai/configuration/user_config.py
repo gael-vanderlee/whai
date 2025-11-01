@@ -125,6 +125,26 @@ class ProviderConfig:
         """Validate required fields. Override in subclasses if needed."""
         pass
 
+    def get_summary_fields(self) -> Dict[str, str]:
+        """
+        Get provider-specific fields for summary display.
+
+        Returns a dictionary mapping field names to their display values.
+        Sensitive values (like API keys) should be masked.
+        Override in subclasses to customize which fields are shown.
+
+        Returns:
+            Dictionary of field_name -> display_value
+        """
+        fields = {}
+        fields["model"] = self.default_model or "MISSING"
+        if self.api_key:
+            masked_key = self.api_key[:8] + "..." if len(self.api_key) > 8 else "***"
+            fields["key"] = masked_key
+        else:
+            fields["key"] = "MISSING"
+        return fields
+
     def validate(
         self, on_progress: Optional[Callable[[str, Optional[bool]], None]] = None
     ) -> ValidationResult:
@@ -377,6 +397,19 @@ class AzureOpenAIConfig(ProviderConfig):
                 "Azure OpenAI provider requires 'default_model'"
             )
 
+    def get_summary_fields(self) -> Dict[str, str]:
+        """Get Azure OpenAI-specific fields for summary."""
+        fields = {}
+        fields["model"] = self.default_model or "MISSING"
+        if self.api_key:
+            masked_key = self.api_key[:8] + "..." if len(self.api_key) > 8 else "***"
+            fields["key"] = masked_key
+        else:
+            fields["key"] = "MISSING"
+        fields["api_base"] = self.api_base or "MISSING"
+        fields["api_version"] = self.api_version or "MISSING"
+        return fields
+
     def _get_litellm_model_name(self) -> str:
         """Get model name with azure/ prefix."""
         return f"azure/{self.default_model or 'default'}"
@@ -394,6 +427,17 @@ class OllamaConfig(ProviderConfig):
             raise InvalidProviderConfigError("Ollama provider requires 'api_base'")
         if not self.default_model or not self.default_model.strip():
             raise InvalidProviderConfigError("Ollama provider requires 'default_model'")
+
+    def get_summary_fields(self) -> Dict[str, str]:
+        """Get Ollama-specific fields for summary."""
+        fields = {}
+        fields["model"] = self.default_model or "MISSING"
+        fields["api_base"] = self.api_base or "MISSING"
+        # API key is optional for Ollama, only show if present
+        if self.api_key:
+            masked_key = self.api_key[:8] + "..." if len(self.api_key) > 8 else "***"
+            fields["key"] = masked_key
+        return fields
 
     def _get_litellm_model_name(self) -> str:
         """Get model name with ollama/ prefix."""
@@ -414,6 +458,17 @@ class LMStudioConfig(ProviderConfig):
             raise InvalidProviderConfigError(
                 "LM Studio provider requires 'default_model'"
             )
+
+    def get_summary_fields(self) -> Dict[str, str]:
+        """Get LM Studio-specific fields for summary."""
+        fields = {}
+        fields["model"] = self.default_model or "MISSING"
+        fields["api_base"] = self.api_base or "MISSING"
+        # API key is optional for LM Studio, only show if present
+        if self.api_key:
+            masked_key = self.api_key[:8] + "..." if len(self.api_key) > 8 else "***"
+            fields["key"] = masked_key
+        return fields
 
     def _get_litellm_model_name(self) -> str:
         """Get model name with openai/ prefix (LM Studio uses OpenAI-compatible API)."""
@@ -551,53 +606,6 @@ class WhaiConfig:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "wb") as f:
             tomli_w.dump(self.to_dict(), f)
-
-    def summarize(self) -> str:
-        """
-        Create a human-readable summary of the configuration.
-
-        Returns:
-            A formatted string summarizing the configuration.
-        """
-        default_provider = self.llm.default_provider or "MISSING"
-        default_role = self.roles.default_role
-
-        providers = []
-        for name, provider_config in self.llm.providers.items():
-            # Model display
-            provider_model = provider_config.default_model or "MISSING"
-
-            # API key display
-            if provider_config.api_key:
-                masked_key = (
-                    provider_config.api_key[:8] + "..."
-                    if len(provider_config.api_key) > 8
-                    else "***"
-                )
-            else:
-                masked_key = "MISSING"
-
-            providers.append(f"{name} (model: {provider_model}, key: {masked_key})")
-
-        summary = f"Default provider: {default_provider}\n"
-
-        # Show effective model from the default provider
-        default_prov_config = self.llm.get_provider(default_provider)
-        effective_model = (
-            default_prov_config.default_model if default_prov_config else "MISSING"
-        )
-
-        summary += f"Default model: {effective_model}\n"
-        summary += f"Default role: {default_role}\n"
-
-        if providers:
-            summary += "Configured providers:\n"
-            for p in providers:
-                summary += f"  - {p}\n"
-        else:
-            summary += "⚠ NO PROVIDERS CONFIGURED\n"
-
-        return summary
 
 
 def get_config_dir() -> Path:
