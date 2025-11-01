@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import time
+from importlib.metadata import version
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -20,6 +21,8 @@ from whai.config import (
     resolve_temperature,
     validate_llm_config,
 )
+from whai.config_wizard import run_wizard
+from whai.constants import DEFAULT_COMMAND_TIMEOUT
 from whai.context import get_context
 from whai.interaction import approval_loop, execute_command
 from whai.llm import LLMProvider, get_base_system_prompt
@@ -68,7 +71,11 @@ def _extract_inline_overrides(
                 raise typer.Exit(2)
             value_token = tokens[i + 1]
             try:
-                o_timeout = int(value_token)
+                timeout_value = int(value_token)
+                if timeout_value <= 0:
+                    ui.error("--timeout must be a positive integer (seconds)")
+                    raise typer.Exit(2)
+                o_timeout = timeout_value
             except ValueError:
                 ui.error("--timeout must be an integer (seconds)")
                 raise typer.Exit(2)
@@ -134,7 +141,9 @@ def _extract_inline_overrides(
         "no_context": o_no_context,
         "model": o_model,
         "temperature": o_temperature,
-        "timeout": o_timeout,
+        "timeout": o_timeout
+        if o_timeout is not None
+        else None,  # Preserve 0 for validation
         "log_level": o_log_level,
     }
 
@@ -156,7 +165,7 @@ def main(
         None, "--temperature", "-t", help="Override temperature"
     ),
     timeout: int = typer.Option(
-        60,
+        None,
         "--timeout",
         help="Per-command timeout in seconds (applies to each approved command)",
     ),
@@ -194,8 +203,6 @@ def main(
     if version_flag:
         # Try to get version from installed package metadata
         try:
-            from importlib.metadata import version
-
             v = version("whai")
         except Exception:
             # Fallback: read from pyproject.toml (development mode)
@@ -215,10 +222,10 @@ def main(
                 except ImportError:
                     # Fallback to tomli for Python 3.10
                     try:
-                        import tomli  # pyright: ignore[reportMissingImports]
+                        import tomli as tomllib  # pyright: ignore[reportMissingImports]
 
                         with open(pyproject_path, "rb") as f:
-                            data = tomli.load(f)
+                            data = tomllib.load(f)
                     except ImportError:
                         raise ImportError("Neither tomllib nor tomli available")
 
@@ -249,8 +256,6 @@ def main(
 
     # Handle interactive config flag
     if interactive_config:
-        from whai.config_wizard import run_wizard
-
         try:
             run_wizard(existing_config=True)
         except typer.Abort:
@@ -284,6 +289,10 @@ def main(
         model = overrides["model"]
         temperature = overrides["temperature"]
         timeout = overrides["timeout"]
+
+    # Set default timeout if not provided (before validation)
+    if timeout is None:
+        timeout = DEFAULT_COMMAND_TIMEOUT
 
     # Validate timeout after possible inline overrides
     if timeout <= 0:
@@ -319,8 +328,6 @@ def main(
             config = load_config()
         except MissingConfigError:
             ui.warn("Configuration not found. Starting interactive setup...")
-            from whai.config_wizard import run_wizard
-
             try:
                 run_wizard(existing_config=False)
                 # Try loading again after wizard completes
