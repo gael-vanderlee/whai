@@ -12,6 +12,8 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
+import tomli_w
+
 from whai.constants import (
     CONFIG_FILENAME,
     DEFAULT_MODEL_OPENAI,
@@ -446,14 +448,6 @@ class WhaiConfig:
 
     def to_file(self, path: Path) -> None:
         """Save configuration to a file (TOML format)."""
-        try:
-            import tomli_w  # type: ignore
-        except ImportError:
-            raise ImportError(
-                "tomli_w is required to write config files. "
-                "Install it with: pip install tomli-w"
-            )
-
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "wb") as f:
             tomli_w.dump(self.to_dict(), f)
@@ -520,7 +514,7 @@ def get_config_dir() -> Path:
 
 def get_config_path() -> Path:
     """Get the path to the configuration file."""
-    return get_config_dir() / CONFIG_FILENAME
+    return (get_config_dir() / CONFIG_FILENAME).resolve()
 
 
 def load_config(path: Optional[Path] = None) -> WhaiConfig:
