@@ -27,7 +27,7 @@ Features:
 - [ ] Better first time API setup (clear no API message)
 - [x] Test flag positioning
 - [x] No output handling
-- [ ] Prettier code blocs in readme
+- [x] Prettier code blocs in readme
 
 Issues:
 - [x] Timeout issue
@@ -39,3 +39,4 @@ Refactor:
     - [ ] Better / clearer defaults
     - [ ] Clear errors
 - [ ] Centralized defaults and paths
+- [ ] Sort unit tests
