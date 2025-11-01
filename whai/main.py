@@ -264,7 +264,7 @@ def main(
     # No query provided and no subcommand - use default query
     if not query:
         query = [
-            "I am confused about what you can see in the most recent command(s) in the TERMINAL CONTEXT, provide assistance"
+            "I am confused about what you can see in the most recent command(s) in the terminal context, provide assistance"
         ]
 
     # Workaround for Click/Typer parsing with variadic arguments:

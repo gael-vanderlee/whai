@@ -38,5 +38,6 @@ Refactor:
 - [ ] OO approach for config and roles
     - [ ] Better / clearer defaults
     - [ ] Clear errors
+    - [ ] Better first time setup
 - [ ] Centralized defaults and paths
 - [ ] Sort unit tests
