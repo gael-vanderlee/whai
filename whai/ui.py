@@ -84,8 +84,10 @@ def print_command(cmd: str) -> None:
         console.print(Panel(syn, title="Proposed command", border_style="cyan"))
 
 
-def print_output(stdout: str, stderr: str) -> None:
+def print_output(stdout: str, stderr: str, returncode: int = 0) -> None:
     """Print command output (stdout and stderr) in panels."""
+    has_output = bool(stdout or stderr)
+
     if PLAIN_MODE:
         if stdout:
             console.print("\nOutput:")
@@ -93,6 +95,10 @@ def print_output(stdout: str, stderr: str) -> None:
         if stderr:
             console.print("\nErrors:")
             console.print(stderr.rstrip("\n"))
+        if not has_output:
+            console.print(
+                f"\nCommand completed with no output (exit code: {returncode})"
+            )
     else:
         if stdout:
             syn_out = Syntax(
@@ -104,6 +110,15 @@ def print_output(stdout: str, stderr: str) -> None:
                 stderr.rstrip("\n"), "text", theme="ansi_dark", word_wrap=False
             )
             console.print(Panel(syn_err, title="Errors", border_style="red"))
+        if not has_output:
+            status_color = "green" if returncode == 0 else "yellow"
+            console.print(
+                Panel(
+                    f"Command completed with no output\nExit code: {returncode}",
+                    title="Command completed",
+                    border_style=status_color,
+                )
+            )
 
 
 @contextmanager

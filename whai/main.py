@@ -262,7 +262,9 @@ def main(
 
     # No query provided and no subcommand - use default query
     if not query:
-        query = ["The user is confused about the last thing that happened in his terminal, provide assistance"]
+        query = [
+            "The user is confused about the last thing that happened in his terminal, provide assistance"
+        ]
 
     # Workaround for Click/Typer parsing with variadic arguments:
     # If users place options after the free-form query, those tokens land in `query`.
@@ -387,7 +389,7 @@ def main(
 
             if not is_deep_context and context_str:
                 ui.warn(
-                    "Using shell history only (no tmux detected). History analysis may be limited."
+                    "Using shell history only (no tmux detected). History analysis will not include outputs."
                 )
             elif not context_str:
                 ui.info("No context available (no tmux, no history).")
@@ -543,10 +545,15 @@ def main(
 
                             # Format the result for LLM (plain text)
                             result = f"Command: {approved_command}\n"
+                            result += f"Exit code: {returncode}\n"
                             if stdout:
                                 result += f"\nOutput:\n{stdout}"
                             if stderr:
                                 result += f"\nErrors:\n{stderr}"
+                            if not stdout and not stderr:
+                                result += (
+                                    "\nOutput: (empty - command produced no output)"
+                                )
 
                             tool_results.append(
                                 {"tool_call_id": tool_call["id"], "output": result}
@@ -554,7 +561,7 @@ def main(
 
                             # Display the output (pretty formatted)
                             ui.console.print()
-                            ui.print_output(stdout, stderr)
+                            ui.print_output(stdout, stderr, returncode)
                             ui.console.print()
 
                         except Exception as e:
