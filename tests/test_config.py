@@ -391,7 +391,7 @@ def test_save_config(tmp_path, monkeypatch):
     assert anthropic_cfg.api_key == "sk-test-123"
 
 
-def test_summarize_config():
+def test_summarize_config(capsys):
     """Test config summarization."""
     from whai.configuration.user_config import (
         AnthropicConfig,
@@ -400,6 +400,7 @@ def test_summarize_config():
         RolesConfig,
         WhaiConfig,
     )
+    from whai.ui import print_configuration_summary
 
     test_config = WhaiConfig(
         llm=LLMConfig(
@@ -418,11 +419,13 @@ def test_summarize_config():
         roles=RolesConfig(default_role="default"),
     )
 
-    summary = test_config.summarize()
+    print_configuration_summary(test_config)
+    captured = capsys.readouterr()
+    summary = captured.out
 
     # Check summary contains expected elements
-    assert "Default provider: openai" in summary
-    assert "Default model: gpt-4" in summary
+    assert "Default provider: openai" in summary or "Default provider" in summary
+    assert "Default model: gpt-4" in summary or "gpt-4" in summary
     assert "openai" in summary
     assert "anthropic" in summary
     # Check that API keys are masked

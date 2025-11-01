@@ -168,7 +168,8 @@ def test_remove_role_cancelled(tmp_path, monkeypatch):
     # Try to remove but cancel (confirm with 'n')
     result = runner.invoke(role_app, ["remove", "test-role"], input="n\n")
     assert result.exit_code == 0
-    assert "Cancelled" in result.stdout
+    # warn() outputs to stderr, check both stdout and stderr
+    assert "Cancelled" in result.stdout or "Cancelled" in result.stderr
     assert test_role.exists()
 
 
@@ -244,7 +245,8 @@ def test_reset_default_cancelled(tmp_path, monkeypatch):
     # Try to reset but cancel (confirm with 'n')
     result = runner.invoke(role_app, ["reset-default"], input="n\n")
     assert result.exit_code == 0
-    assert "Cancelled" in result.stdout
+    # warn() outputs to stderr, check both stdout and stderr
+    assert "Cancelled" in result.stdout or "Cancelled" in result.stderr
 
     # Verify it was NOT reset
     content = default_role.read_text()
@@ -372,7 +374,8 @@ def test_interactive_menu_cancel(tmp_path, monkeypatch):
 
     result = runner.invoke(role_app, [], input="cancel\n")
     assert result.exit_code == 0
-    assert "Cancelled" in result.stdout
+    # warn() outputs to stderr, check both stdout and stderr
+    assert "Cancelled" in result.stdout or "Cancelled" in result.stderr
 
 
 def test_interactive_menu_list(tmp_path, monkeypatch):

@@ -177,8 +177,11 @@ def test_flow_3_command_generation_rejected(mock_llm_with_tool_call):
         result = runner.invoke(app, ["echo test", "--no-context"])
 
         assert result.exit_code == 0
+        # info() outputs to stderr, check both stdout and stderr
         assert (
-            "rejected" in result.stdout.lower() or "Command rejected" in result.stdout
+            "rejected" in result.stdout.lower() 
+            or "Command rejected" in result.stdout
+            or "Command rejected" in result.stderr
         )
 
 

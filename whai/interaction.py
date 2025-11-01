@@ -105,7 +105,7 @@ def approval_loop(command: str) -> Optional[str]:
                 logger.debug("Command approved as-is", extra={"category": "cmd"})
                 return command
             elif response == "r" or response == "reject":
-                ui.console.print("Command rejected.")
+                ui.info("Command rejected.")
                 logger.debug("Command rejected by user", extra={"category": "cmd"})
                 return None
             elif response == "m" or response == "modify":
@@ -118,11 +118,11 @@ def approval_loop(command: str) -> Optional[str]:
                     )
                     return modified
                 else:
-                    ui.console.print("No command entered. Please try again.")
+                    ui.warn("No command entered. Please try again.")
             else:
-                ui.console.print("Invalid response. Please enter 'a', 'r', or 'm'.")
+                ui.warn("Invalid response. Please enter 'a', 'r', or 'm'.")
         except (EOFError, KeyboardInterrupt):
-            ui.console.print("\nRejected.")
+            ui.info("\nRejected.")
             logger.debug(
                 "Command rejected via interrupt/EOF", extra={"category": "cmd"}
             )

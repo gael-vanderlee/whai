@@ -10,6 +10,7 @@ from typing import Optional
 import click
 import typer
 
+from whai import ui
 from whai.configuration import (
     ensure_default_roles,
     load_config,
@@ -97,7 +98,7 @@ def list_roles() -> None:
     ensure_default_roles()
     roles = sorted(p.stem for p in _roles_dir().glob("*.md"))
     if not roles:
-        typer.echo("No roles found.")
+        ui.info("No roles found.")
         raise typer.Exit(0)
     for r in roles:
         typer.echo(r)
@@ -111,16 +112,16 @@ def create_role(
     try:
         _validate_role_name(name)
     except typer.BadParameter as e:
-        typer.echo(str(e), err=True)
+        ui.error(str(e))
         raise typer.Exit(2)
 
     ensure_default_roles()
     path = _role_path(name)
     if path.exists():
-        typer.echo(f"Role '{name}' already exists: {path}", err=True)
+        ui.error(f"Role '{name}' already exists: {path}")
         raise typer.Exit(2)
     path.write_text(_template(name))
-    typer.echo(f"Created role at {path}")
+    ui.success(f"Created role at {path}")
     _open_in_editor(path)
 
 
@@ -130,13 +131,13 @@ def edit_role(name: str = typer.Argument(...)) -> None:
     try:
         _validate_role_name(name)
     except typer.BadParameter as e:
-        typer.echo(str(e), err=True)
+        ui.error(str(e))
         raise typer.Exit(2)
 
     ensure_default_roles()
     path = _role_path(name)
     if not path.exists():
-        typer.echo(f"Role '{name}' not found at {path}", err=True)
+        ui.error(f"Role '{name}' not found at {path}")
         raise typer.Exit(2)
     _open_in_editor(path)
 
@@ -147,19 +148,19 @@ def remove_role(name: str = typer.Argument(...)) -> None:
     try:
         _validate_role_name(name)
     except typer.BadParameter as e:
-        typer.echo(str(e), err=True)
+        ui.error(str(e))
         raise typer.Exit(2)
 
     ensure_default_roles()
     path = _role_path(name)
     if not path.exists():
-        typer.echo(f"Role '{name}' not found.", err=True)
+        ui.error(f"Role '{name}' not found.")
         raise typer.Exit(2)
     if not typer.confirm(f"Delete role '{name}' at {path}?", default=False):
-        typer.echo("Cancelled.")
+        ui.warn("Cancelled.")
         raise typer.Exit(0)
     path.unlink()
-    typer.echo(f"Removed {path}")
+    ui.success(f"Removed {path}")
 
 
 @role_app.command("set-default")
@@ -168,17 +169,17 @@ def set_default_role(name: str = typer.Argument(...)) -> None:
     try:
         _validate_role_name(name)
     except typer.BadParameter as e:
-        typer.echo(str(e), err=True)
+        ui.error(str(e))
         raise typer.Exit(2)
 
     ensure_default_roles()
     if not _role_path(name).exists():
-        typer.echo(f"Role '{name}' not found.", err=True)
+        ui.error(f"Role '{name}' not found.")
         raise typer.Exit(2)
     cfg = load_config()
     cfg.roles.default_role = name
     save_config(cfg)
-    typer.echo(f"Default role set to '{name}'")
+    ui.success(f"Default role set to '{name}'")
 
 
 @role_app.command("reset-default")
@@ -195,19 +196,19 @@ def reset_default() -> None:
             f"This will overwrite '{path}' with the packaged default. Continue?",
             default=False,
         ):
-            typer.echo("Cancelled.")
+            ui.warn("Cancelled.")
             raise typer.Exit(0)
 
     # Write packaged default
     default_content = get_default_role(DEFAULT_ROLE_NAME)
     path.write_text(default_content)
-    typer.echo(f"Reset default role at {path}")
+    ui.success(f"Reset default role at {path}")
 
     # Set as config default
     cfg = load_config()
     cfg.roles.default_role = DEFAULT_ROLE_NAME
     save_config(cfg)
-    typer.echo(f"Set '{DEFAULT_ROLE_NAME}' as the default role in config")
+    ui.success(f"Set '{DEFAULT_ROLE_NAME}' as the default role in config")
 
 
 @role_app.command("open-folder")
@@ -221,9 +222,9 @@ def open_folder() -> None:
             subprocess.Popen(["open", str(d)])
         else:
             subprocess.Popen(["xdg-open", str(d)])
-        typer.echo(f"Opened {d}")
+        ui.success(f"Opened {d}")
     except Exception as e:
-        typer.echo(f"Failed to open folder {d}: {e}", err=True)
+        ui.failure(f"Failed to open folder {d}: {e}")
 
 
 @role_app.command("use")
@@ -245,12 +246,12 @@ def use_role(
     try:
         _validate_role_name(name)
     except typer.BadParameter as e:
-        typer.echo(str(e), err=True)
+        ui.error(str(e))
         raise typer.Exit(2)
 
     ensure_default_roles()
     if not _role_path(name).exists():
-        typer.echo(f"Role '{name}' not found.", err=True)
+        ui.error(f"Role '{name}' not found.")
         raise typer.Exit(2)
 
     detected_shell = shell or detect_shell()
@@ -290,11 +291,10 @@ def role_manager(ctx: typer.Context) -> None:
     # For safety, check if we have unrecognized tokens
     if hasattr(ctx, "args") and ctx.args:
         bad = " ".join(ctx.args)
-        typer.echo(
+        ui.error(
             f"'{bad}' is not a recognized role command.\n"
             "If you want to send a message starting with the word 'role', wrap it in quotes:\n"
-            '  whai "role play as a bad assistant"\n',
-            err=True,
+            '  whai "role play as a bad assistant"\n'
         )
         raise typer.Exit(2)
 
@@ -315,7 +315,7 @@ def role_manager(ctx: typer.Context) -> None:
         default="list",
     )
     if action == "cancel":
-        typer.echo("Cancelled.")
+        ui.warn("Cancelled.")
         raise typer.Exit(0)
 
     if action == "list":
