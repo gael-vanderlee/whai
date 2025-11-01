@@ -21,12 +21,12 @@ Features:
 - [x] Find new name
 - [x] Pip installable
 - [ ] Delete config ?
-- [ ] Whai standalone running
-- [ ] Explain tmux in readme
-- [ ] Multiple python versions testing
+- [x] Whai standalone running
+- [x] Explain tmux in readme
+- [x] Multiple python versions testing
 - [ ] Better first time API setup (clear no API message)
-- [ ] Test flag positioning
-- [ ] No output handling
+- [x] Test flag positioning
+- [x] No output handling
 - [ ] Prettier code blocs in readme
 
 Issues:
@@ -36,4 +36,6 @@ Issues:
 
 Refactor:
 - [ ] OO approach for config and roles
+    - [ ] Better / clearer defaults
+    - [ ] Clear errors
 - [ ] Centralized defaults and paths
