@@ -1,6 +1,7 @@
 """Context capture from tmux or shell history."""
 
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -28,9 +29,90 @@ def _is_wsl() -> bool:
         return False
 
 
-def _get_tmux_context() -> Optional[str]:
+def _matches_command_pattern(line: str, command: str) -> bool:
+    """
+    Check if a line matches the command pattern.
+
+    Handles variations like prompts, quotes, and whitespace.
+    Avoids false positives from substring matches (e.g., "whai" in "whaiting").
+    Excludes log lines (lines starting with [INFO], [DEBUG], etc.).
+
+    Args:
+        line: Line from context to check.
+        command: Command to match against.
+
+    Returns:
+        True if the line contains the command pattern and appears to be a command line.
+    """
+    if not command:
+        return False
+
+    # Exclude log lines - these typically start with log level markers
+    if re.match(r"^\s*\[(INFO|DEBUG|ERROR|WARNING|CRITICAL)\]", line):
+        return False
+
+    # Exclude lines that are clearly whai's log output (contain log message patterns)
+    # This catches log lines that might have formatting before the log level marker
+    if re.search(
+        r"(Will exclude command from context|Found matching command at line|Filtered.*from tmux context|Captured.*scrollback)",
+        line,
+    ):
+        return False
+
+    # Normalize whitespace
+    line_normalized = " ".join(line.split())
+    command_normalized = " ".join(command.split())
+
+    # Normalize quotes: remove quotes around arguments to handle cases where
+    # sys.argv has "whai -v DEBUG" but terminal shows "whai -v \"DEBUG\""
+    # We'll compare after removing surrounding quotes from each argument
+    def normalize_quotes(text: str) -> str:
+        """Remove quotes around words/arguments while preserving structure."""
+        # Replace quoted strings (may contain spaces) with unquoted versions
+        # This handles: "DEBUG" -> DEBUG, "some text" -> some text, 'test' -> test
+        # But preserves quotes in the middle like: don't -> don't
+        # Match double-quoted strings (with spaces allowed inside)
+        text = re.sub(r'"([^"]+)"', r"\1", text)
+        # Match single-quoted strings (with spaces allowed inside)
+        text = re.sub(r"'([^']+)'", r"\1", text)
+        return text
+
+    line_quote_normalized = normalize_quotes(line_normalized)
+    command_quote_normalized = normalize_quotes(command_normalized)
+
+    # Escape special regex characters in the command
+    escaped_command = re.escape(command_quote_normalized)
+
+    # Match the command with word boundaries to avoid substring matches
+    # The pattern ensures the command appears as a complete phrase or after whitespace/prompt
+    # and before whitespace or end of line
+    # First check if command starts the line (optionally after prompt characters)
+    pattern_start = rf"^[\w@$:/\-\.~]*\s*{escaped_command}(\s|$)"
+    # Then check if command appears as a complete word/phrase in the middle
+    pattern_middle = rf"\s+{escaped_command}(\s|$)"
+    # Finally check if command ends the line
+    pattern_end = rf"\s+{escaped_command}$"
+
+    # Try all patterns on quote-normalized line
+    for pattern in [pattern_start, pattern_middle, pattern_end]:
+        if re.search(pattern, line_quote_normalized):
+            return True
+
+    # Also check exact match after prompt removal and quote normalization
+    # Remove common prompt patterns
+    prompt_removed = re.sub(r"^[\w@$:/\-\.~]+\s+", "", line_quote_normalized)
+    if prompt_removed.strip() == command_quote_normalized:
+        return True
+
+    return False
+
+
+def _get_tmux_context(exclude_command: Optional[str] = None) -> Optional[str]:
     """
     Get context from tmux scrollback buffer.
+
+    Args:
+        exclude_command: Command pattern to filter out from the context.
 
     Returns:
         Tmux pane content if available, None otherwise.
@@ -58,11 +140,42 @@ def _get_tmux_context() -> Optional[str]:
             )
 
         if result.returncode == 0:
+            output = result.stdout
+
+            # Filter out the last occurrence of the command and everything after it
+            if exclude_command:
+                lines = output.split("\n")
+
+                # Find the last occurrence of the command line (search from end)
+                last_command_index = None
+                for i in range(len(lines) - 1, -1, -1):
+                    if _matches_command_pattern(lines[i], exclude_command):
+                        last_command_index = i
+                        logger.info(
+                            "Found matching command at line %d: %s",
+                            i,
+                            lines[i][:100] if len(lines[i]) > 100 else lines[i],
+                        )
+                        break
+
+                # If we found the command, remove it and everything after
+                if last_command_index is not None:
+                    filtered_lines = lines[:last_command_index]
+                    output = "\n".join(filtered_lines)
+                    removed_count = len(lines) - len(filtered_lines)
+                    logger.info(
+                        "Filtered %d line(s) from tmux context (removed command at index %d and everything after)",
+                        removed_count,
+                        last_command_index,
+                    )
+                else:
+                    logger.debug("No matching command found in tmux context to exclude")
+
             logger.info(
                 "Captured tmux scrollback (%d chars)",
-                len(result.stdout),
+                len(output),
             )
-            return result.stdout
+            return output
         else:
             return None
 
@@ -189,13 +302,17 @@ def _parse_bash_history(history_file: Path, max_commands: int = 50) -> list:
 
 
 def _get_history_context(
-    max_commands: int = 50, shell: Optional[str] = None
+    max_commands: int = 50,
+    shell: Optional[str] = None,
+    exclude_command: Optional[str] = None,
 ) -> Optional[str]:
     """
     Get context from shell history file.
 
     Args:
         max_commands: Maximum number of commands to include.
+        shell: Shell name to use for history detection.
+        exclude_command: Command pattern to filter out from history.
 
     Returns:
         Formatted history string if available, None otherwise.
@@ -276,6 +393,34 @@ def _get_history_context(
         logger.warning("No history commands found")
         return None
 
+    # Filter out the last command if it matches the exclude pattern
+    if exclude_command and commands:
+        logger.debug(
+            "Checking history context (%d commands) for command to exclude: %s",
+            len(commands),
+            exclude_command,
+        )
+        # Check if the last command matches the pattern
+        if _matches_command_pattern(commands[-1], exclude_command):
+            logger.info(
+                "Found matching last command in history: %s",
+                commands[-1][:100] if len(commands[-1]) > 100 else commands[-1],
+            )
+            commands = commands[:-1]
+            logger.info(
+                "Filtered last command from history context (%d commands remaining)",
+                len(commands),
+            )
+        else:
+            logger.debug(
+                "Last command in history does not match exclude pattern: %s",
+                commands[-1][:100] if len(commands[-1]) > 100 else commands[-1],
+            )
+
+    if not commands:
+        logger.warning("No history commands remaining after filtering")
+        return None
+
     # Format as a readable history
     formatted = "Recent command history:\n"
     for i, cmd in enumerate(commands, 1):
@@ -289,7 +434,9 @@ def _get_history_context(
     return formatted
 
 
-def get_context(max_commands: int = 50) -> Tuple[str, bool]:
+def get_context(
+    max_commands: int = 50, exclude_command: Optional[str] = None
+) -> Tuple[str, bool]:
     """
     Get terminal context for the LLM.
 
@@ -298,6 +445,7 @@ def get_context(max_commands: int = 50) -> Tuple[str, bool]:
 
     Args:
         max_commands: Maximum number of history commands to include in fallback.
+        exclude_command: Command pattern to filter out from context.
 
     Returns:
         Tuple of (context_string, is_deep_context).
@@ -305,13 +453,15 @@ def get_context(max_commands: int = 50) -> Tuple[str, bool]:
         - is_deep_context: True if tmux context (includes output), False if history only.
     """
     # Try tmux context first
-    tmux_context = _get_tmux_context()
+    tmux_context = _get_tmux_context(exclude_command=exclude_command)
     if tmux_context:
         return tmux_context, True
 
     # Fall back to history (determine shell once and pass through)
     detected_shell = _get_shell_from_env()
-    history_context = _get_history_context(max_commands, shell=detected_shell)
+    history_context = _get_history_context(
+        max_commands, shell=detected_shell, exclude_command=exclude_command
+    )
     if history_context:
         return history_context, False
 

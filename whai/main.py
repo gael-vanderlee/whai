@@ -1,6 +1,7 @@
 """Main CLI entry point for whai."""
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -263,7 +264,7 @@ def main(
     # No query provided and no subcommand - use default query
     if not query:
         query = [
-            "The user is confused about the last thing that happened in his terminal, provide assistance"
+            "I am confused about what you can see in the most recent command(s) in the TERMINAL CONTEXT, provide assistance"
         ]
 
     # Workaround for Click/Typer parsing with variadic arguments:
@@ -376,8 +377,38 @@ def main(
             context_str = ""
             is_deep_context = False
         else:
+            # Reconstruct the command that invoked whai to exclude it from context
+            command_to_exclude = None
+            if len(sys.argv) > 1:
+                # Reconstruct the full command as it would appear in history/tmux
+                # Handle cases where sys.argv[0] might be full path, alias, or just "whai"
+                argv0 = sys.argv[0]
+
+                # Normalize the command name: if it ends with "whai" or contains "whai",
+                # use just "whai" to match what typically appears in history
+                if argv0.endswith("whai") or argv0.endswith(os.sep + "whai"):
+                    # Extract just "whai" from path
+                    command_name = "whai"
+                elif "whai" in argv0.lower():
+                    # Fallback: if "whai" appears anywhere, try to extract it
+                    # This handles edge cases like aliases
+                    command_name = "whai"
+                else:
+                    # Use the basename if it's not obviously whai
+                    # This handles aliases or other executable names
+                    command_name = Path(argv0).name
+
+                # Join arguments, preserving quotes as they might appear in history
+                args_str = " ".join(sys.argv[1:])
+                command_to_exclude = f"{command_name} {args_str}"
+                logger.info("Will exclude command from context: %s", command_to_exclude)
+            else:
+                logger.debug("No command arguments to exclude from context")
+
             t_ctx0 = time.perf_counter()
-            context_str, is_deep_context = get_context()
+            context_str, is_deep_context = get_context(
+                exclude_command=command_to_exclude
+            )
             t_ctx1 = time.perf_counter()
             logger.info(
                 "Startup: get_context() completed in %.3f ms (deep=%s, has_content=%s)",
