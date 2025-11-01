@@ -42,7 +42,7 @@ See `whai` in action:
 
 ### Example 1: Running a command
 
-```bash
+```text
 $ whai give me the biggest folder here
 Info: Model: gpt-5-mini | Role: default
 I'll list all top-level directories (including hidden ones), compute their disk usage, sort them, and show the largest few with human-readable sizes.
@@ -76,7 +76,7 @@ Next steps (options)
 
 ### Example 2: Troubleshooting terminal output
 
-```bash
+```text
 $ uv pip install requirements.txt
 Using Python 3.11.9 environment at: .venv-linux
   × No solution found when resolving dependencies:
@@ -106,7 +106,7 @@ Do you want me to:
 
 ### Example 3: Asking questions
 
-```bash
+```text
 $ whai "Quick how do I exit Vim??"
 Info: Model: gpt-5-mini | Role: default
 I'll show the quick ways to exit Vim and what each one does.
@@ -238,7 +238,7 @@ Roles allow you to customize `whai`'s behavior and responses. More importantly, 
 
 For example, you can create a role that tells `whai` to respond only in emoji:
 
-```bash
+```text
 $ whai role create emoji # Write down: "Answer using only emojis
 $ whai can you tell me the plot of the first Shrek movie --role emoji
 Info: Model: gpt-5-mini | Role: emoji
