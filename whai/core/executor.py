@@ -1,11 +1,14 @@
 """Conversation loop execution for whai."""
 
 import json
+import time
 from typing import List
 
 from whai import ui
+from whai.constants import TOOL_OUTPUT_MAX_TOKENS
 from whai.interaction import approval_loop, execute_command
 from whai.llm import LLMProvider
+from whai.llm.token_utils import truncate_text_with_tokens
 from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -108,8 +111,26 @@ def run_conversation_loop(
                         if not stdout and not stderr:
                             result += "\nOutput: (empty - command produced no output)"
 
+                        # Truncate tool output if needed to respect token limits
+                        t_trunc0 = time.perf_counter()
+                        truncated_result, was_truncated = truncate_text_with_tokens(
+                            result, TOOL_OUTPUT_MAX_TOKENS
+                        )
+                        t_trunc1 = time.perf_counter()
+                        logger.info(
+                            "Tool output truncation completed in %.3f ms (truncated=%s)",
+                            (t_trunc1 - t_trunc0) * 1000,
+                            was_truncated,
+                            extra={"category": "perf"},
+                        )
+                        if was_truncated:
+                            ui.warn(
+                                f"Command output for '{approved_command}' was truncated to fit token limits. "
+                                "Recent output has been preserved."
+                            )
+
                         tool_results.append(
-                            {"tool_call_id": tool_call["id"], "output": result}
+                            {"tool_call_id": tool_call["id"], "output": truncated_result}
                         )
 
                         # Display the output (pretty formatted)

@@ -22,10 +22,15 @@ from whai.configuration import (
     resolve_temperature,
 )
 from whai.configuration.config_wizard import run_wizard
-from whai.constants import DEFAULT_COMMAND_TIMEOUT, DEFAULT_QUERY
+from whai.constants import (
+    CONTEXT_MAX_TOKENS,
+    DEFAULT_COMMAND_TIMEOUT,
+    DEFAULT_QUERY,
+)
 from whai.context import get_context
 from whai.core.executor import run_conversation_loop
 from whai.llm import LLMProvider, get_base_system_prompt
+from whai.llm.token_utils import truncate_text_with_tokens
 from whai.logging_setup import configure_logging, get_logger
 from whai.utils import detect_shell
 
@@ -355,7 +360,26 @@ def main(
         # Display loaded configuration
         ui.info(f"Model: {llm_model} | Role: {role}")
 
-        # 5. Build initial message
+        # 5. Truncate context if needed (before building messages)
+        if context_str:
+            t_trunc0 = time.perf_counter()
+            context_str, was_truncated = truncate_text_with_tokens(
+                context_str, CONTEXT_MAX_TOKENS
+            )
+            t_trunc1 = time.perf_counter()
+            logger.info(
+                "Startup: context truncation completed in %.3f ms (truncated=%s)",
+                (t_trunc1 - t_trunc0) * 1000,
+                was_truncated,
+                extra={"category": "perf"},
+            )
+            if was_truncated:
+                ui.warn(
+                    "Terminal context was truncated to fit token limits. "
+                    "Recent commands and output have been preserved."
+                )
+
+        # 6. Build initial message
         t_prompt0 = time.perf_counter()
         base_prompt = get_base_system_prompt(is_deep_context, timeout=timeout)
         system_message = f"{base_prompt}\n\n{role_obj.body}"
@@ -386,7 +410,7 @@ def main(
             extra={"category": "perf"},
         )
 
-        # 6. Main conversation loop
+        # 7. Main conversation loop
         run_conversation_loop(llm_provider, messages, timeout)
 
     except typer.Exit:
