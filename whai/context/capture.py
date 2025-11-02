@@ -27,7 +27,7 @@ def get_context(
     """
     # Try tmux context first
     tmux_context = _get_tmux_context(exclude_command=exclude_command)
-    if tmux_context:
+    if tmux_context:    # No lines in context OR not in tmux
         return tmux_context, True
 
     # Fall back to history (determine shell once and pass through)
