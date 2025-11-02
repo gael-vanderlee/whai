@@ -168,7 +168,7 @@ uv publish
 ```
 
 Notes:
-- Keep `[project.scripts] whai = "whai.main:app"` so the installed command remains `whai`.
+- Keep `[project.scripts] whai = "whai.cli.main:app"` so the installed command remains `whai`.
 - The `--index-strategy unsafe-best-match` flag is required when the package name exists on both TestPyPI and PyPI but the requested version is only on TestPyPI.
 - Always test from outside the repo root or use the console script; running `python -m whai` from the repo can import local sources instead of the installed wheel.
 
