@@ -211,7 +211,8 @@ def print_configuration_summary(config: "WhaiConfig") -> None:
             for name, provider_config in config.llm.providers.items():
                 summary_fields = provider_config.get_summary_fields()
                 field_parts = [f"{k}: {v}" for k, v in summary_fields.items()]
-                provider_str = f"{name} ({', '.join(field_parts)})"
+                star = " *" if name == default_provider else ""
+                provider_str = f"{name}{star} ({', '.join(field_parts)})"
                 console.print(f"  - {provider_str}")
         else:
             console.print("⚠️ NO PROVIDERS CONFIGURED")
@@ -253,6 +254,10 @@ def print_configuration_summary(config: "WhaiConfig") -> None:
 
                 summary_fields = provider_config.get_summary_fields()
 
+                # Add star indicator for default provider
+                default_provider_name = config.llm.default_provider or ""
+                star_indicator = " ⭐" if name == default_provider_name else ""
+
                 # Get fields as list to handle first one specially
                 fields_list = list(summary_fields.items())
 
@@ -262,7 +267,9 @@ def print_configuration_summary(config: "WhaiConfig") -> None:
                     if first_v == "MISSING":
                         first_v = f"[red]{first_v}[/red]"
                     first_field = f"    [dim]{first_k}:[/dim] {first_v}"
-                    table.add_row(f"  └─ [yellow]{name}[/yellow]", first_field)
+                    table.add_row(
+                        f"  └─ [yellow]{name}{star_indicator}[/yellow]", first_field
+                    )
 
                     # Remaining fields on separate lines
                     for k, v in fields_list[1:]:
@@ -272,7 +279,7 @@ def print_configuration_summary(config: "WhaiConfig") -> None:
                         table.add_row("", f"    [dim]{k}:[/dim] {v}")
                 else:
                     # No fields, just provider name
-                    table.add_row(f"  └─ [yellow]{name}[/yellow]", "")
+                    table.add_row(f"  └─ [yellow]{name}{star_indicator}[/yellow]", "")
         else:
             table.add_row()  # Empty row for spacing
             table.add_row("[bold yellow]⚠️ NO PROVIDERS CONFIGURED[/bold yellow]", "")
