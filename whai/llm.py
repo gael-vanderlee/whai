@@ -49,12 +49,13 @@ EXECUTE_SHELL_TOOL = {
 }
 
 
-def get_base_system_prompt(is_deep_context: bool) -> str:
+def get_base_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
     """
     Get the base system prompt that is prepended to all conversations.
 
     Args:
         is_deep_context: Whether we have deep context (tmux) or shallow (history).
+        timeout: Optional command timeout in seconds. If provided, adds timeout info to context.
 
     Returns:
         The base system prompt string.
@@ -75,7 +76,7 @@ def get_base_system_prompt(is_deep_context: bool) -> str:
         )
     else:
         context_parts.append(
-            "You will be given the recent command history of the user (commands only, not their outputs). This also means that after you finish your message, you will not be able to see it once the user responds. So don't finish with a question or suggestions that would require the context of the your current response once the user responds."
+            "You will be given the recent command history of the user (commands only, not their outputs). This also means that after you finish your message, you will not be able to see it once the user responds. So don't finish with a question or suggestions that would require you to be aware of your current response once the user answers."
         )
 
     # System information
@@ -104,6 +105,13 @@ def get_base_system_prompt(is_deep_context: bool) -> str:
         system_info.append(f"CWD: {cwd}")
     except Exception:
         pass
+
+    # Timeout information
+    if timeout is not None:
+        context_parts.append(
+            f"The user configured a {timeout} seconds timeout on your commands; "
+            "If the command doesn't finish executing in that time it will be interrupted."
+        )
 
     if system_info:
         context_parts.append("System: " + " | ".join(system_info))

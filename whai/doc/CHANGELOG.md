@@ -1,6 +1,6 @@
 # Changelog
 
-Format: [YYYY-MM-DD] [category] [scope]: description
+Format: [YYYY-MM-DD] [category] [scope]: short and concise description
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 

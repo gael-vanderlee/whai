@@ -469,7 +469,7 @@ def main(
 
         # 5. Build initial message
         t_prompt0 = time.perf_counter()
-        base_prompt = get_base_system_prompt(is_deep_context)
+        base_prompt = get_base_system_prompt(is_deep_context, timeout=timeout)
         system_message = f"{base_prompt}\n\n{role_obj.body}"
         t_prompt1 = time.perf_counter()
         logger.info(

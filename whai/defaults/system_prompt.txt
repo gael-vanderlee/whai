@@ -7,7 +7,6 @@ CAPABILITIES:
 - You can execute shell commands using the execute_shell tool
 - Each command runs independently in a fresh subprocess
     - State like cd or export does NOT persist between commands
-    - Chain commands if it is really necessary.
 
 BEHAVIOR:
 1. When the user asks you to do something that requires a shell command, ALWAYS use the execute_shell tool

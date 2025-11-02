@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from whai import llm
 from tests.conftest import create_test_config
+from whai import llm
 
 
 def test_get_base_system_prompt_deep_context():
@@ -29,6 +29,19 @@ def test_get_base_system_prompt_shallow_context():
     # Should include system information
     assert "System:" in prompt
     assert "OS:" in prompt
+
+
+def test_get_base_system_prompt_with_timeout():
+    """Test base system prompt includes timeout information when provided."""
+    prompt = llm.get_base_system_prompt(is_deep_context=True, timeout=60)
+    assert "60 seconds timeout" in prompt
+    assert "don't finish executing in that time they will be interrupted" in prompt
+
+
+def test_get_base_system_prompt_without_timeout():
+    """Test base system prompt doesn't include timeout information when not provided."""
+    prompt = llm.get_base_system_prompt(is_deep_context=True, timeout=None)
+    assert "seconds timeout" not in prompt
 
 
 def test_execute_shell_tool_schema():
@@ -72,15 +85,19 @@ def test_llm_provider_init_with_overrides():
 
 def test_llm_provider_configure_api_keys():
     """Test API key configuration."""
-    from whai.configuration.user_config import AnthropicConfig, GeminiConfig, OpenAIConfig
+    from whai.configuration.user_config import AnthropicConfig, GeminiConfig
 
     config = create_test_config(
         default_provider="openai",
         default_model="gpt-5-mini",
         api_key="sk-test-123",
         providers={
-            "anthropic": AnthropicConfig(api_key="sk-ant-test-456", default_model="claude-3-sonnet"),
-            "gemini": GeminiConfig(api_key="AIzaSy-test-789", default_model="gemini-pro"),
+            "anthropic": AnthropicConfig(
+                api_key="sk-ant-test-456", default_model="claude-3-sonnet"
+            ),
+            "gemini": GeminiConfig(
+                api_key="AIzaSy-test-789", default_model="gemini-pro"
+            ),
         },
     )
 
