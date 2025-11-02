@@ -305,7 +305,7 @@ Roles allow you to customize `whai`'s behavior and responses. More importantly, 
 For example, you can create a role that tells `whai` to respond only in emoji:
 
 ```zsh
-$ whai role create emoji # Write down: "Answer using only emojis
+$ whai role create emoji # "Answer using only emojis"
 $ whai can you tell me the plot of the first Shrek movie --role emoji
 Info: Model: gpt-5-mini | Role: emoji
 👑👸💤🐉🏰
