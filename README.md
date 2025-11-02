@@ -23,7 +23,7 @@ When you get stuck, need a command, or encounter an error, you simply call `whai
 ### Core Features
 
 * **Analyze Previous Errors:** If a command fails, you don't need to copy-paste. Just call `whai` (no arguments needed!) or ask `whai why did that fail?`.
-    It reads the failed command and its full error output from your [`tmux`](https://github.com/tmux/tmux) (terminal multiplexer) history to provide an immediate diagnosis and solution. *Note: Command output context is only available when running inside tmux.*
+    It reads the failed command and its full error output from your [`tmux`](https://github.com/tmux/tmux) (if you are using it) history to provide an immediate diagnosis and solution. *Note: Command output is only available when running inside tmux. Otherwise, the model will only still see your commands but not their outputs.*
 * **Persistent Roles (Memory):** `whai` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*, what machine you are on, what tools are available, your personal preferences, and how you like to work, and `whai` retains this context for all future interactions.
 * **Full Session Context:** When running inside `tmux`, `whai` securely reads your scrollback to understand both the commands you ran. This provides intelligent, multi-step assistance based on the actual state of your terminal.
 * **On-Demand Assistance:** Get help exactly when you need it, from command generation to complex debugging, right in your active shell:
@@ -41,7 +41,7 @@ See `whai` in action:
 
 ### Example 1: Running a command
 
-```text
+```zsh
 $ whai give me the biggest folder here
 Info: Model: gpt-5-mini | Role: default
 I'll list all top-level directories (including hidden ones), 
@@ -99,7 +99,7 @@ Next steps (options)
 
 ### Example 2: Troubleshooting terminal output
 
-```text
+```zsh
 $ uv pip install requirements.txt
 Using Python 3.11.9 environment at: .venv-linux
   × No solution found when resolving dependencies:
@@ -133,7 +133,7 @@ Do you want me to:
 
 ### Example 3: Calling whai without arguments
 
-```text
+```zsh
 $ git push origin main
 To https://github.com/user/repo.git
  ! [rejected]        main -> main (non-fast-forward)
@@ -172,7 +172,7 @@ Do you want me to run git pull for you now?
 
 ### Example 4: Asking questions
 
-```text
+```zsh
 $ whai "Quick how do I exit Vim??"
 Info: Model: gpt-5-mini | Role: default
 I'll show the quick ways to exit Vim and what each one does.
@@ -199,29 +199,29 @@ I'll show the quick ways to exit Vim and what each one does.
 
 ### Option 1: uv (Recommended)
 
-```bash
+```zsh
 uv tool install whai
 ```
 *Or even without installing it!*
-```bash
+```zsh
 uvx whai "your command"
 ```
 
 ### Option 2: pipx
 
-```bash
+```zsh
 pipx install whai
 ```
 
 ### Option 3: pip
 
-```bash
+```zsh
 pip install whai
 ```
 
 ### Option 4: From source
 
-```bash
+```zsh
 git clone https://github.com/gael-vanderlee/whai.git
 cd whai
 pip install -e .
@@ -233,13 +233,13 @@ pip install -e .
 
 On first run, `whai` launches an interactive configuration wizard:
 
-```bash
+```zsh
 whai --interactive-config
 ```
 
 Or edit `~/.config/whai/config.toml` directly:
 
-```toml
+```zsh
 [llm]
 default_provider = "openai"
 
@@ -264,7 +264,7 @@ To use a local model with LM Studio:
    - Enable the server toggle
 
 2. **Configure whai:**
-   ```bash
+   ```zsh
    whai --interactive-config
    ```
    - Select `lm_studio` as the provider
@@ -274,13 +274,13 @@ To use a local model with LM Studio:
    Note: You can also use the `openai/` prefix (e.g., `openai/llama-3-8b-instruct`) as LM Studio provides an OpenAI-compatible API. Both formats work, but `lm_studio/` is the recommended prefix for clarity.
 
 3. **Check available models:**
-   ```bash
+   ```zsh
    curl http://localhost:1234/v1/models
    ```
 
 ### 2. Start using whai
 
-```bash
+```zsh
 whai "your question"
 ```
 
@@ -304,7 +304,7 @@ Roles allow you to customize `whai`'s behavior and responses. More importantly, 
 
 For example, you can create a role that tells `whai` to respond only in emoji:
 
-```text
+```zsh
 $ whai role create emoji # Write down: "Answer using only emojis
 $ whai can you tell me the plot of the first Shrek movie --role emoji
 Info: Model: gpt-5-mini | Role: emoji
@@ -322,7 +322,7 @@ But more practically, roles let you store:
 - Environment constraints (what you can/can't do, security policies)
 - Project-specific context (tools in use, conventions, setup)
 
-```bash
+```zsh
 # Create a new role
 whai role create my-workflow
 
