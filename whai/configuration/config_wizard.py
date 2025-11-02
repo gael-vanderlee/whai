@@ -46,12 +46,15 @@ logger = get_logger(__name__)
 PROVIDERS = PROVIDER_DEFAULTS
 
 
-def _get_provider_config(provider: str) -> ProviderConfig:
+def _get_provider_config(
+    provider: str, existing_config: Optional[ProviderConfig] = None
+) -> ProviderConfig:
     """
     Interactively get configuration for a provider.
 
     Args:
         provider: The provider name (e.g., 'openai', 'anthropic').
+        existing_config: Optional existing ProviderConfig to use as defaults when editing.
 
     Returns:
         ProviderConfig instance with user-provided configuration.
@@ -62,23 +65,58 @@ def _get_provider_config(provider: str) -> ProviderConfig:
     print_section(f"Configuring {provider}")
 
     for field in provider_info["fields"]:
-        default = provider_info["defaults"].get(field, "")
+        # Use existing config value if available, otherwise use provider default
+        if existing_config and hasattr(existing_config, field):
+            existing_value = getattr(existing_config, field)
+            default = existing_value if existing_value is not None else ""
+        else:
+            default = provider_info["defaults"].get(field, "")
 
         # Special handling for API keys (hide input)
         if "api_key" in field.lower():
+            # Mask the default value for display if it's an existing API key
+            actual_default = default
+            display_default = ""
+            if existing_config and hasattr(existing_config, field):
+                existing_value = getattr(existing_config, field)
+                if existing_value and existing_value != "":
+                    # Create masked version for display in prompt brackets
+                    display_default = (
+                        existing_value[:8] + "..." if len(existing_value) > 8 else "***"
+                    )
+                    # Store actual value to use when user presses Enter
+                    actual_default = existing_value
+
             while True:
                 value = typer.prompt(
                     f"{field}",
-                    default=default if default else "",
+                    default=display_default if display_default else "",
                     hide_input=True,
                 )
                 # Sanitize pasted secrets on Windows/PowerShell (strip control chars like \x16)
                 cleaned = re.sub(r"[\x00-\x1f\x7f]", "", value).strip()
                 if cleaned != value:
                     info("Removed non-printable characters from input.")
+
+                # If user pressed Enter (typer returns the masked default), use actual API key
+                if (
+                    display_default
+                    and cleaned == display_default
+                    and actual_default
+                    and actual_default != display_default
+                ):
+                    value = actual_default
+                    break
+
+                # If user provided empty input
                 if not cleaned:
+                    if actual_default:
+                        # Use the actual default if available
+                        value = actual_default
+                        break
                     warn("API key cannot be empty. Please paste/type your key.")
                     continue
+                # User typed a new value
                 value = cleaned
                 break
         else:
@@ -93,7 +131,7 @@ def _get_provider_config(provider: str) -> ProviderConfig:
         provider_config = provider_class.from_dict(config_data)
 
         # Validate the configuration with external checks
-        info("Validating configuration...")
+        info("\nValidating configuration:")
 
         # Track if a message is in progress (waiting for result)
         in_progress: Dict[str, bool] = {}
@@ -201,8 +239,8 @@ def _add_or_edit_provider(config: WhaiConfig) -> None:
         if not typer.confirm("Do you want to edit it?", default=True):
             return
 
-    # Get new configuration
-    provider_config = _get_provider_config(provider)
+    # Get new configuration (pass existing config to use as defaults when editing)
+    provider_config = _get_provider_config(provider, existing_config=existing)
     config.llm.providers[provider] = provider_config
 
     success(f"{provider} configured successfully!")
@@ -466,8 +504,9 @@ def run_wizard(existing_config: bool = False) -> None:
     try:
         save_config(config)
         config_path = get_config_path()
-        success(f"Configuration saved to: {config_path}")
+        success(f"Configuration saved to: {config_path}\n")
         celebration("You can now use whai!")
+        typer.echo("")
     except Exception as e:
         failure(f"Error saving configuration: {e}")
         raise typer.Exit(1)
