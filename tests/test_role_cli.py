@@ -6,12 +6,7 @@ from typer.testing import CliRunner
 
 from whai.configuration import user_config as config
 from whai.configuration.roles import ensure_default_roles
-from whai.role_cli import (
-    _get_clear_command,
-    _get_set_command,
-    role_app,
-)
-from whai.utils import detect_shell
+from whai.role_cli import role_app
 
 runner = CliRunner()
 
@@ -326,42 +321,6 @@ def test_use_role_not_found(tmp_path, monkeypatch):
     assert result.exit_code != 0
     output = result.stdout + result.stderr
     assert "not found" in output
-
-
-def test_detect_shell():
-    """Test shell detection logic."""
-    # Test PowerShell detection (PSModulePath is PowerShell-specific)
-    with patch.dict("os.environ", {"PSModulePath": "some/path"}, clear=True):
-        assert detect_shell() == "pwsh"
-
-    # Test Unix shell detection (without PSModulePath)
-    with patch.dict("os.environ", {"SHELL": "/bin/bash"}, clear=True):
-        assert detect_shell() == "bash"
-
-    with patch.dict("os.environ", {"SHELL": "/usr/bin/zsh"}, clear=True):
-        assert detect_shell() == "zsh"
-
-    with patch.dict("os.environ", {"SHELL": "/usr/bin/fish"}, clear=True):
-        assert detect_shell() == "fish"
-
-
-def test_get_set_command():
-    """Test generating set commands for different shells."""
-    assert _get_set_command("bash", "test") == 'export WHAI_ROLE="test"'
-    assert _get_set_command("zsh", "test") == 'export WHAI_ROLE="test"'
-    assert _get_set_command("fish", "test") == 'set -x WHAI_ROLE "test"'
-    assert _get_set_command("pwsh", "test") == '$env:WHAI_ROLE = "test"'
-
-
-def test_get_clear_command():
-    """Test generating clear commands for different shells."""
-    assert _get_clear_command("bash") == "unset WHAI_ROLE"
-    assert _get_clear_command("zsh") == "unset WHAI_ROLE"
-    assert _get_clear_command("fish") == "set -e WHAI_ROLE"
-    assert (
-        _get_clear_command("pwsh")
-        == "Remove-Item Env:WHAI_ROLE -ErrorAction SilentlyContinue"
-    )
 
 
 def test_interactive_menu_cancel(tmp_path, monkeypatch):

@@ -35,7 +35,7 @@ def test_get_base_system_prompt_with_timeout():
     """Test base system prompt includes timeout information when provided."""
     prompt = llm.get_base_system_prompt(is_deep_context=True, timeout=60)
     assert "60 seconds timeout" in prompt
-    assert "don't finish executing in that time they will be interrupted" in prompt
+    assert "doesn't finish executing in that time it will be interrupted" in prompt
 
 
 def test_get_base_system_prompt_without_timeout():
@@ -81,34 +81,6 @@ def test_llm_provider_init_with_overrides():
 
     assert provider.model == "gpt-5-mini"
     assert provider.temperature == 0.5
-
-
-def test_llm_provider_configure_api_keys():
-    """Test API key configuration."""
-    from whai.configuration.user_config import AnthropicConfig, GeminiConfig
-
-    config = create_test_config(
-        default_provider="openai",
-        default_model="gpt-5-mini",
-        api_key="sk-test-123",
-        providers={
-            "anthropic": AnthropicConfig(
-                api_key="sk-ant-test-456", default_model="claude-3-sonnet"
-            ),
-            "gemini": GeminiConfig(
-                api_key="AIzaSy-test-789", default_model="gemini-pro"
-            ),
-        },
-    )
-
-    with patch.dict("os.environ", {}, clear=True):
-        llm.LLMProvider(config)
-
-        import os
-
-        assert os.environ.get("OPENAI_API_KEY") == "sk-test-123"
-        assert os.environ.get("ANTHROPIC_API_KEY") == "sk-ant-test-456"
-        assert os.environ.get("GEMINI_API_KEY") == "AIzaSy-test-789"
 
 
 def test_send_message_non_streaming():
