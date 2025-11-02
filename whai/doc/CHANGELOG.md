@@ -4,6 +4,7 @@ Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the hi
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-02] [change] [llm]: optimize LiteLLM import with SSL context caching patch; cache ssl.create_default_context() calls to avoid reloading certificates 184 times during import; reduces import time from ~4s to ~1.3s on Windows
 [2025-11-02] [fix] [llm]: add token-based truncation for context and tool outputs to prevent exceeding model limits; truncate terminal context (150k tokens) and command outputs (50k tokens) preserving most recent content with truncation notice; use character-based token estimation (1 token ≈ 4 chars) for fast truncation; show user warnings when truncation occurs
 [2025-11-02] [feature] [ui]: add terminal output truncation limiting displayed lines to 500; truncates stdout/stderr keeping most recent lines with truncation notice; configurable via TERMINAL_OUTPUT_MAX_LINES constant
 [2025-11-02] [change] [constants]: add token limits (CONTEXT_MAX_TOKENS, TOOL_OUTPUT_MAX_TOKENS) and terminal output limit (TERMINAL_OUTPUT_MAX_LINES) to constants.py
