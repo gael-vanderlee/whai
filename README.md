@@ -49,6 +49,15 @@ I'll list all top-level directories (including hidden ones), compute their disk 
 I'll run this command:
 find . -maxdepth 1 -mindepth 1 -type d -print0 | xargs -0 du -sk 2>/dev/null | sort -n | tail -n 5 | awk '{print $1 "\t" $2}' | numfmt --to=iec-i --suffix=B --field=1,1
 
+Breakdown of what each part does:
+- find . -maxdepth 1 -mindepth 1 -type d: Find directories at current level only (excludes . and ..)
+- -print0: Use null separator to safely handle spaces in directory names
+- xargs -0 du -sk: Pass each directory to du to get disk usage in kilobytes, 2>/dev/null suppresses errors
+- sort -n: Sort numerically by size
+- tail -n 5: Show the 5 largest entries
+- awk '{print $1 "\t" $2}': Format output as size (tab) path
+- numfmt --to=iec-i --suffix=B --field=1,1: Convert sizes to human-readable format (KiB, MiB, etc.)
+
 ╭─────────────────────────────────────────────────────────────────── Proposed command ────────────────────────────────────────────────────────────────────╮
 │ find . -maxdepth 1 -mindepth 1 -type d -print0 | xargs -0 du -sk 2>/dev/null | sort -n | tail -n 5 | awk '{print $1 "\t" $2}' | numfmt --to=iec-i       │
 │ --suffix=B --field=1,1                                                                                                                                  │
@@ -170,7 +179,7 @@ I'll show the quick ways to exit Vim and what each one does.
 ```bash
 uv tool install whai
 ```
-Or even without installing it!
+*Or even without installing it!*
 ```bash
 uvx whai "your command"
 ```

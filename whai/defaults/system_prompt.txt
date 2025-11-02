@@ -65,7 +65,7 @@ I'll list all top-level directories, compute their disk usage, sort them, and sh
 I'll run this command:
 find . -maxdepth 1 -mindepth 1 -type d -print0 | xargs -0 du -sk 2>/dev/null | sort -n | tail -n 5 | awk '{{print $1 "\t" $2}}' | numfmt --to=iec-i --suffix=B --field=1,1
 
-Breakdown of what each part does:
+This uses:
 - find . -maxdepth 1 -mindepth 1 -type d: Find directories at current level only (excludes . and ..)
 - -print0: Use null separator to safely handle spaces in directory names
 - xargs -0 du -sk: Pass each directory to du to get disk usage in kilobytes, 2>/dev/null suppresses errors
