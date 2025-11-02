@@ -1,9 +1,10 @@
 # Changelog
 
-Format: [YYYY-MM-DD] [category] [scope]: short and concise description
+Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the high level changes.
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-02] [docs] [readme]: document calling whai without arguments feature; add example showing calling whai after git push error; update Core Features section to mention no-argument usage
 [2025-11-02] [fix] [config]: remove built-in fallback for missing provider config; set default_provider=None when resetting config with no providers; resolve_model() now raises clear RuntimeError when no providers configured instead of silently using gpt-5-mini; config summary shows MISSING when default_provider is None or doesn't exist in providers dict; add validation in LLMConfig.__post_init__() to warn when default_provider is invalid; config wizard displays warning for invalid default_provider; aligns with fail-fast philosophy
 [2025-11-02] [change] [structure]: reorganize codebase into domain-based modules; split large files (main.py, llm.py, interaction.py, context.py, ui.py) into focused submodules under cli/, core/, llm/, interaction/, context/, and ui/ directories; entry point moved from whai.main to whai.cli.main
 [2025-11-02] [test] [tests]: remove implementation detail tests; delete 36 tests of private functions to align with behavioral testing philosophy

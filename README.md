@@ -22,8 +22,7 @@ When you get stuck, need a command, or encounter an error, you simply call `whai
 
 ### Core Features
 
-* **Analyze Previous Errors:** If a command fails, you don't need to copy-paste. Just ask:
-    `> whai why did that fail?`
+* **Analyze Previous Errors:** If a command fails, you don't need to copy-paste. Just call `whai` (no arguments needed!) or ask `whai why did that fail?`.
     It reads the failed command and its full error output from your [`tmux`](https://github.com/tmux/tmux) (terminal multiplexer) history to provide an immediate diagnosis and solution. *Note: Command output context is only available when running inside tmux.*
 * **Persistent Roles (Memory):** `whai` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*, what machine you are on, what tools are available, your personal preferences, and how you like to work, and `whai` retains this context for all future interactions.
 * **Full Session Context:** When running inside `tmux`, `whai` securely reads your scrollback to understand both the commands you ran. This provides intelligent, multi-step assistance based on the actual state of your terminal.
@@ -104,7 +103,42 @@ Do you want me to:
 - run the install command for you now?
 ```
 
-### Example 3: Asking questions
+### Example 3: Calling whai without arguments
+
+```text
+$ git push origin main
+To https://github.com/user/repo.git
+ ! [rejected]        main -> main (non-fast-forward)
+error: failed to push some refs to 'https://github.com/user/repo.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. Integrate the remote changes (e.g.
+hint: 'git pull ...') before pushing again.
+
+$ whai
+Info: Model: gpt-5-mini | Role: default
+What's happening
+- You tried to push your local branch "main" to the remote, but git rejected it.
+- Your local branch is behind the remote branch—someone else pushed changes to the remote that you don't have locally.
+- Git won't let you push because it would overwrite those remote changes.
+
+How to fix it
+- Pull the remote changes first, then push. This integrates the remote commits with your local ones.
+
+Commands you can run
+1) See what commits are on the remote but not locally:
+git fetch
+git log HEAD..origin/main
+
+2) Pull and merge the remote changes:
+git pull origin main
+
+3) After resolving any merge conflicts (if they occur), push again:
+git push origin main
+
+Do you want me to run git pull for you now?
+```
+
+### Example 4: Asking questions
 
 ```text
 $ whai "Quick how do I exit Vim??"
