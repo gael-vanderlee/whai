@@ -123,7 +123,6 @@ def get_base_system_prompt(is_deep_context: bool) -> str:
     logger.info(
         "Loaded system prompt template from %s",
         system_prompt_file,
-        extra={"category": "perf"},
     )
     return template.format(context_note=context_note)
 

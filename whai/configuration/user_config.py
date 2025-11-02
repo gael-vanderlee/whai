@@ -6,7 +6,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 # Use tomllib for Python 3.11+, tomli for older versions
 if sys.version_info >= (3, 11):
@@ -225,41 +225,7 @@ class ProviderConfig:
             checks_performed.append("Model configuration")
             details["default_model"] = self.default_model
 
-            model_valid = False
-            model_issue = None
-
-            # Try to validate model using LiteLLM's get_model_info
-            try:
-                from litellm import get_model_info
-
-                # Get model name in LiteLLM format
-                model = self._get_litellm_model_name()
-
-                # Use get_model_info to check if model exists
-                # This raises an exception if the model doesn't exist
-                try:
-                    # Suppress LiteLLM output during validation
-                    with _suppress_stdout_stderr():
-                        get_model_info(model)
-                    # If we get here, model exists
-                    model_valid = True
-                except Exception as e:
-                    # Model doesn't exist or not recognized by LiteLLM
-                    error_msg = str(e)
-                    if (
-                        "isn't mapped yet" in error_msg
-                        or "not found" in error_msg.lower()
-                    ):
-                        model_issue = f"Model '{self.default_model}' is not recognized"
-                        model_valid = False
-                    else:
-                        # Unknown error - assume valid (could be network issue, etc.)
-                        model_issue = f"Could not validate model: {error_msg}"
-                        model_valid = True
-            except Exception as e:
-                model_issue = f"Could not validate model: {str(e)}"
-                # Assume valid if validation fails (new models, etc.)
-                model_valid = True
+            model_valid, model_issue = self._validate_model()
 
             if not model_valid and model_issue:
                 issues.append(model_issue)
@@ -294,6 +260,55 @@ class ProviderConfig:
             issues=issues,
             details=details,
         )
+
+    def _validate_model(self) -> Tuple[bool, Optional[str]]:
+        """
+        Validate the model configuration.
+
+        Returns:
+            Tuple of (model_valid: bool, model_issue: Optional[str])
+            If model_valid is False, model_issue contains the reason.
+
+        This method can be overridden by subclasses to provide provider-specific
+        model validation logic.
+        """
+        if not self.default_model:
+            return True, None
+
+        model_valid = False
+        model_issue = None
+
+        # Try to validate model using LiteLLM's get_model_info
+        try:
+            from litellm import get_model_info
+
+            # Get model name in LiteLLM format
+            model = self._get_litellm_model_name()
+
+            # Use get_model_info to check if model exists
+            # This raises an exception if the model doesn't exist
+            try:
+                # Suppress LiteLLM output during validation
+                with _suppress_stdout_stderr():
+                    get_model_info(model)
+                # If we get here, model exists
+                model_valid = True
+            except Exception as e:
+                # Model doesn't exist or not recognized by LiteLLM
+                error_msg = str(e)
+                if "isn't mapped yet" in error_msg or "not found" in error_msg.lower():
+                    model_issue = f"Model '{self.default_model}' is not recognized"
+                    model_valid = False
+                else:
+                    # Unknown error - assume valid (could be network issue, etc.)
+                    model_issue = f"Could not validate model: {error_msg}"
+                    model_valid = True
+        except Exception as e:
+            model_issue = f"Could not validate model: {str(e)}"
+            # Assume valid if validation fails (new models, etc.)
+            model_valid = True
+
+        return model_valid, model_issue
 
     def _get_litellm_model_name(self) -> str:
         """Get the model name formatted for LiteLLM validation. Override in subclasses."""
@@ -513,6 +528,63 @@ class LMStudioConfig(ProviderConfig):
             base_model = model
         # Format as 'openai/{model}' for LiteLLM
         return f"openai/{base_model}"
+
+    def _validate_model(self) -> Tuple[bool, Optional[str]]:
+        """
+        Validate the model by querying LM Studio's /models endpoint directly.
+
+        LM Studio models are dynamically loaded locally and may not be in
+        LiteLLM's model registry, so we validate against the actual LM Studio API.
+
+        Returns:
+            Tuple of (model_valid: bool, model_issue: Optional[str])
+        """
+        if not self.default_model:
+            return True, None
+
+        if not self.api_base:
+            # Can't validate without API base
+            return True, None
+
+        try:
+            import json
+            import urllib.error
+            import urllib.request
+
+            # Query LM Studio's /models endpoint (OpenAI-compatible)
+            models_url = f"{self.api_base.rstrip('/')}/models"
+            req = urllib.request.Request(
+                models_url, headers={"Content-Type": "application/json"}, method="GET"
+            )
+
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode())
+                available_models = [model.get("id") for model in data.get("data", [])]
+
+                if self.default_model in available_models:
+                    return True, None
+                else:
+                    if available_models:
+                        available_str = ", ".join(available_models[:5]) + (
+                            "..." if len(available_models) > 5 else ""
+                        )
+                        issue = (
+                            f"Model '{self.default_model}' not found in LM Studio. "
+                            f"Available models: {available_str}"
+                        )
+                    else:
+                        issue = "No models found in LM Studio"
+                    return False, issue
+
+        except urllib.error.URLError:
+            # Network error - assume model might be valid but we can't check
+            return True, None
+        except json.JSONDecodeError:
+            # Invalid response - assume model might be valid
+            return True, None
+        except Exception:
+            # Unknown error - assume valid
+            return True, None
 
 
 def get_provider_class(name: str) -> Type[ProviderConfig]:
