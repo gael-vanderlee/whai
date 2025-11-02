@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from whai.configuration import user_config as config
 from whai.configuration.roles import ensure_default_roles
-from whai.role_cli import role_app
+from whai.cli.role import role_app
 
 runner = CliRunner()
 
@@ -16,7 +16,7 @@ def test_list_roles_empty(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
 
     # Create roles dir but no files
     # Note: list calls ensure_default_roles(), so we skip that test
@@ -34,7 +34,7 @@ def test_list_roles_with_defaults(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
 
     # Ensure default roles are created
     ensure_default_roles()
@@ -50,11 +50,11 @@ def test_create_role(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     # Mock click.edit to avoid opening an editor
-    with patch("whai.role_cli.click.edit"):
+    with patch("whai.cli.role.click.edit"):
         result = runner.invoke(role_app, ["create", "test-role"])
 
     assert result.exit_code == 0
@@ -72,16 +72,16 @@ def test_create_role_duplicate(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     # Create role first time
-    with patch("whai.role_cli.click.edit"):
+    with patch("whai.cli.role.click.edit"):
         result1 = runner.invoke(role_app, ["create", "test-role"])
     assert result1.exit_code == 0
 
     # Try to create again
-    with patch("whai.role_cli.click.edit"):
+    with patch("whai.cli.role.click.edit"):
         result2 = runner.invoke(role_app, ["create", "test-role"])
     assert result2.exit_code != 0
     output = result2.stdout + result2.stderr
@@ -93,7 +93,7 @@ def test_create_role_invalid_name(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
 
     result = runner.invoke(role_app, ["create", "invalid name!"])
     assert result.exit_code != 0
@@ -106,10 +106,10 @@ def test_edit_role(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
-    with patch("whai.role_cli.click.edit"):
+    with patch("whai.cli.role.click.edit"):
         result = runner.invoke(role_app, ["edit", "default"])
 
     assert result.exit_code == 0
@@ -120,7 +120,7 @@ def test_edit_role_not_found(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     result = runner.invoke(role_app, ["edit", "nonexistent"])
@@ -134,7 +134,7 @@ def test_remove_role(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     # Create a test role
@@ -153,7 +153,7 @@ def test_remove_role_cancelled(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     # Create a test role
@@ -173,7 +173,7 @@ def test_set_default_role(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     result = runner.invoke(role_app, ["set-default", "default"])
@@ -190,7 +190,7 @@ def test_set_default_role_not_found(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     result = runner.invoke(role_app, ["set-default", "nonexistent"])
@@ -204,7 +204,7 @@ def test_reset_default(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     # Modify the default role
@@ -230,7 +230,7 @@ def test_reset_default_cancelled(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     # Modify the default role
@@ -253,7 +253,7 @@ def test_open_folder(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     # Mock the system calls
@@ -272,7 +272,7 @@ def test_use_role(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     result = runner.invoke(role_app, ["use", "default", "--shell", "bash"])
@@ -286,7 +286,7 @@ def test_use_role_powershell(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     result = runner.invoke(role_app, ["use", "default", "--shell", "pwsh"])
@@ -300,7 +300,7 @@ def test_use_role_fish(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     result = runner.invoke(role_app, ["use", "default", "--shell", "fish"])
@@ -314,7 +314,7 @@ def test_use_role_not_found(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     result = runner.invoke(role_app, ["use", "nonexistent", "--shell", "bash"])
@@ -328,7 +328,7 @@ def test_interactive_menu_cancel(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     result = runner.invoke(role_app, [], input="cancel\n")
@@ -342,7 +342,7 @@ def test_interactive_menu_list(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
-    monkeypatch.setattr("whai.role_cli.get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr("whai.cli.role.get_config_dir", lambda: tmp_path)
     ensure_default_roles()
 
     result = runner.invoke(role_app, [], input="list\n")

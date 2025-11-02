@@ -11,7 +11,7 @@ from whai import interaction
 def test_execute_command_unix_success():
     """Test successful command execution on Unix."""
     with (
-        patch("whai.interaction.is_windows", return_value=False),
+        patch("whai.interaction.execution.is_windows", return_value=False),
         patch("subprocess.run") as mock_run,
         patch.dict("os.environ", {"SHELL": "/bin/bash"}),
     ):
@@ -33,8 +33,8 @@ def test_execute_command_unix_success():
 def test_execute_command_windows_powershell():
     """Test command execution on Windows with PowerShell."""
     with (
-        patch("whai.interaction.is_windows", return_value=True),
-        patch("whai.interaction.detect_shell", return_value="pwsh"),
+        patch("whai.interaction.execution.is_windows", return_value=True),
+        patch("whai.interaction.execution.detect_shell", return_value="pwsh"),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -55,8 +55,8 @@ def test_execute_command_windows_powershell():
 def test_execute_command_windows_cmd():
     """Test command execution on Windows with cmd.exe."""
     with (
-        patch("whai.interaction.is_windows", return_value=True),
-        patch("whai.interaction.detect_shell", return_value="bash"),  # Not pwsh
+        patch("whai.interaction.execution.is_windows", return_value=True),
+        patch("whai.interaction.execution.detect_shell", return_value="bash"),  # Not pwsh
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
@@ -77,7 +77,7 @@ def test_execute_command_windows_cmd():
 def test_execute_command_with_stderr():
     """Test command execution with stderr output."""
     with (
-        patch("whai.interaction.is_windows", return_value=False),
+        patch("whai.interaction.execution.is_windows", return_value=False),
         patch("subprocess.run") as mock_run,
         patch.dict("os.environ", {"SHELL": "/bin/bash"}),
     ):
@@ -97,7 +97,7 @@ def test_execute_command_with_stderr():
 def test_execute_command_timeout():
     """Test that execute_command raises error on timeout."""
     with (
-        patch("whai.interaction.is_windows", return_value=False),
+        patch("whai.interaction.execution.is_windows", return_value=False),
         patch("subprocess.run") as mock_run,
         patch.dict("os.environ", {"SHELL": "/bin/bash"}),
     ):
@@ -110,7 +110,7 @@ def test_execute_command_timeout():
 def test_execute_command_other_error():
     """Test that execute_command handles other errors."""
     with (
-        patch("whai.interaction.is_windows", return_value=False),
+        patch("whai.interaction.execution.is_windows", return_value=False),
         patch("subprocess.run") as mock_run,
         patch.dict("os.environ", {"SHELL": "/bin/bash"}),
     ):

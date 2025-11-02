@@ -10,7 +10,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from whai.main import app
+from whai.cli.main import app
 
 runner = CliRunner()
 
@@ -154,7 +154,7 @@ def test_flow_2_command_generation_approved(
         patch("litellm.completion", side_effect=mock_completion_sequence),
         patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="a"),  # Approve the command
-        patch("whai.main.execute_command", return_value=("test output\n", "", 0)),
+        patch("whai.core.executor.execute_command", return_value=("test output\n", "", 0)),
     ):
         result = runner.invoke(app, ["echo test", "--no-context"])
 
@@ -234,7 +234,7 @@ def test_cli_timeout_default_passed(mock_llm_with_tool_call, mock_llm_text_only)
         patch("litellm.completion", side_effect=mock_completion_sequence),
         patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="a"),
-        patch("whai.main.execute_command", return_value=("ok\n", "", 0)) as mock_exec,
+        patch("whai.core.executor.execute_command", return_value=("ok\n", "", 0)) as mock_exec,
     ):
         result = runner.invoke(
             app, ["echo test", "--no-context"]
@@ -262,7 +262,7 @@ def test_cli_timeout_override_passed(mock_llm_with_tool_call, mock_llm_text_only
         patch("litellm.completion", side_effect=mock_completion_sequence),
         patch("whai.context.get_context", return_value=("", False)),
         patch("builtins.input", return_value="a"),
-        patch("whai.main.execute_command", return_value=("ok\n", "", 0)) as mock_exec,
+        patch("whai.core.executor.execute_command", return_value=("ok\n", "", 0)) as mock_exec,
     ):
         result = runner.invoke(app, ["echo test", "--no-context", "--timeout", "30"])
         assert result.exit_code == 0

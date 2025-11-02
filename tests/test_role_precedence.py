@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from whai.configuration import user_config as config
 from whai.configuration.roles import ensure_default_roles
-from whai.main import app
+from whai.cli.main import app
 
 runner = CliRunner()
 
