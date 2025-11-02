@@ -34,7 +34,7 @@ def get_base_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
         )
     else:
         context_parts.append(
-            "You will be given the recent command history of the user (commands only, not their outputs). This also means that after you finish your message, you will not be able to see it once the user responds. So don't finish with a question or suggestions that would require you to be aware of your current response once the user answers."
+            "You will be given ONLY the recent command history of the user (commands only, no command outputs). CRITICAL: In this mode, you cannot see your own previous responses. Do NOT end with questions like 'Do you want me to run X?' or suggestions requiring you to remember this conversation. Provide complete, standalone answers."
         )
 
     # System information

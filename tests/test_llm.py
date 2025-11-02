@@ -25,7 +25,7 @@ def test_get_base_system_prompt_shallow_context():
     """Test base system prompt with shallow context."""
     prompt = llm.get_base_system_prompt(is_deep_context=False)
     assert "command history" in prompt
-    assert "commands only, not their outputs" in prompt
+    assert "commands only, no command outputs" in prompt
     # Should include system information
     assert "System:" in prompt
     assert "OS:" in prompt
