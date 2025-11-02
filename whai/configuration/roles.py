@@ -341,7 +341,7 @@ def resolve_model(
 ) -> Tuple[str, str]:
     """Resolve the LLM model to use based on precedence.
 
-    Precedence: CLI override > role metadata > provider config > built-in fallback.
+    Precedence: CLI override > role metadata > provider config.
 
     Args:
         cli_model: Model name provided explicitly by CLI options.
@@ -351,9 +351,10 @@ def resolve_model(
     Returns:
         Tuple of (model_name, source_description) where source_description indicates
         where the model came from for logging purposes.
-    """
-    from whai.constants import DEFAULT_PROVIDER
 
+    Raises:
+        RuntimeError: If no providers are configured and no model can be resolved.
+    """
     # 1) CLI override has highest precedence
     if cli_model:
         return cli_model, "CLI override"
@@ -372,17 +373,43 @@ def resolve_model(
             pass
 
     if config:
+        # Check if any providers are configured
+        if not config.llm.providers:
+            raise RuntimeError(
+                "No LLM providers configured. Run 'whai --interactive-config' to set up a provider."
+            )
+
+        # Check if default_provider is set and exists
         default_provider = config.llm.default_provider
+        if default_provider is None:
+            raise RuntimeError(
+                "No default provider configured. Run 'whai --interactive-config' to set up a provider."
+            )
+
         provider_config = config.llm.get_provider(default_provider)
-        if provider_config and provider_config.default_model:
+        if not provider_config:
+            available = list(config.llm.providers.keys())
+            raise RuntimeError(
+                f"Default provider '{default_provider}' is not configured. "
+                f"Available providers: {available if available else 'none'}. "
+                "Run 'whai --interactive-config' to fix this."
+            )
+
+        if provider_config.default_model:
             return (
                 provider_config.default_model,
                 f"provider config '{default_provider}'",
             )
+        else:
+            raise RuntimeError(
+                f"Default provider '{default_provider}' has no default model configured. "
+                "Run 'whai --interactive-config' to fix this."
+            )
 
-    # 4) Built-in fallback: use default model for default provider
-    fallback_model = get_default_model_for_provider(DEFAULT_PROVIDER)
-    return fallback_model, f"built-in fallback ({DEFAULT_PROVIDER} default)"
+    # No config available
+    raise RuntimeError(
+        "No configuration found. Run 'whai --interactive-config' to set up a provider."
+    )
 
 
 def resolve_temperature(
