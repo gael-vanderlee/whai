@@ -10,6 +10,6 @@ if __name__ == "__main__":
     logging.getLogger(__name__).debug("whai module entry starting up")
 
     # Import CLI app only after logging is configured to observe import-time delays
-    from whai.main import app
+    from whai.cli.main import app
 
     app()

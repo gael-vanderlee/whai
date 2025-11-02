@@ -32,7 +32,7 @@ include = [
 ]
 
 [project.scripts]
-whai = "whai.main:app"
+whai = "whai.cli.main:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
