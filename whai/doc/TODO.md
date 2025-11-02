@@ -37,4 +37,4 @@ Refactor:
     - [x] Clear errors
     - [x] Better first time setup
 - [x] Centralized defaults
-- [ ] Sort unit tests
+- [x] Sort unit tests
