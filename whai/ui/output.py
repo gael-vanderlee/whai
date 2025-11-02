@@ -10,6 +10,7 @@ from rich.text import Text
 
 from whai.constants import (
     ENV_WHAI_PLAIN,
+    TERMINAL_OUTPUT_MAX_LINES,
     UI_BORDER_COLOR_COMMAND,
     UI_BORDER_COLOR_ERROR,
     UI_BORDER_COLOR_OUTPUT,
@@ -41,6 +42,34 @@ console = Console(
 )
 
 
+def _truncate_by_lines(text: str, max_lines: int) -> tuple[str, bool]:
+    """
+    Truncate text by lines, keeping the end (most recent lines).
+
+    Args:
+        text: Text to truncate.
+        max_lines: Maximum number of lines (0 = no limit).
+
+    Returns:
+        Tuple of (truncated_text, was_truncated).
+    """
+    if max_lines == 0 or not text:
+        return text, False
+
+    lines = text.split("\n")
+    if len(lines) <= max_lines:
+        return text, False
+
+    # Keep the last max_lines
+    truncated_lines = lines[-max_lines:]
+    truncated_text = "\n".join(truncated_lines)
+
+    # Add truncation notice
+    lines_removed = len(lines) - max_lines
+    notice = f"... {lines_removed} lines removed to limit terminal output ...\n"
+    return notice + truncated_text, True
+
+
 def error(msg: str) -> None:
     """Print an error message to stderr."""
     if PLAIN_MODE:
@@ -48,31 +77,25 @@ def error(msg: str) -> None:
     else:
         # Rich Console handles stderr via stderr parameter in constructor
         stderr_console = Console(
-            stderr=True, highlight=False, force_terminal=not PLAIN_MODE
+            highlight=False,
+            force_terminal=not PLAIN_MODE,
+            color_system=None if PLAIN_MODE else "auto",
+            file=sys.stderr,
         )
-        stderr_console.print(Text(f"Error: {msg}", style=UI_TEXT_STYLE_ERROR))
-
-
-def warn(msg: str) -> None:
-    """Print a warning message to stderr."""
-    if PLAIN_MODE:
-        print(f"Warning: {msg}", file=sys.stderr)
-    else:
-        stderr_console = Console(
-            stderr=True, highlight=False, force_terminal=not PLAIN_MODE
-        )
-        stderr_console.print(Text(f"⚠️  Warning: {msg}", style=UI_TEXT_STYLE_WARNING))
+        stderr_console.print(Text(msg, style=UI_TEXT_STYLE_ERROR))
 
 
 def info(msg: str) -> None:
-    """Print an info message to stderr."""
+    """Print an info message."""
+    console.print(msg)
+
+
+def warn(msg: str) -> None:
+    """Print a warning message."""
     if PLAIN_MODE:
-        print(f"Info: {msg}", file=sys.stderr)
+        console.print(f"Warning: {msg}")
     else:
-        stderr_console = Console(
-            stderr=True, highlight=False, force_terminal=not PLAIN_MODE
-        )
-        stderr_console.print(Text(f"{msg}", style="blue"))
+        console.print(Text(msg, style=UI_TEXT_STYLE_WARNING))
 
 
 def print_command(cmd: str) -> None:
@@ -90,30 +113,41 @@ def print_command(cmd: str) -> None:
 
 def print_output(stdout: str, stderr: str, returncode: int = 0) -> None:
     """Print command output (stdout and stderr) in panels."""
-    has_output = bool(stdout or stderr)
+    # Truncate terminal output if limit is set
+    stdout_truncated, stdout_was_truncated = _truncate_by_lines(
+        stdout, TERMINAL_OUTPUT_MAX_LINES
+    )
+    stderr_truncated, stderr_was_truncated = _truncate_by_lines(
+        stderr, TERMINAL_OUTPUT_MAX_LINES
+    )
+
+    if stdout_was_truncated or stderr_was_truncated:
+        warn("Command output was truncated to limit terminal display.")
+
+    has_output = bool(stdout_truncated or stderr_truncated)
 
     if PLAIN_MODE:
-        if stdout:
+        if stdout_truncated:
             console.print("\nOutput:")
-            console.print(stdout.rstrip("\n"))
-        if stderr:
+            console.print(stdout_truncated.rstrip("\n"))
+        if stderr_truncated:
             console.print("\nErrors:")
-            console.print(stderr.rstrip("\n"))
+            console.print(stderr_truncated.rstrip("\n"))
         if not has_output:
             console.print(
                 f"\nCommand completed with no output (exit code: {returncode})"
             )
     else:
-        if stdout:
+        if stdout_truncated:
             syn_out = Syntax(
-                stdout.rstrip("\n"), "text", theme=UI_THEME, word_wrap=False
+                stdout_truncated.rstrip("\n"), "text", theme=UI_THEME, word_wrap=False
             )
             console.print(
                 Panel(syn_out, title="Output", border_style=UI_BORDER_COLOR_OUTPUT)
             )
-        if stderr:
+        if stderr_truncated:
             syn_err = Syntax(
-                stderr.rstrip("\n"), "text", theme=UI_THEME, word_wrap=False
+                stderr_truncated.rstrip("\n"), "text", theme=UI_THEME, word_wrap=False
             )
             console.print(
                 Panel(syn_err, title="Errors", border_style=UI_BORDER_COLOR_ERROR)
@@ -152,9 +186,17 @@ def failure(msg: str) -> None:
 
 
 def celebration(msg: str) -> None:
-    """Print a celebration message with stars/confetti emojis."""
-    emoji_msg = f"🎉 ✨ {msg} ✨ 🎉"
+    """Print a celebration message with emoji."""
+    emoji_msg = f"🎉 {msg}"
     if PLAIN_MODE:
         console.print(emoji_msg)
     else:
-        console.print(Text(emoji_msg, style="bold bright_yellow"))
+        console.print(Text(emoji_msg, style="bold green"))
+
+
+def spinner(msg: str):
+    """Create a spinner context manager."""
+    from rich.spinner import Spinner
+    from rich.status import Status
+
+    return Status(Spinner("dots", msg), console=console)
