@@ -7,6 +7,9 @@ Keep all cross-module default values here to avoid duplication.
 # LLM Provider Defaults
 # ============================================================================
 
+# Default query when calling whai only
+DEFAULT_QUERY = "I am confused about what you can see in the most recent command(s) in the terminal context, provide assistance"
+
 # Default provider for quick setup
 DEFAULT_PROVIDER = "openai"
 

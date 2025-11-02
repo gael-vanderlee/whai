@@ -22,7 +22,7 @@ from whai.configuration import (
     resolve_temperature,
 )
 from whai.configuration.config_wizard import run_wizard
-from whai.constants import DEFAULT_COMMAND_TIMEOUT
+from whai.constants import DEFAULT_COMMAND_TIMEOUT, DEFAULT_QUERY
 from whai.context import get_context
 from whai.core.executor import run_conversation_loop
 from whai.llm import LLMProvider, get_base_system_prompt
@@ -156,7 +156,7 @@ def main(
     # No query provided and no subcommand - use default query
     if not query:
         query = [
-            "I am confused about what you can see in the most recent command(s) in the terminal context, provide assistance"
+            DEFAULT_QUERY
         ]
 
     # Workaround for Click/Typer parsing with variadic arguments:

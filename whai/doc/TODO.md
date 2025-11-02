@@ -25,6 +25,7 @@ Features:
 - [x] Test flag positioning
 - [x] No output handling
 - [x] Prettier code blocs in readme
+- [ ] Whai only documentation
 
 Issues:
 - [x] Timeout issue
