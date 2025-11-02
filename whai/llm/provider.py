@@ -247,6 +247,13 @@ class LLMProvider:
 
             # Measure import time for LiteLLM for diagnostics
             t_import_start = _t.perf_counter()
+
+            # Apply SSL cache optimization before importing litellm
+            # This significantly improves import performance (from ~4s to ~1.3s on Windows)
+            from whai.llm.ssl_cache import apply as apply_ssl_cache
+
+            apply_ssl_cache()
+
             from litellm import completion  # type: ignore
 
             t_import_end = _t.perf_counter()
