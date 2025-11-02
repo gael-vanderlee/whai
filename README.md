@@ -44,39 +44,54 @@ See `whai` in action:
 ```text
 $ whai give me the biggest folder here
 Info: Model: gpt-5-mini | Role: default
-I'll list all top-level directories (including hidden ones), compute their disk usage, sort them, and show the largest few with human-readable sizes.
+I'll list all top-level directories (including hidden ones), 
+compute their disk usage, sort them, and show the largest 
+few with human-readable sizes.
 
 I'll run this command:
-find . -maxdepth 1 -mindepth 1 -type d -print0 | xargs -0 du -sk 2>/dev/null | sort -n | tail -n 5 | awk '{print $1 "\t" $2}' | numfmt --to=iec-i --suffix=B --field=1,1
+find . -maxdepth 1 -mindepth 1 -type d -print0 | \
+  xargs -0 du -sk 2>/dev/null | \
+  sort -n | tail -n 5 | \
+  awk '{print $1 "\t" $2}' | \
+  numfmt --to=iec-i --suffix=B --field=1,1
 
 Breakdown of what each part does:
-- find . -maxdepth 1 -mindepth 1 -type d: Find directories at current level only (excludes . and ..)
-- -print0: Use null separator to safely handle spaces in directory names
-- xargs -0 du -sk: Pass each directory to du to get disk usage in kilobytes, 2>/dev/null suppresses errors
+- find . -maxdepth 1 -mindepth 1 -type d: Find directories at 
+  current level only (excludes . and ..)
+- -print0: Use null separator to safely handle spaces in 
+  directory names
+- xargs -0 du -sk: Pass each directory to du to get disk usage 
+  in kilobytes, 2>/dev/null suppresses errors
 - sort -n: Sort numerically by size
 - tail -n 5: Show the 5 largest entries
 - awk '{print $1 "\t" $2}': Format output as size (tab) path
-- numfmt --to=iec-i --suffix=B --field=1,1: Convert sizes to human-readable format (KiB, MiB, etc.)
+- numfmt --to=iec-i --suffix=B --field=1,1: Convert sizes to 
+  human-readable format (KiB, MiB, etc.)
 
-╭─────────────────────────────────────────────────────────────────── Proposed command ────────────────────────────────────────────────────────────────────╮
-│ find . -maxdepth 1 -mindepth 1 -type d -print0 | xargs -0 du -sk 2>/dev/null | sort -n | tail -n 5 | awk '{print $1 "\t" $2}' | numfmt --to=iec-i       │
-│ --suffix=B --field=1,1                                                                                                                                  │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────── Proposed command ────────────────────────╮
+│ find . -maxdepth 1 -mindepth 1 -type d -print0 |                │
+│   xargs -0 du -sk 2>/dev/null |                                 │
+│   sort -n | tail -n 5 |                                         │
+│   awk '{print $1 "\t" $2}' |                                    │
+│   numfmt --to=iec-i --suffix=B --field=1,1                      │
+╰─────────────────────────────────────────────────────────────────╯
 [a]pprove / [r]eject / [m]odify: a
 
-╭──────────────────────────────────────────────────────────────────────── Output ─────────────────────────────────────────────────────────────────────────╮
-│ 440B ./tests                                                                                                                                            │
-│ 1.4KiB ./.git                                                                                                                                           │
-│ 87KiB ./.venv_tmp                                                                                                                                       │
-│ 108KiB ./.venv                                                                                                                                          │
-│ 123KiB ./.venv-linux                                                                                                                                    │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────── Output ────────────────────╮
+│ 440B ./tests                                  │
+│ 1.4KiB ./.git                                 │
+│ 87KiB ./.venv_tmp                             │
+│ 108KiB ./.venv                                │
+│ 123KiB ./.venv-linux                          │
+╰───────────────────────────────────────────────╯
 
 Result (interpretation)
-- The largest top-level directory here is ./.venv-linux with ~123KiB.
+- The largest top-level directory here is ./.venv-linux 
+  with ~123KiB.
 
 Next steps (options)
-- Show the top N largest items anywhere under the current tree (files+dirs):
+- Show the top N largest items anywhere under the current 
+  tree (files+dirs):
   - du -ah . 2>/dev/null | sort -rh | head -n 30
 - Show only directories, recursively, largest first:
   - du -h --max-depth=3 2>/dev/null | sort -hr | head -n 30
@@ -94,11 +109,15 @@ $ whai what is the problem
 Info: Model: gpt-5-mini | Role: default
 What's happening
 - You ran: uv pip install requirements.txt
-- pip treated "requirements.txt" as the name of a package to download from the package index, not as a file of requirements.
-- The resolver tried to find a package called (normalized) "requirements-txt" on PyPI and failed, so it reports the dependencies are unsatisfiable.
+- pip treated "requirements.txt" as the name of a package to 
+  download from the package index, not as a file of requirements.
+- The resolver tried to find a package called (normalized) 
+  "requirements-txt" on PyPI and failed, so it reports the 
+  dependencies are unsatisfiable.
 
 How to fix it
-- Use the -r (or --requirement) flag so pip reads the file instead of treating it as a package name.
+- Use the -r (or --requirement) flag so pip reads the file 
+  instead of treating it as a package name.
 
 Commands you can run
 1) Check the requirements file exists:
@@ -126,12 +145,16 @@ hint: 'git pull ...') before pushing again.
 $ whai
 Info: Model: gpt-5-mini | Role: default
 What's happening
-- You tried to push your local branch "main" to the remote, but git rejected it.
-- Your local branch is behind the remote branch—someone else pushed changes to the remote that you don't have locally.
-- Git won't let you push because it would overwrite those remote changes.
+- You tried to push your local branch "main" to the remote, 
+  but git rejected it.
+- Your local branch is behind the remote branch—someone else 
+  pushed changes to the remote that you don't have locally.
+- Git won't let you push because it would overwrite those 
+  remote changes.
 
 How to fix it
-- Pull the remote changes first, then push. This integrates the remote commits with your local ones.
+- Pull the remote changes first, then push. This integrates 
+  the remote commits with your local ones.
 
 Commands you can run
 1) See what commits are on the remote but not locally:
