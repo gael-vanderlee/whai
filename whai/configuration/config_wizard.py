@@ -321,7 +321,7 @@ def _reset_default() -> WhaiConfig:
     # Minimal default configuration: no providers configured
     default_config = WhaiConfig(
         llm=LLMConfig(
-            default_provider=DEFAULT_PROVIDER,
+            default_provider=None,
             providers={},
         ),
         roles=RolesConfig(default_role=DEFAULT_ROLE_NAME),
@@ -383,7 +383,7 @@ def _load_or_create_config(existing_config: bool) -> WhaiConfig:
         logger.debug("Config not found, creating new empty config")
         return WhaiConfig(
             llm=LLMConfig(
-                default_provider=DEFAULT_PROVIDER,
+                default_provider=None,
                 providers={},
             ),
             roles=RolesConfig(default_role=DEFAULT_ROLE_NAME),
@@ -392,7 +392,7 @@ def _load_or_create_config(existing_config: bool) -> WhaiConfig:
         logger.warning(f"Could not load config: {e}")
         return WhaiConfig(
             llm=LLMConfig(
-                default_provider=DEFAULT_PROVIDER,
+                default_provider=None,
                 providers={},
             ),
             roles=RolesConfig(default_role=DEFAULT_ROLE_NAME),
@@ -410,6 +410,13 @@ def run_wizard(existing_config: bool = False) -> None:
 
     # Try to load existing config or start with empty structure
     config = _load_or_create_config(existing_config)
+
+    # Show warning if default_provider is invalid
+    if config.llm.default_provider is not None and config.llm.default_provider not in config.llm.providers:
+        warn(
+            f"Default provider '{config.llm.default_provider}' is not configured. "
+            f"Available providers: {list(config.llm.providers.keys()) if config.llm.providers else 'none'}"
+        )
 
     if existing_config:
         cfg_path = get_config_path()

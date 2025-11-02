@@ -627,8 +627,16 @@ def get_provider_class(name: str) -> Type[ProviderConfig]:
 class LLMConfig:
     """Configuration for LLM providers."""
 
-    default_provider: str
+    default_provider: Optional[str]
     providers: Dict[str, ProviderConfig]
+
+    def __post_init__(self) -> None:
+        """Validate that default_provider exists in providers if set."""
+        if self.default_provider is not None and self.default_provider not in self.providers:
+            logger.warning(
+                f"Default provider '{self.default_provider}' is not configured in providers. "
+                f"Available providers: {list(self.providers.keys()) if self.providers else 'none'}"
+            )
 
     def get_provider(self, name: str) -> Optional[ProviderConfig]:
         """Get a provider configuration by name."""
@@ -636,9 +644,9 @@ class LLMConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for TOML serialization."""
-        result: Dict[str, Any] = {
-            "default_provider": self.default_provider,
-        }
+        result: Dict[str, Any] = {}
+        if self.default_provider is not None:
+            result["default_provider"] = self.default_provider
         # Add each provider's config
         for name, provider_config in self.providers.items():
             result[name] = provider_config.to_dict()
@@ -647,7 +655,8 @@ class LLMConfig:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "LLMConfig":
         """Create LLMConfig from dictionary."""
-        default_provider = data.get("default_provider", DEFAULT_PROVIDER)
+        # Get default_provider from data, or None if not present
+        default_provider = data.get("default_provider")
 
         # Parse providers
         providers: Dict[str, ProviderConfig] = {}
@@ -662,10 +671,11 @@ class LLMConfig:
             except (ValueError, InvalidProviderConfigError) as e:
                 logger.warning(f"Skipping invalid provider '{key}': {e}")
 
-        return cls(
+        config = cls(
             default_provider=default_provider,
             providers=providers,
         )
+        return config
 
 
 @dataclass
