@@ -4,6 +4,11 @@ Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the hi
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-02] [fix] [llm]: add token-based truncation for context and tool outputs to prevent exceeding model limits; truncate terminal context (150k tokens) and command outputs (50k tokens) preserving most recent content with truncation notice; use character-based token estimation (1 token ≈ 4 chars) for fast truncation; show user warnings when truncation occurs
+[2025-11-02] [feature] [ui]: add terminal output truncation limiting displayed lines to 500; truncates stdout/stderr keeping most recent lines with truncation notice; configurable via TERMINAL_OUTPUT_MAX_LINES constant
+[2025-11-02] [change] [constants]: add token limits (CONTEXT_MAX_TOKENS, TOOL_OUTPUT_MAX_TOKENS) and terminal output limit (TERMINAL_OUTPUT_MAX_LINES) to constants.py
+[2025-11-02] [test] [token_utils]: add comprehensive unit tests for token truncation covering empty text, within/exceeds limits, end preservation, notice format, edge cases, and large text scenarios
+[2025-11-02] [change] [llm]: add token_utils module with truncate_text_with_tokens() function for reusable token-based text truncation; includes performance logging for truncation operations
 [2025-11-02] [change] [llm]: add examples to system prompt showing shallow/deep context formats and expected responses; improve shallow context note clarity to emphasize no follow-up questions when context is limited
 [2025-11-02] [docs] [readme]: document calling whai without arguments feature; add example showing calling whai after git push error; update Core Features section to mention no-argument usage
 [2025-11-02] [fix] [config]: remove built-in fallback for missing provider config; set default_provider=None when resetting config with no providers; resolve_model() now raises clear RuntimeError when no providers configured instead of silently using gpt-5-mini; config summary shows MISSING when default_provider is None or doesn't exist in providers dict; add validation in LLMConfig.__post_init__() to warn when default_provider is invalid; config wizard displays warning for invalid default_provider; aligns with fail-fast philosophy
