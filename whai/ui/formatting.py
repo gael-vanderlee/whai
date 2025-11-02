@@ -42,13 +42,17 @@ def print_configuration_summary(config: "WhaiConfig") -> None:
     """
     if PLAIN_MODE:
         # Plain mode - generate simple text
-        default_provider = config.llm.default_provider or "MISSING"
+        default_provider_name = config.llm.default_provider
+        if default_provider_name is None or not config.llm.get_provider(default_provider_name):
+            default_provider = "MISSING"
+            effective_model = "MISSING"
+        else:
+            default_provider = default_provider_name
+            default_prov_config = config.llm.get_provider(default_provider)
+            effective_model = (
+                default_prov_config.default_model if default_prov_config else "MISSING"
+            )
         default_role = config.roles.default_role
-
-        default_prov_config = config.llm.get_provider(default_provider)
-        effective_model = (
-            default_prov_config.default_model if default_prov_config else "MISSING"
-        )
 
         console.print(f"Default provider: {default_provider}")
         console.print(f"Default model: {effective_model}")
@@ -63,7 +67,7 @@ def print_configuration_summary(config: "WhaiConfig") -> None:
                 provider_str = f"{name}{star} ({', '.join(field_parts)})"
                 console.print(f"  - {provider_str}")
         else:
-            console.print("⚠️ NO PROVIDERS CONFIGURED")
+            console.print("⚠️  NO PROVIDERS CONFIGURED")
     else:
         # Rich mode - use tables and styled components
         table = Table(
@@ -76,15 +80,19 @@ def print_configuration_summary(config: "WhaiConfig") -> None:
         )
 
         # Add default settings
-        default_provider = config.llm.default_provider or "[red]MISSING[/red]"
+        default_provider_name = config.llm.default_provider
+        if default_provider_name is None or not config.llm.get_provider(default_provider_name):
+            default_provider = "[red]MISSING[/red]"
+            effective_model = "[red]MISSING[/red]"
+        else:
+            default_provider = default_provider_name
+            default_prov_config = config.llm.get_provider(default_provider_name)
+            effective_model = (
+                default_prov_config.default_model
+                if default_prov_config
+                else "[red]MISSING[/red]"
+            )
         default_role = config.roles.default_role
-
-        default_prov_config = config.llm.get_provider(config.llm.default_provider or "")
-        effective_model = (
-            default_prov_config.default_model
-            if default_prov_config
-            else "[red]MISSING[/red]"
-        )
 
         table.add_row("[bold cyan]Default provider:[/bold cyan]", default_provider)
         table.add_row("[bold cyan]Default model:[/bold cyan]", effective_model)
@@ -130,7 +138,7 @@ def print_configuration_summary(config: "WhaiConfig") -> None:
                     table.add_row(f"  └─ [yellow]{name}{star_indicator}[/yellow]", "")
         else:
             table.add_row()  # Empty row for spacing
-            table.add_row("[bold yellow]⚠️ NO PROVIDERS CONFIGURED[/bold yellow]", "")
+            table.add_row("[bold yellow]⚠️  NO PROVIDERS CONFIGURED[/bold yellow]", "")
 
         console.print(table)
 
