@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import typer
@@ -39,11 +40,13 @@ from whai.ui import (
     success,
     warn,
 )
+from whai.utils import detect_shell
 
 logger = get_logger(__name__)
 
 # Use centralized provider defaults
 PROVIDERS = PROVIDER_DEFAULTS
+
 
 
 def _get_provider_config(
@@ -215,6 +218,9 @@ def _quick_setup(config: WhaiConfig) -> None:
     config.llm.default_provider = provider
 
     success(f"{provider} configured successfully!")
+
+
+## (PowerShell offer function removed)
 
 
 def _add_or_edit_provider(config: WhaiConfig) -> None:
@@ -506,12 +512,14 @@ def run_wizard(existing_config: bool = False) -> None:
             success(f"Opened folder: {cfg_dir}")
         except Exception as e:
             failure(f"Failed to open folder {cfg_dir}: {e}")
+    # (PowerShell setup action removed)
 
     # Save the configuration
     try:
         save_config(config)
         config_path = get_config_path()
         success(f"Configuration saved to: {config_path}\n")
+
         celebration("You can now use whai!")
         typer.echo("")
     except Exception as e:

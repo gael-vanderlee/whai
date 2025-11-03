@@ -1,3 +1,5 @@
+[2025-11-03] [change] [context/windows]: remove PowerShell error context feature; deleted profile script, wizard setup, env/file capture, README section, and tests; simplified PowerShell handler to history-only
+[2025-11-03] [docs] [playground]: add engineering notes on PowerShell error context attempts and outcomes for future reference
 # Changelog
 
 Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the high level changes.
