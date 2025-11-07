@@ -187,7 +187,7 @@ def failure(msg: str) -> None:
 
 def celebration(msg: str) -> None:
     """Print a celebration message with emoji."""
-    emoji_msg = f"🎉 {msg}"
+    emoji_msg = f"🎉✨ {msg} ✨🎉"
     if PLAIN_MODE:
         console.print(emoji_msg)
     else:
