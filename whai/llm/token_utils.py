@@ -47,7 +47,7 @@ def truncate_text_with_tokens(text: str, max_tokens: int) -> Tuple[str, bool]:
         # If within limit, return original text
         if token_count <= max_tokens:
             logger.debug(
-                "Text within token limit (tokens=%d, limit=%d)", token_count, max_tokens
+                "Text within token limit (tokens=%d, limit=%d)", token_count, max_tokens, extra={"category": "config"}
             )
             return text, False
 
@@ -92,9 +92,12 @@ def truncate_text_with_tokens(text: str, max_tokens: int) -> Tuple[str, bool]:
         final_tokens = _estimate_tokens(final_text)
 
         t_trunc_end = time.perf_counter()
-        logger.info(
-            "Token truncation completed in %.3f ms (removed=%d chars, final_tokens=%d, limit=%d)",
-            (t_trunc_end - t_trunc_start) * 1000,
+        # Performance logging is handled by the caller (main.py or executor.py)
+        # This internal log is kept for debugging but uses comma formatting
+        from whai.utils import _format_ms
+        logger.debug(
+            "Token truncation completed in %s ms (removed=%d chars, final_tokens=%d, limit=%d)",
+            _format_ms((t_trunc_end - t_trunc_start) * 1000),
             chars_removed,
             final_tokens,
             max_tokens,
@@ -107,10 +110,3 @@ def truncate_text_with_tokens(text: str, max_tokens: int) -> Tuple[str, bool]:
         logger.exception("Error during token truncation: %s", e)
         # On error, return original text rather than failing
         return text, False
-    finally:
-        t_total = time.perf_counter()
-        logger.info(
-            "truncate_text_with_tokens() total time: %.3f ms",
-            (t_total - t0) * 1000,
-            extra={"category": "perf"},
-        )

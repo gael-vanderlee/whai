@@ -98,12 +98,8 @@ class ProviderConfig:
         self._validate_api_base()
         self._validate_required_fields()
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        logger.info(
-            "Provider config validation (%s) completed in %.3f ms",
-            self.provider_name,
-            elapsed_ms,
-            extra={"category": "perf"},
-        )
+        # Use comma formatting for readability
+        from whai.utils import _format_ms
 
     def _validate_api_base(self) -> None:
         """Validate URL format for api_base if provided."""
@@ -794,7 +790,7 @@ def load_config(path: Optional[Path] = None) -> WhaiConfig:
 
         path = config_file
 
-    logger.debug("Configuration loaded from %s", path)
+    logger.debug("Configuration loaded from %s", path, extra={"category": "config"})
     return WhaiConfig.from_file(path)
 
 

@@ -1,6 +1,6 @@
 """Tests for LLM temperature handling and parameter support."""
 
-from tests.conftest import create_test_config
+from tests.conftest import create_test_config, create_test_perf_logger
 from whai import llm
 
 
@@ -12,7 +12,7 @@ def test_llm_provider_accepts_no_temperature():
         api_key="test-key",
     )
 
-    provider = llm.LLMProvider(config)
+    provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
     assert provider.temperature is None
     assert provider.model == "gpt-5-mini"
 
@@ -25,7 +25,7 @@ def test_llm_provider_accepts_explicit_temperature():
         api_key="test-key",
     )
 
-    provider = llm.LLMProvider(config, temperature=0.5)
+    provider = llm.LLMProvider(config, temperature=0.5, perf_logger=create_test_perf_logger())
     assert provider.temperature == 0.5
 
 
@@ -39,7 +39,7 @@ def test_send_message_includes_drop_params():
         api_key="test-key",
     )
 
-    provider = llm.LLMProvider(config, temperature=0.7)
+    provider = llm.LLMProvider(config, temperature=0.7, perf_logger=create_test_perf_logger())
     messages = [{"role": "user", "content": "test"}]
 
     with patch("litellm.completion") as mock_completion:
@@ -73,7 +73,7 @@ def test_send_message_no_temperature_when_none():
         api_key="test-key",
     )
 
-    provider = llm.LLMProvider(config)  # No temperature
+    provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())  # No temperature
     messages = [{"role": "user", "content": "test"}]
 
     with patch("litellm.completion") as mock_completion:

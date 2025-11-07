@@ -177,7 +177,8 @@ The end."""
     logger.log_command("whai tell me a story")
     
     # Simulate LLM provider and conversation loop
-    llm_provider = LLMProvider(config)
+    from tests.conftest import create_test_perf_logger
+    llm_provider = LLMProvider(config, perf_logger=create_test_perf_logger())
     llm_provider.send_message = mock_send_message
     
     # Create messages with context

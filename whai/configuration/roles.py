@@ -163,7 +163,7 @@ class Role:
             name = path.stem
 
         content = path.read_text(encoding="utf-8")
-        logger.debug("Loading role '%s' from %s", name, path)
+        logger.debug("Loading role '%s' from %s", name, path, extra={"category": "config"})
         return cls.from_markdown(name, content)
 
     @classmethod

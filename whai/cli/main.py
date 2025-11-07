@@ -33,7 +33,7 @@ from whai.llm import LLMProvider, get_base_system_prompt
 from whai.llm.token_utils import truncate_text_with_tokens
 from whai.logging_setup import configure_logging, get_logger
 from whai.shell import launch_shell_session
-from whai.utils import detect_shell
+from whai.utils import detect_shell, PerformanceLogger
 
 app = typer.Typer(help="whai - Your terminal assistant powered by LLMs")
 app.add_typer(role_app, name="role")
@@ -296,13 +296,15 @@ def main(
     # Join query arguments with spaces
     query_str = " ".join(query)
 
-    t0 = time.perf_counter()
-    logger.info("Startup: entered main()")
+    # Initialize performance logger for startup
+    startup_perf = PerformanceLogger("Setup")
+    startup_perf.start()
 
     try:
         # 1. Load config and role
         try:
             config = load_config()
+            startup_perf.log_section("Config loading")
         except MissingConfigError:
             ui.warn("Configuration not found. Starting interactive setup...")
             try:
@@ -310,6 +312,7 @@ def main(
                 # Try loading again after wizard completes
                 config = load_config()
                 ui.info("Configuration complete! Continuing with your query...")
+                startup_perf.log_section("Config loading (with wizard)")
             except typer.Abort:
                 ui.error("Configuration is required to use whai.")
                 raise typer.Exit(1)
@@ -323,15 +326,9 @@ def main(
         # Resolve role using shared function (CLI > env > config > default)
         role = resolve_role(role, config)
 
-        t_cfg = time.perf_counter()
-        logger.info(
-            "Startup: load_config() completed in %.3f ms",
-            (t_cfg - t0) * 1000,
-            extra={"category": "perf"},
-        )
-
         try:
             role_obj = load_role(role)
+            startup_perf.log_section("Role loading", extra_info={"role": role})
         except FileNotFoundError as e:
             ui.error(str(e))
             raise typer.Exit(1)
@@ -341,18 +338,12 @@ def main(
         except Exception as e:
             ui.error(f"Failed to load role: {e}")
             raise typer.Exit(1)
-        t_role = time.perf_counter()
-        logger.info(
-            "Startup: load_role('%s') completed in %.3f ms",
-            role,
-            (t_role - t_cfg) * 1000,
-            extra={"category": "perf"},
-        )
 
         # 2. Get context (tmux or history)
         if no_context:
             context_str = ""
             is_deep_context = False
+            startup_perf.log_section("Context capture", extra_info={"skipped": True})
         else:
             # Reconstruct the command that invoked whai to exclude it from context
             command_to_exclude = None
@@ -381,17 +372,15 @@ def main(
             else:
                 logger.debug("No command arguments to exclude from context")
 
-            t_ctx0 = time.perf_counter()
             context_str, is_deep_context = get_context(
                 exclude_command=command_to_exclude
             )
-            t_ctx1 = time.perf_counter()
-            logger.info(
-                "Startup: get_context() completed in %.3f ms (deep=%s, has_content=%s)",
-                (t_ctx1 - t_ctx0) * 1000,
-                is_deep_context,
-                bool(context_str),
-                extra={"category": "perf"},
+            startup_perf.log_section(
+                "Context capture",
+                extra_info={
+                    "deep": is_deep_context,
+                    "has_content": bool(context_str),
+                },
             )
 
             if not is_deep_context and context_str:
@@ -400,12 +389,6 @@ def main(
                 )
             elif not context_str:
                 ui.info("No context available (no tmux, no history).")
-
-        logger.info(
-            "Startup: context stage done, elapsed %.3f ms",
-            (time.perf_counter() - t0) * 1000,
-            extra={"category": "perf"},
-        )
 
         # 4. Initialize LLM provider
         # Resolve model and temperature using consolidated precedence logic
@@ -427,52 +410,39 @@ def main(
 
         try:
             llm_provider = LLMProvider(
-                config, model=llm_model, temperature=llm_temperature
+                config, model=llm_model, temperature=llm_temperature, perf_logger=startup_perf
+            )
+            startup_perf.log_section(
+                "LLM initialization",
+                extra_info={"model": llm_model, "temperature": llm_temperature},
             )
         except Exception as e:
             ui.error(f"Failed to initialize LLM provider: {e}")
             raise typer.Exit(1)
-        t_llm = time.perf_counter()
-        logger.info(
-            "Startup: LLMProvider init completed in %.3f ms (model=%s, temp=%s)",
-            (t_llm - t_role) * 1000,
-            llm_model,
-            llm_temperature,
-            extra={"category": "perf"},
-        )
 
         # Display loaded configuration
         ui.info(f"Model: {llm_model} | Role: {role}")
 
         # 5. Truncate context if needed (before building messages)
         if context_str:
-            t_trunc0 = time.perf_counter()
             context_str, was_truncated = truncate_text_with_tokens(
                 context_str, CONTEXT_MAX_TOKENS
             )
-            t_trunc1 = time.perf_counter()
-            logger.info(
-                "Startup: context truncation completed in %.3f ms (truncated=%s)",
-                (t_trunc1 - t_trunc0) * 1000,
-                was_truncated,
-                extra={"category": "perf"},
+            startup_perf.log_section(
+                "Context truncation", extra_info={"truncated": was_truncated}
             )
             if was_truncated:
                 ui.warn(
                     "Terminal context was truncated to fit token limits. "
                     "Recent commands and output have been preserved."
                 )
+        else:
+            startup_perf.log_section("Context truncation", extra_info={"skipped": True})
 
         # 6. Build initial message
-        t_prompt0 = time.perf_counter()
         base_prompt = get_base_system_prompt(is_deep_context, timeout=timeout)
         system_message = f"{base_prompt}\n\n{role_obj.body}"
-        t_prompt1 = time.perf_counter()
-        logger.info(
-            "Startup: get_base_system_prompt() completed in %.3f ms",
-            (t_prompt1 - t_prompt0) * 1000,
-            extra={"category": "perf"},
-        )
+        startup_perf.log_section("System prompt building")
 
         # Add context to user message if available
         if context_str:
@@ -487,12 +457,8 @@ def main(
             {"role": "user", "content": user_message},
         ]
 
-        logger.info(
-            "Startup: conversation initialized (%d messages), total startup %.3f ms",
-            len(messages),
-            (time.perf_counter() - t0) * 1000,
-            extra={"category": "perf"},
-        )
+        startup_perf.log_section("Message construction", extra_info={"message_count": len(messages)})
+        startup_perf.log_complete()
 
         # 7. Reconstruct command string for logging
         # Use sys.argv to get the exact command as typed, including all flags

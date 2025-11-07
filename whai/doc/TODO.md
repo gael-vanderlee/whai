@@ -34,8 +34,8 @@ Features:
 - [ ] -vv flag
 - [ ] -y flag
 - [ ] lm_studio and gemini prefixes
-- [ ] Whai shell
-- [ ] Better performance logging
+- [x] Whai shell
+- [x] Better performance logging
 
 Issues:
 - [x] Timeout issue

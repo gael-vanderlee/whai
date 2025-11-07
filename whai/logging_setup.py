@@ -99,6 +99,7 @@ class _ColorFormatter(logging.Formatter):
         "perf": "\x1b[38;5;39m",  # blue
         "api": "\x1b[38;5;208m",  # orange
         "cmd": "\x1b[38;5;129m",  # magenta
+        "config": "\x1b[38;5;220m",  # yellow for configuration/initialization
         "llm_system": "\x1b[38;5;238m",  # darker gray for system prompt
         "llm_user": "\x1b[38;5;117m",  # light blue for user message
         "default": "\x1b[38;5;245m",  # gray for other debug
@@ -124,7 +125,7 @@ class _ColorFormatter(logging.Formatter):
         category = getattr(record, "category", None)
         if not category:
             name_parts = (record.name or "").split(".")
-            for segment in ("perf", "api", "cmd"):
+            for segment in ("perf", "api", "cmd", "config"):
                 if segment in name_parts:
                     category = segment
                     break

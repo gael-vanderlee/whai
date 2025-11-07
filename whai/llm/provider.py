@@ -9,6 +9,7 @@ from whai.configuration.user_config import WhaiConfig
 from whai.constants import DEFAULT_PROVIDER, get_default_model_for_provider
 from whai.llm.streaming import handle_complete_response, handle_streaming_response
 from whai.logging_setup import get_logger
+from whai.utils import PerformanceLogger
 
 logger = get_logger(__name__)
 
@@ -22,7 +23,7 @@ def validate_model(model_name: str) -> None:
     Args:
         model_name: The model name to use.
     """
-    logger.debug("Using model: %s", model_name)
+    logger.debug("Using model: %s", model_name, extra={"category": "config"})
     # LiteLLM is very lenient with model names and will attempt to route
     # any model name to an appropriate provider. Invalid models will be
     # caught when making the actual API call, with a clear error message.
@@ -54,8 +55,8 @@ class LLMProvider:
     """
 
     def __init__(
-        self, config: WhaiConfig, model: str = None, temperature: float = None
-    ):
+        self, config: WhaiConfig, model: str = None, temperature: float = None, perf_logger: PerformanceLogger = None
+    ) -> None:
         """
         Initialize the LLM provider.
 
@@ -63,9 +64,13 @@ class LLMProvider:
             config: WhaiConfig instance containing LLM settings.
             model: Optional model override (uses config default if not provided).
             temperature: Optional temperature override (if None, temperature is not set).
+            perf_logger: PerformanceLogger for tracking performance from program start.
         """
+        if perf_logger is None:
+            raise ValueError("perf_logger is required")
         self.config = config
         self.default_provider = config.llm.default_provider
+        self.perf_logger = perf_logger
         # Resolve model: CLI override > provider-level default > built-in fallback
         provider_cfg = config.llm.get_provider(self.default_provider)
         provider_default_model = provider_cfg.default_model if provider_cfg else None
@@ -99,6 +104,7 @@ class LLMProvider:
             self.model,
             self.temperature if self.temperature is not None else "default",
             self.api_base or "default",
+            extra={"category": "config"},
         )
 
     def _configure_api_keys(self):
@@ -247,6 +253,7 @@ class LLMProvider:
                 logger.debug(
                     "Tool definitions: %s",
                     [t.get("function", {}).get("name") for t in tools],
+                    extra={"category": "api"},
                 )
             # Lazy import to keep CLI startup fast
             import time as _t
@@ -263,11 +270,9 @@ class LLMProvider:
             from litellm import completion  # type: ignore
 
             t_import_end = _t.perf_counter()
-            logger.info(
-                "LiteLLM import completed in %.3f ms",
-                (t_import_end - t_import_start) * 1000,
-                extra={"category": "perf"},
-            )
+            # Update last_section_time to track import duration, then log using perf logger
+            self.perf_logger.last_section_time = t_import_start
+            self.perf_logger.log_section("LiteLLM import")
 
             t_start = _t.perf_counter()
             logger.info("LLM API call started")
@@ -287,11 +292,9 @@ class LLMProvider:
                             if first:
                                 first = False
                                 t_first = _t.perf_counter()
-                                logger.info(
-                                    "LLM API first chunk in %.3f ms",
-                                    (t_first - t_start) * 1000,
-                                    extra={"category": "perf"},
-                                )
+                                # Update last_section_time to track time to first chunk, then log using perf logger
+                                self.perf_logger.last_section_time = t_start
+                                self.perf_logger.log_section("LLM API first chunk")
                             if chunk.get("type") == "text":
                                 text = chunk.get("content") or ""
                                 text_len += len(text)
@@ -300,23 +303,19 @@ class LLMProvider:
                             yield chunk
                     finally:
                         t_end = _t.perf_counter()
-                        logger.info(
-                            "LLM API stream completed in %.3f ms (text_len=%d, tool_calls=%d)",
-                            (t_end - t_start) * 1000,
-                            text_len,
-                            tool_calls,
-                            extra={"category": "perf"},
+                        # Update last_section_time to track stream duration, then log using perf logger
+                        self.perf_logger.last_section_time = t_start
+                        self.perf_logger.log_section(
+                            "LLM API stream completed",
+                            extra_info={"text_len": text_len, "tool_calls": tool_calls},
                         )
 
                 return _perf_wrapped_stream()
             else:
                 result = handle_complete_response(response)
                 t_end = _t.perf_counter()
-                logger.info(
-                    "LLM API call (non-stream) completed in %.3f ms",
-                    (t_end - t_start) * 1000,
-                    extra={"category": "perf"},
-                )
+                self.perf_logger.last_section_time = t_start
+                self.perf_logger.log_section("LLM API call (non-stream)")
                 return result
 
         except Exception as e:

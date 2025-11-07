@@ -11,6 +11,7 @@ from whai.interaction import approval_loop, execute_command
 from whai.llm import LLMProvider
 from whai.llm.token_utils import truncate_text_with_tokens
 from whai.logging_setup import get_logger
+from whai.utils import PerformanceLogger
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,12 @@ def run_conversation_loop(
     if command_string and session_logger.enabled:
         session_logger.log_command(command_string)
     
+    loop_iteration = 0
     while True:
+        loop_iteration += 1
+        loop_perf = PerformanceLogger(f"Conversation Loop (iteration {loop_iteration})")
+        loop_perf.start()
+        
         try:
             # Send to LLM with streaming; show spinner until first chunk arrives
             import time
@@ -48,10 +54,7 @@ def run_conversation_loop(
                     first_chunk = chunk
                     break
             elapsed_spinner = time.perf_counter() - start_spinner
-            logger.info(
-                f"Spinner duration before first chunk: {elapsed_spinner:.3f}s",
-                extra={"category": "ui"},
-            )
+            loop_perf.log_section("LLM API call (streaming)")
 
             # Print first chunk and continue streaming
             if first_chunk is not None:
@@ -72,9 +75,11 @@ def run_conversation_loop(
                 len(tool_calls),
                 extra={"category": "api"},
             )
+            loop_perf.log_section("Response parsing", extra_info={"tool_calls": len(tool_calls)})
 
             if not tool_calls:
                 # No tool calls, conversation is done
+                loop_perf.log_complete(extra_info={"ended": "no_tool_calls"})
                 break
 
             # Process each tool call
@@ -88,6 +93,7 @@ def run_conversation_loop(
 
                     # Get user approval
                     approved_command = approval_loop(command)
+                    loop_perf.log_section("Command approval")
 
                     if approved_command is None:
                         # User rejected
@@ -113,6 +119,10 @@ def run_conversation_loop(
                         stdout, stderr, returncode = execute_command(
                             approved_command, timeout=timeout
                         )
+                        loop_perf.log_section(
+                            "Command execution",
+                            extra_info={"command": approved_command, "exit_code": returncode},
+                        )
                         
                         # Log command output to session for context
                         session_logger.log_command_output(stdout, stderr, returncode)
@@ -128,16 +138,12 @@ def run_conversation_loop(
                             result += "\nOutput: (empty - command produced no output)"
 
                         # Truncate tool output if needed to respect token limits
-                        t_trunc0 = time.perf_counter()
                         truncated_result, was_truncated = truncate_text_with_tokens(
                             result, TOOL_OUTPUT_MAX_TOKENS
                         )
-                        t_trunc1 = time.perf_counter()
-                        logger.info(
-                            "Tool output truncation completed in %.3f ms (truncated=%s)",
-                            (t_trunc1 - t_trunc0) * 1000,
-                            was_truncated,
-                            extra={"category": "perf"},
+                        loop_perf.log_section(
+                            "Tool output truncation",
+                            extra_info={"truncated": was_truncated},
                         )
                         if was_truncated:
                             ui.warn(
@@ -189,10 +195,12 @@ def run_conversation_loop(
             if not tool_results and tool_calls:
                 # Tool calls existed but none were runnable (e.g., empty/missing command)
                 ui.info("No runnable tool calls were produced (missing command).")
+                loop_perf.log_complete(extra_info={"ended": "no_runnable_tool_calls"})
                 break
 
             if not tool_results or all_rejected:
                 ui.console.print("\nConversation ended.")
+                loop_perf.log_complete(extra_info={"ended": "all_rejected"})
                 break
 
             # Build assistant message for history
@@ -232,10 +240,14 @@ def run_conversation_loop(
                     }
                 )
 
+            loop_perf.log_section("Message history update", extra_info={"tool_results": len(tool_results)})
+            loop_perf.log_complete(extra_info={"tool_calls": len(tool_calls), "tool_results": len(tool_results)})
+
             # Continue loop to get LLM's next response
 
         except KeyboardInterrupt:
             ui.console.print("\n\nInterrupted by user.")
+            loop_perf.log_complete(extra_info={"ended": "keyboard_interrupt"})
             break
         except Exception as e:
             import traceback
@@ -249,9 +261,11 @@ def run_conversation_loop(
                 )
                 # Keep full details in logs only
                 logger.exception("LLM error in conversation loop: %s", e)
+                loop_perf.log_complete(extra_info={"ended": "llm_error"})
                 break
             else:
                 ui.error(f"Unexpected error: {e}")
                 ui.error(f"Details: {traceback.format_exc()}")
                 logger.exception("Unexpected error in conversation loop: %s", e)
+                loop_perf.log_complete(extra_info={"ended": "unexpected_error"})
                 break

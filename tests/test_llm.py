@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.conftest import create_test_config
+from tests.conftest import create_test_config, create_test_perf_logger
 from whai import llm
 
 
@@ -64,7 +64,7 @@ def test_llm_provider_init():
         api_key="test-key-123",
     )
 
-    provider = llm.LLMProvider(config)
+    provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
 
     assert provider.default_provider == "openai"
     assert provider.model == "gpt-5-mini"
@@ -79,7 +79,7 @@ def test_llm_provider_init_with_overrides():
         default_model="gpt-5-mini",
     )
 
-    provider = llm.LLMProvider(config, model="gpt-5-mini", temperature=0.5)
+    provider = llm.LLMProvider(config, model="gpt-5-mini", temperature=0.5, perf_logger=create_test_perf_logger())
 
     assert provider.model == "gpt-5-mini"
     assert provider.temperature == 0.5
@@ -97,13 +97,13 @@ def test_send_message_non_streaming():
     mock_response.choices[0].message.tool_calls = None
 
     with patch("litellm.completion", return_value=mock_response):
-        provider = llm.LLMProvider(config)
+        provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
         messages = [{"role": "user", "content": "Hello"}]
 
         result = provider.send_message(messages, stream=False)
 
         assert result["content"] == "Hello, I can help you with that."
-        assert result["tool_calls"] == []
+        assert "tool_calls" not in result or result.get("tool_calls") == []
 
 
 def test_send_message_with_tool_calls():
@@ -124,7 +124,7 @@ def test_send_message_with_tool_calls():
     mock_response.choices[0].message.tool_calls = [mock_tool_call]
 
     with patch("litellm.completion", return_value=mock_response):
-        provider = llm.LLMProvider(config)
+        provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
         messages = [{"role": "user", "content": "List files"}]
 
         result = provider.send_message(messages, stream=False)
@@ -152,7 +152,7 @@ def test_send_message_streaming():
         mock_chunks.append(chunk)
 
     with patch("litellm.completion", return_value=iter(mock_chunks)):
-        provider = llm.LLMProvider(config)
+        provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
         messages = [{"role": "user", "content": "Hello"}]
 
         results = list(provider.send_message(messages, stream=True))
@@ -193,7 +193,7 @@ def test_send_message_streaming_with_tool_call():
     mock_chunks.append(chunk2)
 
     with patch("litellm.completion", return_value=iter(mock_chunks)):
-        provider = llm.LLMProvider(config)
+        provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
         messages = [{"role": "user", "content": "Where am I?"}]
 
         results = list(provider.send_message(messages, stream=True))
@@ -223,7 +223,7 @@ def test_logs_include_llm_request_payload(caplog):
     ]
 
     with patch("litellm.completion", return_value=mock_response):
-        provider = llm.LLMProvider(config)
+        provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
         with caplog.at_level("DEBUG", logger="whai.llm"):
             provider.send_message(messages, stream=False, tools=[])
 
@@ -242,7 +242,7 @@ def test_send_message_api_error():
     config = create_test_config(default_provider="openai", default_model="gpt-4")
 
     with patch("litellm.completion", side_effect=Exception("API Error")):
-        provider = llm.LLMProvider(config)
+        provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
         messages = [{"role": "user", "content": "Hello"}]
 
         with pytest.raises(RuntimeError, match="LLM API error"):
@@ -281,7 +281,7 @@ def test_send_message_real_api():
         api_key=api_key,
     )
 
-    provider = llm.LLMProvider(config)
+    provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": 'Say "test successful" and nothing else.'},

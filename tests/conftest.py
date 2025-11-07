@@ -1,6 +1,8 @@
 """Pytest configuration for whai tests."""
 
 import os
+import time
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,6 +14,7 @@ from whai.configuration.user_config import (
     RolesConfig,
     WhaiConfig,
 )
+from whai.utils import PerformanceLogger
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -90,3 +93,15 @@ def create_test_config(
         ),
         roles=RolesConfig(default_role=DEFAULT_ROLE_NAME),
     )
+
+
+def create_test_perf_logger() -> PerformanceLogger:
+    """
+    Helper function to create a test PerformanceLogger instance.
+    
+    Returns:
+        PerformanceLogger instance for testing.
+    """
+    perf_logger = PerformanceLogger("Test")
+    perf_logger.start()
+    return perf_logger
