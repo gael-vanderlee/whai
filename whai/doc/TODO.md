@@ -31,9 +31,8 @@ Features:
 - [ ] Come back to config after setup
 - [ ] Warning for --model fail
 - [ ] Tmux empty window no warning
-- [ ] -vv flag
-- [ ] -y flag
-- [ ] lm_studio and gemini prefixes
+- [x] -vv flag
+- [x] lm_studio and gemini prefixes
 - [x] Whai shell
 - [x] Better performance logging
 

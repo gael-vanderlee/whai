@@ -4,6 +4,7 @@ Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the hi
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-07] [change] [config]: store model names without provider prefixes in config; prefixes are automatically stripped when saving and added back at runtime; users can enter model names with or without prefixes (e.g., gemini/gemini-2.5-flash or gemini-2.5-flash); applies to gemini, lm_studio, and ollama providers; move prefix stripping logic from base class to subclasses for better separation of concerns
 [2025-11-07] [change] [cli]: change verbosity flag from -v DEBUG to count-based -vv; use -v for INFO level and -vv for DEBUG level; remove support for -v DEBUG pattern
 [2025-11-07] [change] [logging]: replace manual performance logs with structured PerformanceLogger system; track elapsed time and total time since program start for all pipeline stages; format large numbers with commas for readability; add config category for initialization logs; LLMProvider now requires PerformanceLogger for consistent timing
 [2025-11-07] [test] [shell]: add integration test for whai shell that replicates manual usage; test runs commands in recorded shell and verifies context contains all commands, outputs, and whai responses; uses actual shell recording mechanism (Start-Transcript/script) instead of manually writing logs
