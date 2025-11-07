@@ -4,6 +4,7 @@ Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the hi
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-07] [change] [cli]: change verbosity flag from -v DEBUG to count-based -vv; use -v for INFO level and -vv for DEBUG level; remove support for -v DEBUG pattern
 [2025-11-07] [change] [logging]: replace manual performance logs with structured PerformanceLogger system; track elapsed time and total time since program start for all pipeline stages; format large numbers with commas for readability; add config category for initialization logs; LLMProvider now requires PerformanceLogger for consistent timing
 [2025-11-07] [test] [shell]: add integration test for whai shell that replicates manual usage; test runs commands in recorded shell and verifies context contains all commands, outputs, and whai responses; uses actual shell recording mechanism (Start-Transcript/script) instead of manually writing logs
 [2025-11-06] [fix] [context]: fix context capture in whai shell sessions; LLM responses from previous commands are now properly logged and available as context for subsequent commands; implement SessionLogger that writes whai output to both console and session log file, bypassing PowerShell transcript limitations that don't capture subprocess stdout
