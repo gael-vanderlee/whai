@@ -26,7 +26,7 @@ def run_conversation_loop(
         llm_provider: Configured LLM provider instance.
         messages: Initial conversation messages.
         timeout: Command timeout in seconds.
-        command_string: Optional full command string for logging (e.g., "whai -v DEBUG 'query'").
+        command_string: Optional full command string for logging (e.g., "whai -vv 'query'").
     """
     # Initialize session logger for context capture in whai shell
     session_logger = SessionLogger(console=ui.console)

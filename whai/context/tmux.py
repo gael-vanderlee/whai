@@ -69,7 +69,7 @@ def _matches_command_pattern(line: str, command: str) -> bool:
     command_normalized = " ".join(command.split())
 
     # Normalize quotes: remove quotes around arguments to handle cases where
-    # sys.argv has "whai -v DEBUG" but terminal shows "whai -v \"DEBUG\""
+    # sys.argv has "whai -vv" but terminal shows "whai -vv"
     # We'll compare after removing surrounding quotes from each argument
     def normalize_quotes(text: str) -> str:
         """Remove quotes around words/arguments while preserving structure."""

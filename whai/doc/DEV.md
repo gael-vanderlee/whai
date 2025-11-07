@@ -176,10 +176,10 @@ The test suite includes end-to-end tests that invoke `python -m whai` in a subpr
 uv run whai "test query"
 
 # Increase verbosity to INFO (timings and key stages)
-uv run whai "test query" -v INFO
+uv run whai "test query" -v
 
 # Full debug (payloads, prompts, detailed traces)
-uv run whai "test query" -v DEBUG
+uv run whai "test query" -vv
 
 # Plain output (reduced styling)
 WHAI_PLAIN=1 uv run whai "test query"
