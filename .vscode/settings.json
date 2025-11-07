@@ -16,4 +16,5 @@
         "tests"
     ],
     "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    "workbench.colorTheme": "Monokai Dimmed",
 }

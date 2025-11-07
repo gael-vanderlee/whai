@@ -1,7 +1,7 @@
 """SSL context caching optimization for LiteLLM import performance.
 
 This module patches ssl.create_default_context to cache SSL contexts,
-significantly reducing LiteLLM import time on Windows (from ~4s to ~1.3s).
+significantly reducing LiteLLM import time on Windows (from ~4s to ~3s).
 
 The optimization caches SSL contexts based on their parameters (cafile, capath, cadata),
 avoiding expensive certificate reloading that happens 184 times during LiteLLM import.
@@ -13,7 +13,7 @@ import ssl
 from typing import Optional, Tuple, Dict
 
 
-# Original function (for restoration if needed)
+# Original function
 _original_create_default_context = ssl.create_default_context
 
 # Cache for SSL contexts
@@ -31,7 +31,7 @@ def _cached_create_default_context(
     """Cached version of ssl.create_default_context.
     
     Caches SSL contexts based on their parameters to avoid reloading
-    certificates, which is very slow on Windows (~9ms per call).
+    certificates, which is very slow on Windows.
     
     Args:
         cafile: Path to certificate file
