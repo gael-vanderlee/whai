@@ -1,5 +1,6 @@
 """Main context capture function for whai."""
 
+import os
 from typing import Optional, Tuple
 
 from whai.constants import HISTORY_MAX_COMMANDS
@@ -38,8 +39,15 @@ def get_context(
         - is_deep_context: True if tmux/session context (includes output), False if history only.
     """
     tmux_context = _get_tmux_context(exclude_command=exclude_command)
-    if tmux_context:
+    # Check if tmux is active (even if capture is empty)
+    is_tmux_active = "TMUX" in os.environ
+    if tmux_context is not None:
+        # tmux_context can be empty string if tmux is active but pane is empty
         return tmux_context, True
+    elif is_tmux_active:
+        # Tmux is active but capture failed or returned None
+        # Still return empty string with is_deep_context=True to indicate tmux is active
+        return "", True
 
     session_context = read_session_context(
         max_bytes=200_000, exclude_command=exclude_command

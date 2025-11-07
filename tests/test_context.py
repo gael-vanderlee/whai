@@ -38,6 +38,7 @@ def test_get_context_falls_back_to_history():
         patch("whai.context.capture._get_tmux_context", return_value=None),
         patch("whai.context.capture._get_history_context", return_value="history output"),
         patch("whai.context.capture.get_additional_context", return_value=None),
+        patch.dict(os.environ, {}, clear=True),
     ):
         context_str, is_deep = context.get_context()
 
@@ -65,11 +66,27 @@ def test_get_context_no_context_available():
         patch("whai.context.capture._get_tmux_context", return_value=None),
         patch("whai.context.capture._get_history_context", return_value=None),
         patch("whai.context.capture.get_additional_context", return_value=None),
+        patch.dict(os.environ, {}, clear=True),
     ):
         context_str, is_deep = context.get_context()
 
         assert context_str == ""
         assert is_deep is False
+
+
+def test_get_context_tmux_active_but_empty():
+    """Test get_context when tmux is active but capture is empty (new session)."""
+    with (
+        patch("whai.context.capture._get_tmux_context", return_value=""),
+        patch("whai.context.capture._get_history_context", return_value="history output"),
+        patch("whai.context.capture.get_additional_context", return_value=None),
+        patch.dict(os.environ, {"TMUX": "/tmp/tmux-1000/default,123,456"}),
+    ):
+        context_str, is_deep = context.get_context()
+
+        # Should return empty string with is_deep=True to indicate tmux is active
+        assert context_str == ""
+        assert is_deep is True
 
 
 def test_bash_handler_get_history_context(tmp_path, monkeypatch):

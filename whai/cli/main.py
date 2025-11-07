@@ -396,7 +396,11 @@ def main(
                     "Using shell history only (no tmux detected). History analysis will not include outputs."
                 )
             elif not context_str:
-                ui.info("No context available (no tmux, no history).")
+                # Check if tmux is active but empty
+                if "TMUX" in os.environ:
+                    ui.info("Tmux session detected but no context available yet (new session).")
+                else:
+                    ui.info("No context available (no tmux, no history).")
 
         # 4. Initialize LLM provider
         # Resolve model and temperature using consolidated precedence logic

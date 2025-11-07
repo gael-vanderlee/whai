@@ -30,7 +30,7 @@ Features:
 - [x] Performance optimization
 - [x] Come back to config after setup
 - [x] Warning for --model fail
-- [ ] Tmux empty window no warning
+- [x] Tmux empty window no warning
 - [x] -vv flag
 - [x] lm_studio and gemini prefixes
 - [x] Whai shell
