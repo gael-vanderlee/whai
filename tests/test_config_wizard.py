@@ -53,7 +53,7 @@ def test_wizard_quick_setup_creates_config(config_dir):
 
     # Mock input() calls from prompt_numbered_choice - returns choices as numbers
     input_call_count = [0]
-    input_responses = ["1", "1"]  # Quick Setup (1), then openai (1)
+    input_responses = ["1", "1", "6"]  # Quick Setup (1), then openai (1), then Exit (6 - menu changes after providers added)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -133,7 +133,7 @@ def test_wizard_add_provider_updates_config(config_dir):
 
     # Mock input() calls for prompt_numbered_choice
     input_call_count = [0]
-    input_responses = ["1", "2"]  # Add or Edit Provider (1), then anthropic (2)
+    input_responses = ["1", "2", "6"]  # Add or Edit Provider (1), then anthropic (2), then Exit (6)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -171,6 +171,7 @@ def test_wizard_add_provider_updates_config(config_dir):
             return_value=validation_result,
         ),
         patch("whai.configuration.user_config._suppress_stdout_stderr"),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
         run_wizard(existing_config=True)
 
@@ -217,7 +218,7 @@ def test_wizard_remove_provider_updates_config(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["2", "2"]  # Remove Provider (2), then anthropic (2)
+    input_responses = ["2", "2", "6"]  # Remove Provider (2), then anthropic (2), then Exit (6)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -230,6 +231,7 @@ def test_wizard_remove_provider_updates_config(config_dir):
     with (
         patch("builtins.input", side_effect=mock_input),
         patch("whai.ui.formatting.input", side_effect=mock_input),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
         run_wizard(existing_config=True)
 
@@ -265,7 +267,7 @@ def test_wizard_remove_default_provider_clears_default(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["2", "1"]  # Remove Provider (2), then openai (1)
+    input_responses = ["2", "1", "5"]  # Remove Provider (2), then openai (1), then Exit (5 - no providers left, menu changes)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -278,6 +280,7 @@ def test_wizard_remove_default_provider_clears_default(config_dir):
     with (
         patch("builtins.input", side_effect=mock_input),
         patch("whai.ui.formatting.input", side_effect=mock_input),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
         run_wizard(existing_config=True)
 
@@ -320,7 +323,7 @@ def test_wizard_set_default_provider_updates_config(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["3", "2"]  # Set Default Provider (3), then anthropic (2)
+    input_responses = ["3", "2", "6"]  # Set Default Provider (3), then anthropic (2), then Exit (6)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -333,6 +336,7 @@ def test_wizard_set_default_provider_updates_config(config_dir):
     with (
         patch("builtins.input", side_effect=mock_input),
         patch("whai.ui.formatting.input", side_effect=mock_input),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
         run_wizard(existing_config=True)
 
@@ -368,9 +372,9 @@ def test_wizard_reset_creates_backup_and_resets_config(config_dir):
     config_file = config_dir / "config.toml"
     assert config_file.exists()
 
-    # Mock input() calls - sequence: Reset, then Quick Setup after reset
+    # Mock input() calls - sequence: Reset, then provider selection after reset, then Exit
     input_call_count = [0]
-    input_responses = ["4", "1", "1"]  # Reset Configuration (4), then Quick Setup (1), then openai (1)
+    input_responses = ["4", "1", "6"]  # Reset Configuration (4), then openai (1) after reset, then Exit (6 - menu has providers after quick setup)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -408,6 +412,7 @@ def test_wizard_reset_creates_backup_and_resets_config(config_dir):
             return_value=validation_result,
         ),
         patch("whai.configuration.user_config._suppress_stdout_stderr"),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
         run_wizard(existing_config=True)
 
@@ -433,13 +438,13 @@ def test_wizard_reset_creates_backup_and_resets_config(config_dir):
     assert openai_provider.default_model == "gpt-5-mini"
 
 
-def test_wizard_cancel_exits_gracefully(config_dir):
-    """Test wizard cancellation exits gracefully without saving."""
+def test_wizard_exit_saves_config(config_dir):
+    """Test wizard exit saves config (even if empty)."""
     config_file = config_dir / "config.toml"
 
-    # Mock input() calls - return "5" for Cancel
+    # Mock input() calls - return "5" for Exit
     input_call_count = [0]
-    input_responses = ["5"]  # Cancel (5)
+    input_responses = ["5"]  # Exit (5)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -452,21 +457,24 @@ def test_wizard_cancel_exits_gracefully(config_dir):
     with (
         patch("builtins.input", side_effect=mock_input),
         patch("whai.ui.formatting.input", side_effect=mock_input),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
-        with pytest.raises(typer.Abort):
-            run_wizard(existing_config=False)
+        run_wizard(existing_config=False)
 
-    # Verify no config file was created
-    assert not config_file.exists()
+    # Verify config file was created (exit now saves config)
+    assert config_file.exists()
+    # Verify it's an empty config (no providers)
+    config = load_config()
+    assert not config.llm.providers
 
 
 def test_wizard_validation_failure_prevents_save(config_dir):
     """Test that validation failures prevent saving config."""
     config_file = config_dir / "config.toml"
 
-    # Mock input() calls
+    # Mock input() calls - after validation failure and rejection, exit (no providers added, so menu still has no providers)
     input_call_count = [0]
-    input_responses = ["1", "1"]  # Quick Setup (1), then openai (1)
+    input_responses = ["1", "1", "5"]  # Quick Setup (1), then openai (1), then Exit (5 - no providers added, menu unchanged)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -511,12 +519,14 @@ def test_wizard_validation_failure_prevents_save(config_dir):
             return_value=validation_result,
         ),
         patch("whai.configuration.user_config._suppress_stdout_stderr"),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
-        with pytest.raises(typer.Abort):
-            run_wizard(existing_config=False)
+        run_wizard(existing_config=False)
 
-    # Verify no config file was created
-    assert not config_file.exists()
+    # Verify config file was created (exit saves config), but no providers were added
+    assert config_file.exists()
+    config = load_config()
+    assert not config.llm.providers  # No providers because validation failed
 
 
 def test_wizard_validation_failure_proceeded_saves_config(config_dir):
@@ -525,7 +535,7 @@ def test_wizard_validation_failure_proceeded_saves_config(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["1", "1"]  # Quick Setup (1), then openai (1)
+    input_responses = ["1", "1", "6"]  # Quick Setup (1), then openai (1), then Exit (6 - providers added, menu changes)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -569,6 +579,7 @@ def test_wizard_validation_failure_proceeded_saves_config(config_dir):
             return_value=validation_result,
         ),
         patch("whai.configuration.user_config._suppress_stdout_stderr"),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
         run_wizard(existing_config=False)
 
@@ -604,7 +615,7 @@ def test_wizard_edit_existing_provider_preserves_defaults(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["1", "1"]  # Add or Edit Provider (1), then openai (1)
+    input_responses = ["1", "1", "6"]  # Add or Edit Provider (1), then openai (1), then Exit (6)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -647,6 +658,7 @@ def test_wizard_edit_existing_provider_preserves_defaults(config_dir):
             return_value=validation_result,
         ),
         patch("whai.configuration.user_config._suppress_stdout_stderr"),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
         run_wizard(existing_config=True)
 
