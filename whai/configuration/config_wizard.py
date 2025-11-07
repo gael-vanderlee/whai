@@ -404,7 +404,6 @@ def _load_or_create_config(existing_config: bool) -> WhaiConfig:
             roles=RolesConfig(default_role=DEFAULT_ROLE_NAME),
         )
 
-
 def run_wizard(existing_config: bool = False) -> None:
     """
     Run the interactive configuration wizard.
@@ -417,111 +416,140 @@ def run_wizard(existing_config: bool = False) -> None:
     # Try to load existing config or start with empty structure
     config = _load_or_create_config(existing_config)
 
-    # Show warning if default_provider is invalid
-    if config.llm.default_provider is not None and config.llm.default_provider not in config.llm.providers:
-        warn(
-            f"Default provider '{config.llm.default_provider}' is not configured. "
-            f"Available providers: {list(config.llm.providers.keys()) if config.llm.providers else 'none'}"
+    # Main loop - keep showing menu until user exits
+    while True:
+        # Show warning if default_provider is invalid
+        if (
+            config.llm.default_provider is not None
+            and config.llm.default_provider not in config.llm.providers
+        ):
+            warn(
+                f"Default provider '{config.llm.default_provider}' is not configured. "
+                f"Available providers: {list(config.llm.providers.keys()) if config.llm.providers else 'none'}"
+            )
+
+            # Display config path and summary
+            cfg_path = get_config_path()
+            info(f"Config path: {cfg_path}")
+            print_configuration_summary(config)
+
+        # Show menu
+        configured_now = list(config.llm.providers.keys())
+        if configured_now:
+            actions = [
+                "add-or-edit",
+                "remove",
+                "default-provider",
+                "reset-config",
+                "open-folder",
+                "exit",
+            ]
+            action_labels = {
+                "add-or-edit": "Add or Edit Provider",
+                "remove": "Remove Provider",
+                "default-provider": "Set Default Provider",
+                "reset-config": "Reset Configuration",
+                "open-folder": "Open Config Folder",
+                "exit": "Exit",
+            }
+            default_action = "add-or-edit"
+        else:
+            # No providers yet - drive user to quick-setup
+            actions = [
+                "quick-setup",
+                "add-or-edit",
+                "reset-config",
+                "open-folder",
+                "exit",
+            ]
+            action_labels = {
+                "quick-setup": "Quick Setup",
+                "add-or-edit": "Add or Edit Provider",
+                "reset-config": "Reset Configuration",
+                "open-folder": "Open Config Folder",
+                "exit": "Exit",
+            }
+            default_action = "quick-setup"
+
+        # Display choices with labels
+        choices = [action_labels.get(action, action) for action in actions]
+        default_choice = action_labels.get(default_action, default_action)
+
+        selected_label = prompt_numbered_choice(
+            "Choose an action",
+            choices,
+            default=default_choice,
         )
 
-    if existing_config:
-        cfg_path = get_config_path()
-        info(f"Config path: {cfg_path}")
-        print_configuration_summary(config)
+        # Find the action key from the selected label
+        action = next(
+            key for key, label in action_labels.items() if label == selected_label
+        )
 
-    # Show menu
-    configured_now = list(config.llm.providers.keys())
-    if existing_config and configured_now:
-        actions = [
-            "add-or-edit",
-            "remove",
-            "default-provider",
-            "reset-config",
-            "open-folder",
-            "cancel",
-        ]
-        action_labels = {
-            "add-or-edit": "Add or Edit Provider",
-            "remove": "Remove Provider",
-            "default-provider": "Set Default Provider",
-            "reset-config": "Reset Configuration",
-            "open-folder": "Open Config Folder",
-            "cancel": "Cancel",
-        }
-        default_action = "add-or-edit"
-    else:
-        # No providers yet - drive user to quick-setup
-        actions = [
-            "quick-setup",
-            "add-or-edit",
-            "reset-config",
-            "open-folder",
-            "cancel",
-        ]
-        action_labels = {
-            "quick-setup": "Quick Setup",
-            "add-or-edit": "Add or Edit Provider",
-            "reset-config": "Reset Configuration",
-            "open-folder": "Open Config Folder",
-            "cancel": "Cancel",
-        }
-        default_action = "quick-setup"
+        if action == "exit":
+            # Save before exiting
+            try:
+                save_config(config)
+                config_path = get_config_path()
+                success(f"Configuration saved to: {config_path}\n")
+                celebration("You can now use whai!")
+                typer.echo("")
+            except Exception as e:
+                failure(f"Error saving configuration: {e}")
+                raise typer.Exit(1)
+            break
 
-    # Display choices with labels
-    choices = [action_labels.get(action, action) for action in actions]
-    default_choice = action_labels.get(default_action, default_action)
-
-    selected_label = prompt_numbered_choice(
-        "Choose an action",
-        choices,
-        default=default_choice,
-    )
-
-    # Find the action key from the selected label
-    action = next(
-        key for key, label in action_labels.items() if label == selected_label
-    )
-
-    if action == "cancel":
-        warn("Configuration cancelled.")
-        raise typer.Abort()
-
-    # Execute the chosen action
-    if action == "quick-setup":
-        _quick_setup(config)
-    elif action == "add-or-edit":
-        _add_or_edit_provider(config)
-    elif action == "remove":
-        _remove_provider(config)
-    elif action == "default-provider":
-        _set_default_provider(config)
-    elif action == "reset-config":
-        config = _reset_default()
-        # After reset, start quick-setup to add a provider immediately
-        _quick_setup(config)
-    elif action == "open-folder":
-        # Open config directory in system file explorer
-        cfg_dir = get_config_path().parent
+        # Execute the chosen action
+        config_changed = False
         try:
-            if sys.platform.startswith("win"):
-                os.startfile(str(cfg_dir))  # type: ignore[attr-defined]
-            elif sys.platform == "darwin":
-                subprocess.Popen(["open", str(cfg_dir)])
-            else:
-                subprocess.Popen(["xdg-open", str(cfg_dir)])
-            success(f"Opened folder: {cfg_dir}")
-        except Exception as e:
-            failure(f"Failed to open folder {cfg_dir}: {e}")
-    # (PowerShell setup action removed)
+            if action == "quick-setup":
+                _quick_setup(config)
+                config_changed = True
+            elif action == "add-or-edit":
+                _add_or_edit_provider(config)
+                config_changed = True
+            elif action == "remove":
+                _remove_provider(config)
+                config_changed = True
+            elif action == "default-provider":
+                _set_default_provider(config)
+                config_changed = True
+            elif action == "reset-config":
+                config = _reset_default()
+                # After reset, start quick-setup to add a provider immediately
+                _quick_setup(config)
+                config_changed = True
+            elif action == "open-folder":
+                # Open config directory in system file explorer
+                cfg_dir = get_config_path().parent
+                try:
+                    if sys.platform.startswith("win"):
+                        os.startfile(str(cfg_dir))  # type: ignore[attr-defined]
+                    elif sys.platform == "darwin":
+                        subprocess.Popen(["open", str(cfg_dir)])
+                    else:
+                        subprocess.Popen(["xdg-open", str(cfg_dir)])
+                    success(f"Opened folder: {cfg_dir}")
+                except Exception as e:
+                    failure(f"Failed to open folder {cfg_dir}: {e}")
+        # (PowerShell setup action removed)
+        except typer.Abort:
+            # User cancelled an action, return to menu
+            typer.echo("")
+            continue
+        except typer.Exit:
+            # Re-raise exit to terminate wizard
+            raise
 
-    # Save the configuration
-    try:
-        save_config(config)
-        config_path = get_config_path()
-        success(f"Configuration saved to: {config_path}\n")
+        # Save the configuration after actions that modify it
+        if config_changed:
+            try:
+                save_config(config)
+                config_path = get_config_path()
+                success(f"Configuration saved to: {config_path}\n")
+            except Exception as e:
+                failure(f"Error saving configuration: {e}")
+                raise typer.Exit(1)
 
-        celebration("You can now use whai!")
-        typer.echo("")
-    except Exception as e:
-        failure(f"Error saving configuration: {e}")
-        raise typer.Exit(1)
+            # Add a blank line before returning to menu
+            typer.echo("")
