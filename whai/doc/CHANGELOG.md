@@ -1,11 +1,13 @@
-[2025-11-03] [change] [context/windows]: remove PowerShell error context feature; deleted profile script, wizard setup, env/file capture, README section, and tests; simplified PowerShell handler to history-only
-[2025-11-03] [docs] [playground]: add engineering notes on PowerShell error context attempts and outcomes for future reference
 # Changelog
 
 Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the high level changes.
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-07] [test] [shell]: add integration test for whai shell that replicates manual usage; test runs commands in recorded shell and verifies context contains all commands, outputs, and whai responses; uses actual shell recording mechanism (Start-Transcript/script) instead of manually writing logs
+[2025-11-06] [fix] [context]: fix context capture in whai shell sessions; LLM responses from previous commands are now properly logged and available as context for subsequent commands; implement SessionLogger that writes whai output to both console and session log file, bypassing PowerShell transcript limitations that don't capture subprocess stdout
+[2025-11-06] [feature] [core]: add whai shell to capture full terminal output.
+[2025-11-02] [change] [structure]: Restructured the context to have shell specific objects for flexibility.
 [2025-11-02] [change] [llm]: optimize LiteLLM import with SSL context caching patch; cache ssl.create_default_context() calls to avoid reloading certificates 184 times during import; reduces import time from ~4s to ~1.3s on Windows
 [2025-11-02] [fix] [llm]: add token-based truncation for context and tool outputs to prevent exceeding model limits; truncate terminal context (150k tokens) and command outputs (50k tokens) preserving most recent content with truncation notice; use character-based token estimation (1 token ≈ 4 chars) for fast truncation; show user warnings when truncation occurs
 [2025-11-02] [feature] [ui]: add terminal output truncation limiting displayed lines to 500; truncates stdout/stderr keeping most recent lines with truncation notice; configurable via TERMINAL_OUTPUT_MAX_LINES constant
