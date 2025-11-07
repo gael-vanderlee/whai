@@ -153,6 +153,7 @@ def test_zsh_handler_simple_format(tmp_path, monkeypatch):
     assert "ls -la" in result
 
 
+@pytest.mark.skipif("posix" in __import__("os").name, reason="Windows-only test; skipped on Linux")
 def test_powershell_handler_get_history_context(tmp_path, monkeypatch):
     """Test PowerShellHandler.get_history_context()."""
     handler = PowerShellHandler(shell_name="pwsh")
