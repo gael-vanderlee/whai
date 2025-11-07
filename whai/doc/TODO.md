@@ -1,4 +1,5 @@
 # TODO
+
 Features:
 - [x] No quotes typing
 - [x] Timeout delay flag
@@ -25,7 +26,16 @@ Features:
 - [x] Test flag positioning
 - [x] No output handling
 - [x] Prettier code blocs in readme
-- [ ] Whai only documentation
+- [x] Whai only documentation
+- [x] Performance optimization
+- [ ] Come back to config after setup
+- [ ] Warning for --model fail
+- [ ] Tmux empty window no warning
+- [ ] -vv flag
+- [ ] -y flag
+- [ ] lm_studio and gemini prefixes
+- [ ] Whai shell
+- [ ] Better performance logging
 
 Issues:
 - [x] Timeout issue

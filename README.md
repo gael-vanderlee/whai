@@ -23,9 +23,9 @@ When you get stuck, need a command, or encounter an error, you simply call `whai
 ### Core Features
 
 * **Analyze Previous Errors:** If a command fails, you don't need to copy-paste. Just call `whai` (no arguments needed!) or ask `whai why did that fail?`.
-    It reads the failed command and its full error output from your [`tmux`](https://github.com/tmux/tmux) (if you are using it) history to provide an immediate diagnosis and solution. *Note: Command output is only available when running inside tmux. Otherwise, the model will only still see your commands but not their outputs.*
+    It reads the failed command and its full error output from your terminal history to provide an immediate diagnosis and solution. *Note: Command output is available when running inside tmux or a `whai shell` session. Otherwise, the model will only see your commands but not their outputs.*
 * **Persistent Roles (Memory):** `whai` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*, what machine you are on, what tools are available, your personal preferences, and how you like to work, and `whai` retains this context for all future interactions.
-* **Full Session Context:** When running inside `tmux`, `whai` securely reads your scrollback to understand both the commands you ran. This provides intelligent, multi-step assistance based on the actual state of your terminal.
+* **Full Session Context:** When running inside `tmux` or a `whai shell` session, `whai` securely reads your command history and outputs to understand both what you ran and what happened. This provides intelligent, multi-step assistance based on the actual state of your terminal.
 * **On-Demand Assistance:** Get help exactly when you need it, from command generation to complex debugging, right in your active shell:
 
     `> whai check my docker containers logs for errors`
@@ -285,7 +285,7 @@ whai "your question"
 ```
 
 That's it! `whai` will:
-- Read your terminal context (commands + output if in tmux, commands only otherwise)
+- Read your terminal context (commands + output if in tmux or `whai shell`, commands only otherwise)
 - Send your question to the configured LLM
 - Suggest commands with `[a]pprove` / `[r]eject` / `[m]odify` prompts
 - Execute approved commands and continue the conversation
@@ -350,7 +350,38 @@ The default role is defined in the config.
 
 `whai` automatically captures context from:
 - **tmux scrollback** (recommended): Full commands + output for intelligent debugging *(only available when running in tmux)*
+- **Recorded shell sessions**: Full commands + output when using `whai shell` *(deep context without tmux)*
 - **Shell history** (fallback): Recent commands only when not in tmux *(command output is not available in this mode)*
+
+#### Recorded Shell Sessions
+
+For deep context without tmux, use `whai shell` to launch an interactive shell with session recording:
+
+```zsh
+whai shell
+```
+
+This command:
+- Opens your normal shell (bash, zsh, fish, or PowerShell) with identical behavior
+- Records all commands and outputs to a session log
+- Provides deep context (commands + outputs) to whai without requiring tmux
+- Preloads the LLM library, making future `whai` calls significantly faster (1-4 seconds faster)
+
+The recorded session behaves exactly like your normal shell - same prompt, keybindings, history, and environment. The only difference is that `whai` can now access full command outputs for better assistance.
+
+**To exit:** Type `exit` in the shell to return to your previous terminal.
+
+**Options:**
+```zsh
+# Launch with a specific shell
+whai shell --shell zsh
+
+# Specify a custom log path
+whai shell --log ~/my-session.log
+```
+
+Session logs are stored temporarily during the session and are deleted when you exit the shell.
+When you run `whai` from within a recorded shell session, it automatically uses the in-session log for deep context.
 
 ### Safety First
 
@@ -370,8 +401,8 @@ I wanted something that's flexible, understands you, and is always ready to help
 ### Does it send my terminal history to the LLM?
 
 Only when you run `whai`.
-It captures recent history (50 last commands) or tmux scrollback (commands + output) and includes it in the request.
-If you use a remote API model, it will see your recent terminal history. Note that command output is only available when running inside tmux.
+It captures recent history (50 last commands), tmux scrollback (commands + output), or recorded shell session content (commands + output while the session is active) and includes it in the request.
+If you use a remote API model, it will see your recent terminal history. Command output is available when running inside tmux or a `whai shell` session.
 You can disable this with the `--no-context` flag.
 
 ### Can I use it with local models?
