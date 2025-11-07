@@ -15,6 +15,7 @@ def extract_inline_overrides(
     model: Optional[str],
     temperature: Optional[float],
     timeout: int,
+    provider: Optional[str],
 ) -> Tuple[List[str], Dict]:
     """Extract supported inline flags from free-form tokens.
 
@@ -28,6 +29,7 @@ def extract_inline_overrides(
     o_model = model
     o_temperature = temperature
     o_timeout = timeout
+    o_provider = provider
     o_verbose_count: int = 0
 
     while i < len(tokens):
@@ -83,6 +85,14 @@ def extract_inline_overrides(
             o_role = tokens[i + 1]
             i += 2
             continue
+        # --provider/-p <str>
+        if token in ("--provider", "-p"):
+            if i + 1 >= len(tokens):
+                ui.error("--provider requires a value")
+                raise typer.Exit(2)
+            o_provider = tokens[i + 1]
+            i += 2
+            continue
 
         # -v or -vv (count-based verbosity)
         # Match exactly -v, -vv, -vvv, etc. (only 'v' characters after the dash)
@@ -105,5 +115,6 @@ def extract_inline_overrides(
         "timeout": o_timeout
         if o_timeout is not None
         else None,  # Preserve 0 for validation
+        "provider": o_provider,
         "verbose_count": o_verbose_count,
     }

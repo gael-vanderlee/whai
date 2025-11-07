@@ -114,6 +114,9 @@ def main(
     model: Optional[str] = typer.Option(
         None, "--model", "-m", help="Override the LLM model"
     ),
+    provider: Optional[str] = typer.Option(
+        None, "--provider", "-p", help="Override the LLM provider"
+    ),
     temperature: Optional[float] = typer.Option(
         None, "--temperature", "-t", help="Override temperature"
     ),
@@ -261,12 +264,14 @@ def main(
             model=model,
             temperature=temperature,
             timeout=timeout,
+            provider=provider,
         )
         role = overrides["role"]
         no_context = overrides["no_context"]
         model = overrides["model"]
         temperature = overrides["temperature"]
         timeout = overrides["timeout"]
+        provider = overrides["provider"]
 
     # Set default timeout if not provided (before validation)
     if timeout is None:
@@ -399,32 +404,36 @@ def main(
         llm_temperature = resolve_temperature(temperature, role_obj)
 
         logger.info(
-            "Model loaded: %s (source: %s)",
+            "Model loaded: %s (source: %s, temperature=%s)",
             llm_model,
             model_source,
-            extra={"category": "api"},
-        )
-        logger.info(
-            "Initializing LLMProvider with model=%s, temperature=%s",
-            llm_model,
             llm_temperature,
             extra={"category": "api"},
         )
 
+        logger.info(
+            "Initializing LLMProvider: provider=%s, model=%s",
+            provider,
+            llm_model,
+            extra={"category": "api"},
+        )
         try:
             llm_provider = LLMProvider(
-                config, model=llm_model, temperature=llm_temperature, perf_logger=startup_perf
+                config, model=llm_model, temperature=llm_temperature, perf_logger=startup_perf, provider=provider
             )
             startup_perf.log_section(
                 "LLM initialization",
                 extra_info={"model": llm_model, "temperature": llm_temperature},
             )
+        except RuntimeError as e:
+            ui.error(str(e))
+            raise typer.Exit(1)
         except Exception as e:
             ui.error(f"Failed to initialize LLM provider: {e}")
             raise typer.Exit(1)
 
         # Display loaded configuration
-        ui.info(f"Model: {llm_model} | Role: {role}")
+        ui.info(f"Model: {llm_model} | Provider: {llm_provider.default_provider} | Role: {role}")
 
         # 5. Truncate context if needed (before building messages)
         if context_str:

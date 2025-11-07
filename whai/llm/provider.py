@@ -3,7 +3,7 @@
 import json
 import os
 import re
-from typing import Any, Dict, Generator, List, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from whai.configuration.user_config import WhaiConfig
 from whai.constants import DEFAULT_PROVIDER, get_default_model_for_provider
@@ -12,22 +12,6 @@ from whai.logging_setup import get_logger
 from whai.utils import PerformanceLogger
 
 logger = get_logger(__name__)
-
-def validate_model(model_name: str) -> None:
-    """
-    Log the model name for debugging purposes.
-
-    Note: LiteLLM doesn't provide reliable upfront model validation.
-    Invalid models will be caught when the actual API call is made.
-
-    Args:
-        model_name: The model name to use.
-    """
-    logger.debug("Using model: %s", model_name, extra={"category": "config"})
-    # LiteLLM is very lenient with model names and will attempt to route
-    # any model name to an appropriate provider. Invalid models will be
-    # caught when making the actual API call, with a clear error message.
-
 
 # Tool definition for shell command execution
 EXECUTE_SHELL_TOOL = {
@@ -55,7 +39,7 @@ class LLMProvider:
     """
 
     def __init__(
-        self, config: WhaiConfig, model: str = None, temperature: float = None, perf_logger: PerformanceLogger = None
+        self, config: WhaiConfig, model: str = None, temperature: float = None, perf_logger: PerformanceLogger = None, provider: Optional[str] = None
     ) -> None:
         """
         Initialize the LLM provider.
@@ -65,29 +49,38 @@ class LLMProvider:
             model: Optional model override (uses config default if not provided).
             temperature: Optional temperature override (if None, temperature is not set).
             perf_logger: PerformanceLogger for tracking performance from program start.
+            provider: Optional provider override (uses config default if not provided).
         """
         if perf_logger is None:
             raise ValueError("perf_logger is required")
         self.config = config
-        self.default_provider = config.llm.default_provider
         self.perf_logger = perf_logger
+        
+        # Use provided provider or fall back to default
+        provider_name = provider if provider is not None else config.llm.default_provider
+        if provider_name is None:
+            raise ValueError("No provider specified and no default provider configured")
+        
+        provider_cfg = config.llm.get_provider(provider_name)
+        if not provider_cfg:
+            available = list(config.llm.providers.keys())
+            raise RuntimeError(
+                f"Provider '{provider_name}' is not configured. "
+                f"Available providers: {available if available else 'none'}. "
+                "Run 'whai --interactive-config' to set up a provider."
+            )
+        
+        self.default_provider = provider_name
         # Resolve model: CLI override > provider-level default > built-in fallback
-        provider_cfg = config.llm.get_provider(self.default_provider)
-        provider_default_model = provider_cfg.default_model if provider_cfg else None
-        fallback_model = get_default_model_for_provider(
-            self.default_provider or DEFAULT_PROVIDER
-        )
-        raw_model = model or provider_default_model or fallback_model
-
+        # If model is None, use provider's default model
+        model_to_use = model if model is not None else provider_cfg.default_model
+        
         # Sanitize model name for provider-specific formatting (if needed)
-        self.model = provider_cfg.sanitize_model_name(raw_model)
+        self.model = provider_cfg.sanitize_model_name(model_to_use) if model_to_use else None
             
 
         # Store custom API base for providers that need it
         self.api_base = provider_cfg.api_base if provider_cfg else None
-
-        # Validate model exists
-        validate_model(self.model)
 
         # Only set temperature when explicitly provided; many models (e.g., gpt-5*)
         # do not support it and should omit it entirely by default.
@@ -185,7 +178,7 @@ class LLMProvider:
                 completion_kwargs["api_base"] = self.api_base
 
             # Only include temperature if explicitly set AND model supports it
-            if self.temperature is not None and not self.model.startswith("gpt-5"):
+            if self.temperature is not None and self.model and not self.model.startswith("gpt-5"):
                 completion_kwargs["temperature"] = self.temperature
 
             if tools:  # Only add tools if list is not empty
@@ -331,7 +324,6 @@ class LLMProvider:
             def _friendly_message(exc: Exception) -> str:
                 name = type(exc).__name__
                 text = _sanitize(str(exc))
-                base = f"provider={self.default_provider} model={self.model}"
                 # Import lazily to avoid hard dependency at import-time
                 try:
                     from litellm.exceptions import (
@@ -356,9 +348,15 @@ class LLMProvider:
                     or "AuthenticationError" in name
                 ):
                     return (
-                        "LLM API error: Authentication failed. "
-                        f"{base}. Check your API key. "
+                        f"Authentication failed. Check your API key for provider '{self.default_provider}'. "
                         "Run 'whai --interactive-config' to update your configuration."
+                    )
+                # Check for "LLM Provider NOT provided" error - this happens when model name format is wrong
+                if "llm provider not provided" in text.lower() or "provider not provided" in text.lower():
+                    return (
+                        f"Model '{self.model}' is not recognized for provider '{self.default_provider}'. "
+                        "The model name may be invalid or incorrectly formatted. "
+                        "Choose a valid model with --model or run 'whai --interactive-config' to pick one."
                     )
                 if (
                     isinstance(exc, (NotFoundError, InvalidRequestError))
@@ -370,21 +368,21 @@ class LLMProvider:
                     )
                 ):
                     return (
-                        "LLM API error: Model is invalid or unavailable. "
-                        f"{base}. Choose a valid model with --model or run 'whai --interactive-config' to pick one."
+                        f"Model '{self.model}' is invalid or unavailable for provider '{self.default_provider}'. "
+                        "Choose a valid model with --model or run 'whai --interactive-config' to pick one."
                     )
                 if (
                     isinstance(exc, PermissionDeniedError)
                     or "permission" in text.lower()
                 ):
                     return (
-                        "LLM API error: Permission denied for this model with the current API key. "
-                        f"{base}. Verify access for your account or pick another model via 'whai --interactive-config'."
+                        f"Permission denied for model '{self.model}' with provider '{self.default_provider}'. "
+                        "Verify access for your account or pick another model via 'whai --interactive-config'."
                     )
                 if isinstance(exc, RateLimitError) or "rate limit" in text.lower():
                     return (
-                        "LLM API error: Rate limit reached. "
-                        f"{base}. Try again later or switch model/provider."
+                        f"Rate limit reached for provider '{self.default_provider}'. "
+                        "Try again later or switch model/provider."
                     )
                 if isinstance(
                     exc, (APIConnectionError, ServiceUnavailableError, Timeout)
@@ -393,11 +391,11 @@ class LLMProvider:
                     for k in ["timeout", "temporarily unavailable", "connection"]
                 ):
                     return (
-                        "LLM API error: Network or service error talking to the provider. "
-                        f"{base}. Check your connection or try again."
+                        f"Network or service error connecting to provider '{self.default_provider}'. "
+                        "Check your connection or try again."
                     )
                 # Default fallback
-                return f"LLM API error: {base}. {_sanitize(text)}"
+                return f"LLM API error with provider '{self.default_provider}' and model '{self.model}': {_sanitize(text)}"
 
             friendly = _friendly_message(e)
             raise RuntimeError(friendly)
