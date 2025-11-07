@@ -306,6 +306,21 @@ class ProviderConfig:
 
         return model_valid, model_issue
 
+    def _strip_provider_prefix(self, model: str, prefix: str) -> str:
+        """
+        Strip provider prefix from model name if present.
+
+        Args:
+            model: The model name (may include prefix).
+            prefix: The prefix to strip (e.g., 'gemini/', 'lm_studio/').
+
+        Returns:
+            Model name without the prefix.
+        """
+        if model and model.startswith(prefix):
+            return model[len(prefix) :]
+        return model
+
     def _get_litellm_model_name(self) -> str:
         """Get the model name formatted for LiteLLM validation. Override in subclasses."""
         return self.default_model or "default"
@@ -385,6 +400,12 @@ class GeminiConfig(ProviderConfig):
 
     provider_name: str = "gemini"
 
+    def __post_init__(self) -> None:
+        """Strip gemini/ prefix from model name if present."""
+        super().__post_init__()
+        if self.default_model:
+            self.default_model = self._strip_provider_prefix(self.default_model, "gemini/")
+
     def _validate_required_fields(self) -> None:
         """Validate Gemini-specific requirements."""
         if not self.api_key or not self.api_key.strip():
@@ -393,11 +414,27 @@ class GeminiConfig(ProviderConfig):
             raise InvalidProviderConfigError("Gemini provider requires 'default_model'")
 
     def _get_litellm_model_name(self) -> str:
-        """Get model name with gemini/ prefix if needed."""
+        """Get model name with gemini/ prefix."""
         model = self.default_model or "default"
-        if not model.startswith("gemini/"):
-            model = f"gemini/{model}"
-        return model
+        return f"gemini/{model}"
+
+    def sanitize_model_name(self, model: str) -> str:
+        """Strip gemini/ prefix if present, then add it back for LiteLLM."""
+        base_model = self._strip_provider_prefix(model, "gemini/")
+        return f"gemini/{base_model}"
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "GeminiConfig":
+        """Create GeminiConfig from dictionary, stripping gemini/ prefix if present."""
+        default_model = data.get("default_model")
+        if default_model and default_model.startswith("gemini/"):
+            default_model = default_model[len("gemini/") :]
+        return cls(
+            api_key=data.get("api_key"),
+            api_base=data.get("api_base"),
+            api_version=data.get("api_version"),
+            default_model=default_model,
+        )
 
 
 @dataclass
@@ -447,6 +484,12 @@ class OllamaConfig(ProviderConfig):
 
     provider_name: str = "ollama"
 
+    def __post_init__(self) -> None:
+        """Strip ollama/ prefix from model name if present."""
+        super().__post_init__()
+        if self.default_model:
+            self.default_model = self._strip_provider_prefix(self.default_model, "ollama/")
+
     def _validate_required_fields(self) -> None:
         """Validate Ollama-specific requirements."""
         if not self.api_base or not self.api_base.strip():
@@ -469,12 +512,39 @@ class OllamaConfig(ProviderConfig):
         """Get model name with ollama/ prefix."""
         return f"ollama/{self.default_model or 'default'}"
 
+    def sanitize_model_name(self, model: str) -> str:
+        """Strip ollama/ prefix if present, then add it back for LiteLLM."""
+        base_model = self._strip_provider_prefix(model, "ollama/")
+        return f"ollama/{base_model}"
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "OllamaConfig":
+        """Create OllamaConfig from dictionary, stripping ollama/ prefix if present."""
+        default_model = data.get("default_model")
+        if default_model and default_model.startswith("ollama/"):
+            default_model = default_model[len("ollama/") :]
+        return cls(
+            api_key=data.get("api_key"),
+            api_base=data.get("api_base"),
+            api_version=data.get("api_version"),
+            default_model=default_model,
+        )
+
 
 @dataclass
 class LMStudioConfig(ProviderConfig):
     """Configuration for LM Studio provider (no API key required)."""
 
     provider_name: str = "lm_studio"
+
+    def __post_init__(self) -> None:
+        """Strip lm_studio/ or openai/ prefix from model name if present."""
+        super().__post_init__()
+        if self.default_model:
+            # Strip lm_studio/ prefix if present
+            self.default_model = self._strip_provider_prefix(self.default_model, "lm_studio/")
+            # Also strip openai/ prefix if present (for backward compatibility)
+            self.default_model = self._strip_provider_prefix(self.default_model, "openai/")
 
     def _validate_required_fields(self) -> None:
         """Validate LM Studio-specific requirements."""
@@ -514,16 +584,29 @@ class LMStudioConfig(ProviderConfig):
             Model name formatted as 'openai/{base_model}' for LiteLLM.
         """
         # Strip 'lm_studio/' prefix if present
-        if model.startswith("lm_studio/"):
-            base_model = model[len("lm_studio/") :]
+        base_model = self._strip_provider_prefix(model, "lm_studio/")
         # Strip 'openai/' prefix if present (in case user already formatted it)
-        elif model.startswith("openai/"):
-            base_model = model[len("openai/") :]
-        else:
-            # No prefix, use as-is
-            base_model = model
+        base_model = self._strip_provider_prefix(base_model, "openai/")
         # Format as 'openai/{model}' for LiteLLM
         return f"openai/{base_model}"
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "LMStudioConfig":
+        """Create LMStudioConfig from dictionary, stripping lm_studio/ or openai/ prefix if present."""
+        default_model = data.get("default_model")
+        if default_model:
+            # Strip lm_studio/ prefix if present
+            if default_model.startswith("lm_studio/"):
+                default_model = default_model[len("lm_studio/") :]
+            # Also strip openai/ prefix if present (for backward compatibility)
+            elif default_model.startswith("openai/"):
+                default_model = default_model[len("openai/") :]
+        return cls(
+            api_key=data.get("api_key"),
+            api_base=data.get("api_base"),
+            api_version=data.get("api_version"),
+            default_model=default_model,
+        )
 
     def _validate_model(self) -> Tuple[bool, Optional[str]]:
         """

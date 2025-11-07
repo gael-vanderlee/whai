@@ -13,13 +13,13 @@ DEFAULT_QUERY = "I am confused about what you can see in the most recent command
 # Default provider for quick setup
 DEFAULT_PROVIDER = "openai"
 
-# Default models per provider
+# Default models per provider (stored without provider prefixes)
 DEFAULT_MODEL_OPENAI = "gpt-5-mini"
 DEFAULT_MODEL_ANTHROPIC = "claude-3-5-sonnet-20241022"
-DEFAULT_MODEL_GEMINI = "gemini/gemini-2.5-flash"
+DEFAULT_MODEL_GEMINI = "gemini-2.5-flash"
 DEFAULT_MODEL_AZURE_OPENAI = "gpt-4"
 DEFAULT_MODEL_OLLAMA = "mistral"
-DEFAULT_MODEL_LM_STUDIO = "lm_studio/llama-3-8b-instruct"
+DEFAULT_MODEL_LM_STUDIO = "llama-3-8b-instruct"
 
 # API defaults
 DEFAULT_AZURE_API_VERSION = "2023-05-15"
