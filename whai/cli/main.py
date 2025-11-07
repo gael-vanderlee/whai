@@ -32,12 +32,73 @@ from whai.core.executor import run_conversation_loop
 from whai.llm import LLMProvider, get_base_system_prompt
 from whai.llm.token_utils import truncate_text_with_tokens
 from whai.logging_setup import configure_logging, get_logger
+from whai.shell import launch_shell_session
 from whai.utils import detect_shell
 
 app = typer.Typer(help="whai - Your terminal assistant powered by LLMs")
 app.add_typer(role_app, name="role")
 
 logger = get_logger(__name__)
+
+
+@app.command(name="shell")
+def shell_command(
+    shell: Optional[str] = typer.Option(
+        None,
+        "--shell",
+        "-s",
+        help="Shell to launch (e.g., bash, zsh, pwsh). Defaults to current shell.",
+    ),
+    log_path: Optional[str] = typer.Option(
+        None,
+        "--log",
+        "-l",
+        help="Path to session log file. Defaults to timestamped file in cache.",
+    ),
+):
+    """
+    Launch an interactive shell with session recording.
+    
+    The shell behaves identically to your normal shell, but whai can access
+    full command history and outputs (deep context) even without tmux.
+    
+    This also preloads the LLM library, making future whai calls faster.
+    
+    Examples:
+        whai shell
+        whai shell --shell zsh
+        whai shell --log ~/my-session.log
+    """
+    # Prevent launching a nested whai shell session
+    if os.environ.get("WHAI_SESSION_ACTIVE") == "1":
+        ui.error("whai shell is already active in this terminal. Type 'exit' to leave the current session.")
+        raise typer.Exit(2)
+
+    # Show helpful tip about exiting
+    ui.console.print(
+        "\n[dim]Shell session starting with deep context recording enabled.[/dim]"
+    )
+    ui.console.print(
+        "[dim]Tip: Type 'exit' to exit the shell and return to your previous terminal.[/dim]\n"
+    )
+    
+    # Convert log_path string to Path if provided
+    log_path_obj = Path(log_path) if log_path else None
+    
+    try:
+        exit_code = launch_shell_session(
+            shell=shell, log_path=log_path_obj, delete_on_exit=True
+        )
+        if exit_code and exit_code != 0:
+            raise typer.Exit(exit_code)
+        # On success (0), return normally so Typer exits with 0
+        return
+    except typer.Exit:
+        # Re-raise typer.Exit to preserve exit codes
+        raise
+    except Exception as e:
+        ui.error(f"Failed to launch shell session: {e}")
+        raise typer.Exit(1)
 
 
 @app.callback(invoke_without_command=True)
@@ -144,6 +205,30 @@ def main(
             "role", list(remaining_args), parent=ctx
         ) as subctx:
             role_click_group.invoke(subctx)
+        return
+
+    # Route "shell" explicitly to the subcommand to avoid being parsed as free-form text
+    if query and len(query) > 0 and query[0] == "shell":
+        remaining_args = query[1:] if len(query) > 1 else []
+        # Minimal parsing for supported options (--shell/-s, --log/-l)
+        opt_shell: Optional[str] = None
+        opt_log: Optional[str] = None
+        i = 0
+        while i < len(remaining_args):
+            tok = remaining_args[i]
+            if tok in ("--shell", "-s") and i + 1 < len(remaining_args):
+                opt_shell = remaining_args[i + 1]
+                i += 2
+                continue
+            if tok in ("--log", "-l") and i + 1 < len(remaining_args):
+                opt_log = remaining_args[i + 1]
+                i += 2
+                continue
+            # Skip unrecognized tokens
+            i += 1
+
+        # Call the subcommand directly and exit early
+        shell_command(shell=opt_shell, log_path=opt_log)
         return
 
     # Handle interactive config flag
@@ -293,7 +378,6 @@ def main(
                 # Join arguments, preserving quotes as they might appear in history
                 args_str = " ".join(sys.argv[1:])
                 command_to_exclude = f"{command_name} {args_str}"
-                logger.info("Will exclude command from context: %s", command_to_exclude)
             else:
                 logger.debug("No command arguments to exclude from context")
 
@@ -410,8 +494,23 @@ def main(
             extra={"category": "perf"},
         )
 
-        # 7. Main conversation loop
-        run_conversation_loop(llm_provider, messages, timeout)
+        # 7. Reconstruct command string for logging
+        # Use sys.argv to get the exact command as typed, including all flags
+        command_string = None
+        if len(sys.argv) > 1:
+            # Normalize command name to "whai" for consistency
+            argv0 = sys.argv[0]
+            if "whai" in argv0.lower():
+                command_name = "whai"
+            else:
+                command_name = Path(argv0).name
+            
+            # Join all arguments, preserving quotes and special characters
+            args_str = " ".join(sys.argv[1:])
+            command_string = f"{command_name} {args_str}"
+
+        # 8. Main conversation loop
+        run_conversation_loop(llm_provider, messages, timeout, command_string=command_string)
 
     except typer.Exit:
         raise

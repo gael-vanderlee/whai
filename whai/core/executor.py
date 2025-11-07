@@ -2,10 +2,11 @@
 
 import json
 import time
-from typing import List
+from typing import List, Optional
 
 from whai import ui
 from whai.constants import TOOL_OUTPUT_MAX_TOKENS
+from whai.core.session_logger import SessionLogger
 from whai.interaction import approval_loop, execute_command
 from whai.llm import LLMProvider
 from whai.llm.token_utils import truncate_text_with_tokens
@@ -15,7 +16,7 @@ logger = get_logger(__name__)
 
 
 def run_conversation_loop(
-    llm_provider: LLMProvider, messages: List[dict], timeout: int
+    llm_provider: LLMProvider, messages: List[dict], timeout: int, command_string: Optional[str] = None
 ) -> None:
     """
     Run the main conversation loop with the LLM.
@@ -24,7 +25,15 @@ def run_conversation_loop(
         llm_provider: Configured LLM provider instance.
         messages: Initial conversation messages.
         timeout: Command timeout in seconds.
+        command_string: Optional full command string for logging (e.g., "whai -v DEBUG 'query'").
     """
+    # Initialize session logger for context capture in whai shell
+    session_logger = SessionLogger(console=ui.console)
+    
+    # Log the whai command itself if provided
+    if command_string and session_logger.enabled:
+        session_logger.log_command(command_string)
+    
     while True:
         try:
             # Send to LLM with streaming; show spinner until first chunk arrives
@@ -48,13 +57,13 @@ def run_conversation_loop(
             if first_chunk is not None:
                 response_chunks.append(first_chunk)
                 if first_chunk["type"] == "text":
-                    ui.console.print(first_chunk["content"], end="", soft_wrap=True)
+                    session_logger.print(first_chunk["content"], end="", soft_wrap=True)
             for chunk in response_stream:
                 response_chunks.append(chunk)
                 if chunk["type"] == "text":
-                    ui.console.print(chunk["content"], end="", soft_wrap=True)
+                    session_logger.print(chunk["content"], end="", soft_wrap=True)
             if any(c["type"] == "text" for c in response_chunks):
-                ui.console.print()
+                session_logger.print()
 
             # Extract tool calls from chunks
             tool_calls = [c for c in response_chunks if c["type"] == "tool_call"]
@@ -97,9 +106,16 @@ def run_conversation_loop(
                             approved_command,
                             extra={"category": "cmd"},
                         )
+                        
+                        # Log command to session for context
+                        session_logger.log_command(approved_command)
+                        
                         stdout, stderr, returncode = execute_command(
                             approved_command, timeout=timeout
                         )
+                        
+                        # Log command output to session for context
+                        session_logger.log_command_output(stdout, stderr, returncode)
 
                         # Format the result for LLM (plain text)
                         result = f"Command: {approved_command}\n"
