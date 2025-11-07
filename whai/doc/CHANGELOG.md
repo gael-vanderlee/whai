@@ -4,6 +4,9 @@ Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the hi
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-07] [feature] [cli]: add --provider flag to override default provider; supports inline flag parsing when placed after query; LLMProvider accepts provider parameter to use specified provider instead of default
+[2025-11-07] [fix] [llm]: improve error messages for invalid models; catch "LLM Provider NOT provided" errors and show clear messages; improve executor error handling to recognize LLM-related errors without traceback
+[2025-11-07] [fix] [llm]: fix model fallback when model=None to use provider's default model instead of None
 [2025-11-07] [change] [config]: store model names without provider prefixes in config; prefixes are automatically stripped when saving and added back at runtime; users can enter model names with or without prefixes (e.g., gemini/gemini-2.5-flash or gemini-2.5-flash); applies to gemini, lm_studio, and ollama providers; move prefix stripping logic from base class to subclasses for better separation of concerns
 [2025-11-07] [change] [cli]: change verbosity flag from -v DEBUG to count-based -vv; use -v for INFO level and -vv for DEBUG level; remove support for -v DEBUG pattern
 [2025-11-07] [change] [logging]: replace manual performance logs with structured PerformanceLogger system; track elapsed time and total time since program start for all pipeline stages; format large numbers with commas for readability; add config category for initialization logs; LLMProvider now requires PerformanceLogger for consistent timing
