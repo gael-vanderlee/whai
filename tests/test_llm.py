@@ -19,6 +19,7 @@ def test_get_base_system_prompt_deep_context():
     # Should include system information
     assert "System:" in prompt
     assert "OS:" in prompt
+    assert "DateTime:" in prompt
 
 
 def test_get_base_system_prompt_shallow_context():
@@ -29,6 +30,7 @@ def test_get_base_system_prompt_shallow_context():
     # Should include system information
     assert "System:" in prompt
     assert "OS:" in prompt
+    assert "DateTime:" in prompt
 
 
 def test_get_base_system_prompt_with_timeout():

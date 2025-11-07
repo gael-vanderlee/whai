@@ -2,6 +2,7 @@
 
 import os
 import platform
+from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
 
@@ -63,6 +64,20 @@ def get_base_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
         system_info.append(f"CWD: {cwd}")
     except Exception:
         pass
+
+    # Current date and time
+    current_datetime = datetime.now()
+    datetime_str = current_datetime.strftime('%Y-%m-%d %H:%M:%S')
+    # Add timezone if available
+    tz_str = current_datetime.strftime('%Z')
+    if tz_str:
+        datetime_str += f" {tz_str}"
+    else:
+        # Fallback: use timezone offset
+        tz_offset = current_datetime.strftime('%z')
+        if tz_offset:
+            datetime_str += f" {tz_offset}"
+    system_info.append(f"DateTime: {datetime_str}")
 
     # Timeout information
     if timeout is not None:
