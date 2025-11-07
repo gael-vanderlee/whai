@@ -12,7 +12,6 @@ from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
-
 def validate_model(model_name: str) -> None:
     """
     Log the model name for debugging purposes.
@@ -230,7 +229,14 @@ class LLMProvider:
                                 else "LLM user message"
                             )
                             content = m.get("content", "")
-                            logger.debug("%s:\n%s", heading, content)
+                            logger.debug(
+                                "%s:\n%s",
+                                heading,
+                                content,
+                                extra={
+                                    "category": "llm_system" if role == "system" else "llm_user"
+                                },
+                            )
                 except Exception:
                     # Never fail on diagnostic logging
                     pass
@@ -249,7 +255,7 @@ class LLMProvider:
             t_import_start = _t.perf_counter()
 
             # Apply SSL cache optimization before importing litellm
-            # This significantly improves import performance (from ~4s to ~1.3s on Windows)
+            # This significantly improves import performance
             from whai.llm.ssl_cache import apply as apply_ssl_cache
 
             apply_ssl_cache()

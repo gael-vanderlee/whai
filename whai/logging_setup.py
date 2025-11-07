@@ -99,6 +99,8 @@ class _ColorFormatter(logging.Formatter):
         "perf": "\x1b[38;5;39m",  # blue
         "api": "\x1b[38;5;208m",  # orange
         "cmd": "\x1b[38;5;129m",  # magenta
+        "llm_system": "\x1b[38;5;238m",  # darker gray for system prompt
+        "llm_user": "\x1b[38;5;117m",  # light blue for user message
         "default": "\x1b[38;5;245m",  # gray for other debug
         "level.DEBUG": "\x1b[38;5;245m",  # gray for debug
         "level.INFO": "\x1b[38;5;34m",
