@@ -3,7 +3,7 @@
 This test:
 1) Launches `whai shell` (interactive session recorder)
 2) Sends several commands including a mistyped git command
-3) Runs `whai hello -v DEBUG` inside that session
+3) Runs `whai hello -vv` inside that session
 4) Captures the debug log to extract the 'LLM user message' content
 
 It validates observable behavior across the real CLI boundary.
@@ -196,7 +196,7 @@ def test_cli_llm_user_message_contains_git_typo_error(tmp_path: Path):
 
     # Now run whai with DEBUG to log prompts; no real API call needed to get logs
     # Before API call, the provider logs the LLM user message
-    send("whai hello -v DEBUG")
+    send("whai hello -vv")
 
     # Collect output for a bit and search for the user message block
     output = _read_until("LLM user message:", timeout_s=20.0)

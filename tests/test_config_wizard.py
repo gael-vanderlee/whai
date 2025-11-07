@@ -91,6 +91,7 @@ def test_wizard_quick_setup_creates_config(config_dir):
             return_value=validation_result,
         ),
         patch("whai.configuration.user_config._suppress_stdout_stderr"),
+        patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
     ):
         run_wizard(existing_config=False)
 
