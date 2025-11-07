@@ -28,8 +28,8 @@ Features:
 - [x] Prettier code blocs in readme
 - [x] Whai only documentation
 - [x] Performance optimization
-- [ ] Come back to config after setup
-- [ ] Warning for --model fail
+- [x] Come back to config after setup
+- [x] Warning for --model fail
 - [ ] Tmux empty window no warning
 - [x] -vv flag
 - [x] lm_studio and gemini prefixes
