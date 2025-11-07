@@ -253,7 +253,15 @@ def run_conversation_loop(
             import traceback
 
             text = str(e)
-            if "LLM API error" in text:
+            # Check for LLM-related errors (API errors, model errors, auth errors, etc.)
+            if (
+                "LLM API error" in text
+                or "Model" in text and "provider" in text
+                or "Authentication failed" in text
+                or "Permission denied" in text
+                or "Rate limit" in text
+                or "Network or service error" in text
+            ):
                 # Show concise, helpful message for provider/model/auth errors
                 ui.error(text)
                 ui.info(
