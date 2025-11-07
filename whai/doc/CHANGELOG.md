@@ -4,6 +4,7 @@ Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the hi
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-07] [change] [config]: config wizard loops back to menu after each action; re-displays configuration summary each iteration; exit option saves config before exiting
 [2025-11-07] [feature] [cli]: add --provider flag to override default provider; supports inline flag parsing when placed after query; LLMProvider accepts provider parameter to use specified provider instead of default
 [2025-11-07] [fix] [llm]: improve error messages for invalid models; catch "LLM Provider NOT provided" errors and show clear messages; improve executor error handling to recognize LLM-related errors without traceback
 [2025-11-07] [fix] [llm]: fix model fallback when model=None to use provider's default model instead of None
