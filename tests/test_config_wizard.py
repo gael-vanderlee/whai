@@ -4,6 +4,7 @@ These tests validate observable behavior: config file creation/modification,
 CLI output, exit codes, and file system state changes.
 """
 
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -15,6 +16,12 @@ from whai.cli.main import app
 from whai.configuration import user_config
 from whai.configuration.config_wizard import run_wizard
 from whai.configuration.user_config import load_config
+
+# Use tomllib for Python 3.11+, tomli for older versions
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 runner = CliRunner()
 
@@ -408,8 +415,6 @@ def test_wizard_reset_creates_backup_and_resets_config(config_dir):
     assert len(backup_files) == 1
 
     # Verify backup contains original config
-    import tomllib
-
     with open(backup_files[0], "rb") as f:
         backup_data = tomllib.load(f)
     assert backup_data["llm"]["default_provider"] == "openai"

@@ -257,9 +257,10 @@ def test_open_folder(tmp_path, monkeypatch):
     ensure_default_roles()
 
     # Mock the system calls
+    # os.startfile only exists on Windows, so use create=True to allow patching on other platforms
     with (
         patch("subprocess.Popen") as mock_popen,
-        patch("os.startfile") as mock_startfile,
+        patch("os.startfile", create=True) as mock_startfile,
     ):
         result = runner.invoke(role_app, ["open-folder"])
 
