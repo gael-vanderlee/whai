@@ -122,11 +122,12 @@ def main(
         "--timeout",
         help="Per-command timeout in seconds (applies to each approved command)",
     ),
-    log_level: Optional[str] = typer.Option(
-        None,
-        "--log-level",
+    verbose: int = typer.Option(
+        0,
+        "--verbose",
         "-v",
-        help="Set log level: CRITICAL|ERROR|WARNING|INFO|DEBUG",
+        count=True,
+        help="Increase verbosity: -v for INFO, -vv for DEBUG",
     ),
     interactive_config: bool = typer.Option(
         False,
@@ -276,15 +277,17 @@ def main(
         ui.error("--timeout must be a positive integer (seconds)")
         raise typer.Exit(2)
 
-    # Determine effective log level: explicit option takes precedence over inline
-    effective_log_level = log_level or overrides.get("log_level")
-    if effective_log_level is not None:
-        effective_log_level = effective_log_level.strip().upper()
-        if effective_log_level not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
-            ui.error(
-                "--log-level must be one of: CRITICAL, ERROR, WARNING, INFO, DEBUG"
-            )
-            raise typer.Exit(2)
+    # Determine effective log level from verbose count or inline overrides
+    # Map count to log level: 0 = default (CRITICAL), 1 = INFO, 2+ = DEBUG
+    inline_verbose_count = overrides.get("verbose_count", 0)
+    total_verbose_count = verbose + inline_verbose_count
+    
+    if total_verbose_count == 0:
+        effective_log_level = None  # Use default
+    elif total_verbose_count == 1:
+        effective_log_level = "INFO"
+    else:  # 2 or more
+        effective_log_level = "DEBUG"
 
     # Configure logging
     configure_logging(effective_log_level)

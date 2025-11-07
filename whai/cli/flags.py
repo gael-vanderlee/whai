@@ -28,7 +28,7 @@ def extract_inline_overrides(
     o_model = model
     o_temperature = temperature
     o_timeout = timeout
-    o_log_level: Optional[str] = None
+    o_verbose_count: int = 0
 
     while i < len(tokens):
         token = tokens[i]
@@ -84,20 +84,13 @@ def extract_inline_overrides(
             i += 2
             continue
 
-        # -v [LEVEL]
-        if token == "-v":
-            # If followed by a level token, consume it; otherwise default to INFO
-            level_token = None
-            if i + 1 < len(tokens):
-                candidate = tokens[i + 1].upper()
-                if candidate in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
-                    level_token = candidate
-                    i += 2
-                else:
-                    i += 1
-            else:
-                i += 1
-            o_log_level = level_token or "INFO"
+        # -v or -vv (count-based verbosity)
+        # Match exactly -v, -vv, -vvv, etc. (only 'v' characters after the dash)
+        if token.startswith("-") and len(token) > 1 and all(c == "v" for c in token[1:]):
+            # Count consecutive 'v' characters: -v = 1, -vv = 2, -vvv = 3, etc.
+            v_count = len(token) - 1  # Subtract 1 for the leading '-'
+            o_verbose_count += v_count
+            i += 1
             continue
 
         # Regular token
@@ -112,5 +105,5 @@ def extract_inline_overrides(
         "timeout": o_timeout
         if o_timeout is not None
         else None,  # Preserve 0 for validation
-        "log_level": o_log_level,
+        "verbose_count": o_verbose_count,
     }
