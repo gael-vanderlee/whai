@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+from rich.text import Text
 
 from whai import ui
 from whai.cli.flags import extract_inline_overrides
@@ -437,7 +438,7 @@ def main(
             raise typer.Exit(1)
 
         # Display loaded configuration
-        ui.info(f"Model: {llm_model} | Provider: {llm_provider.default_provider} | Role: {role}")
+        ui.console.print(Text(f"Model: {llm_model} | Provider: {llm_provider.default_provider} | Role: {role}", style="blue"))
 
         # 5. Truncate context if needed (before building messages)
         if context_str:
