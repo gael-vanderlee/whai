@@ -392,7 +392,7 @@ When you run `whai` from within a recorded shell session, it automatically uses 
 
 ## FAQ
 
-### How is this different from X ?
+### How is this different from [insert app here[ ?
 
 `whai` is integrated into your terminal with full context awareness. It sees your command history and can execute commands.
 Most terminal assistants either require you to explicitely start a REPL loop which takes you out of your usual workflow, don't allow for roles, or don't allow to mix natural language conversation and shell execution. 
@@ -402,7 +402,7 @@ I wanted something that's flexible, understands you, and is always ready to help
 
 Only when you run `whai`.
 It captures recent history (50 last commands), tmux scrollback (commands + output), or recorded shell session content (commands + output while the session is active) and includes it in the request.
-If you use a remote API model, it will see your recent terminal history. Command output is available when running inside tmux or a `whai shell` session.
+If you use a remote API model, it will see your recent terminal history.
 You can disable this with the `--no-context` flag.
 
 ### Can I use it with local models?
