@@ -392,7 +392,7 @@ When you run `whai` from within a recorded shell session, it automatically uses 
 
 ## FAQ
 
-### How is this different from [insert app here[ ?
+### How is this different from [insert app here] ?
 
 `whai` is integrated into your terminal with full context awareness. It sees your command history and can execute commands.
 Most terminal assistants either require you to explicitely start a REPL loop which takes you out of your usual workflow, don't allow for roles, or don't allow to mix natural language conversation and shell execution. 
