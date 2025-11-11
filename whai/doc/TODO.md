@@ -35,6 +35,8 @@ Features:
 - [x] lm_studio and gemini prefixes
 - [x] Whai shell
 - [x] Better performance logging
+- [x] More context
+- [x] Review tests
 
 Issues:
 - [x] Timeout issue

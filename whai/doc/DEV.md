@@ -61,6 +61,7 @@ uv run pytest
 # Optional
 uv run pytest -v
 uv run pytest --cov=whai --cov-report=term-missing
+uv run pytest -m performance
 ```
 
 ### Testing across multiple Python versions (recommended)
@@ -72,7 +73,7 @@ First time setup:
 uv python install 3.10 3.11 3.12 3.13
 
 # Install nox
-uv tool install nox[uv]
+uv tool install "nox[uv]"
 ```
 
 Run the tests
@@ -108,21 +109,39 @@ uv version --bump patch
 ### 2) Build artifacts
 
 ```powershell
-# Clean previous builds to avoid PyPI errors about duplicate files
+# Windows PowerShell
 Remove-Item -Recurse .\dist
+uv build
+```
+
+```bash
+# macOS/Linux
+rm -rf dist
 uv build
 ```
 
 ### 3) Publish to TestPyPI
 
 ```powershell
-$env:UV_PUBLISH_TOKEN = "pypi-XXXXXXXXXXXXXXXX"  # TestPyPI token
+# Windows PowerShell
+# Load .env file and set UV_PUBLISH_TOKEN from TEST_PYPI_KEY
+Get-Content .env | ForEach-Object { if ($_ -match '^TEST_PYPI_KEY=(.*)$') { $env:UV_PUBLISH_TOKEN = $matches[1].Trim('"') } }
+uv publish --publish-url https://test.pypi.org/legacy/
+```
+
+```bash
+# macOS/Linux
+# Load .env file and set UV_PUBLISH_TOKEN from TEST_PYPI_KEY
+export TEST_PYPI_KEY=$(grep '^TEST_PYPI_KEY=' .env | cut -d '=' -f2- | sed 's/^"//;s/"$//')
+export UV_PUBLISH_TOKEN=$TEST_PYPI_KEY
 uv publish --publish-url https://test.pypi.org/legacy/
 ```
 
 ### 4) Verify the TestPyPI upload in a clean venv
 
 ```powershell
+# Windows PowerShell
+
 # Create a temp venv for verification
 uv venv .venv_testpypi
 
@@ -135,7 +154,7 @@ echo $ver
 # Note: It could take 2-5 minutes for TestPyPI to index after upload
 uv run --no-project -- pip index versions whai --index-url https://test.pypi.org/simple/
 
-# Actiavte the venv and install
+# Activate the venv and install
 .\.venv_testpypi\Scripts\activate  
 uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "whai==$ver" --index-strategy unsafe-best-match
 
@@ -148,11 +167,40 @@ python -m whai --help
 .\.venv_testpypi\Scripts\whai --version
 ```
 
+```bash
+# macOS/Linux
+
+# Create a temp venv for verification
+uv venv .venv_testpypi
+
+# Read current version from pyproject.toml
+ver=$(uv run --no-project -- python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+echo "$ver"
+
+# Check if version is available on TestPyPI (before attempting install)
+# Note: It could take 2-5 minutes for TestPyPI to index after upload
+uv run --no-project -- pip index versions whai --index-url https://test.pypi.org/simple/
+
+# Activate the venv and install
+source .venv_testpypi/bin/activate  
+uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "whai==$ver" --index-strategy unsafe-best-match
+
+# Smoke tests (module and console script)
+python -c "import whai; print('import ok')"
+python -m whai --help
+
+# Test the installed console script directly (crucial for CLI verification)
+.venv_testpypi/bin/whai --help
+.venv_testpypi/bin/whai --version
+```
+
 ### 5) Publish to PyPI
 
 ```powershell
-# Publish to PyPI (regular repository)
-$env:UV_PUBLISH_TOKEN = "pypi-YYYYYYYYYYYYYYYY"  # PyPI token
+# Windows PowerShell
+
+# Load .env file and set UV_PUBLISH_TOKEN from PYPI_KEY
+Get-Content .env | ForEach-Object { if ($_ -match '^PYPI_KEY=(.*)$') { $env:UV_PUBLISH_TOKEN = $matches[1].Trim('"') } }
 uv publish
 
 # Clean up
@@ -160,6 +208,19 @@ Remove-Item -Recurse .\dist
 Remove-Item -Recurse .\.venv_testpypi
 Remove-Item -Recurse .\.nox
 ```
+
+```bash
+# macOS/Linux
+
+# Load .env file and set UV_PUBLISH_TOKEN from PYPI_KEY
+export PYPI_KEY=$(grep '^PYPI_KEY=' .env | cut -d '=' -f2- | sed 's/^"//;s/"$//')
+export UV_PUBLISH_TOKEN=$PYPI_KEY
+uv publish
+
+# Clean up
+rm -rf dist .venv_testpypi .nox
+```
+
 
 Notes:
 - The `--index-strategy unsafe-best-match` flag is required when the package name exists on both TestPyPI and PyPI but the requested version is only on TestPyPI.
