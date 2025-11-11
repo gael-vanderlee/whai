@@ -45,3 +45,6 @@ playground/
 
 # Nox
 .nox/
+
+# Secrets
+.env
