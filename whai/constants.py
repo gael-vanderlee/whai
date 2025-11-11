@@ -91,11 +91,11 @@ WSL_CHECK_TIMEOUT = 2  # Timeout for WSL availability check
 # Context Capture Limits
 # ============================================================================
 
-TMUX_SCROLLBACK_LINES = 200  # Number of lines to capture from tmux scrollback
+TMUX_SCROLLBACK_LINES = 500  # Number of lines to capture from tmux scrollback
 HISTORY_MAX_COMMANDS = 50  # Maximum number of commands from shell history
 
 # Token limits for truncation (to prevent exceeding model context limits)
-CONTEXT_MAX_TOKENS = 150_000  # Maximum tokens for terminal context
+CONTEXT_MAX_TOKENS = 200_000  # Maximum tokens for terminal context
 TOOL_OUTPUT_MAX_TOKENS = 50_000  # Maximum tokens for individual command outputs
 
 # Terminal output limits (for display truncation)
