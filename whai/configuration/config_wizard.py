@@ -418,6 +418,12 @@ def run_wizard(existing_config: bool = False) -> None:
 
     # Main loop - keep showing menu until user exits
     while True:
+        # Display configuration summary on each loop iteration
+        cfg_path = get_config_path()
+        info(f"Config path: {cfg_path}")
+        print_configuration_summary(config)
+        typer.echo("")  # Add blank line before menu
+
         # Show warning if default_provider is invalid
         if (
             config.llm.default_provider is not None
@@ -427,11 +433,6 @@ def run_wizard(existing_config: bool = False) -> None:
                 f"Default provider '{config.llm.default_provider}' is not configured. "
                 f"Available providers: {list(config.llm.providers.keys()) if config.llm.providers else 'none'}"
             )
-
-            # Display config path and summary
-            cfg_path = get_config_path()
-            info(f"Config path: {cfg_path}")
-            print_configuration_summary(config)
 
         # Show menu
         configured_now = list(config.llm.providers.keys())
