@@ -1,6 +1,7 @@
 """Integration tests for SessionLogger with context capture."""
 
 import os
+import platform
 import tempfile
 from pathlib import Path
 
@@ -60,6 +61,7 @@ def session_directory(monkeypatch):
             os.environ["WHAI_SESSION_ACTIVE"] = old_active
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_context_capture_reads_whai_log(session_directory):
     """Context capture reads whai's self-logged output."""
     sess_dir, _ = session_directory
@@ -75,6 +77,7 @@ def test_context_capture_reads_whai_log(session_directory):
     assert "LLM response" in context
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_context_capture_merges_transcript_and_whai_log(session_directory):
     """Context capture merges both transcript and whai log."""
     sess_dir, transcript_log = session_directory
@@ -122,6 +125,7 @@ def test_context_capture_handles_missing_whai_log(session_directory):
     assert "PowerShell content" in context
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_context_capture_handles_missing_transcript(session_directory):
     """Context capture works even if transcript doesn't exist."""
     sess_dir, transcript_log = session_directory
@@ -142,6 +146,7 @@ def test_context_capture_handles_missing_transcript(session_directory):
     assert "LLM response" in context
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_context_capture_preserves_ordering(session_directory):
     """Context capture preserves chronological order of events."""
     sess_dir, transcript_log = session_directory

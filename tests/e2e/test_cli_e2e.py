@@ -22,7 +22,8 @@ def _base_env(tmp_path: Path, *, toolcall: bool = False) -> Dict:
     - Optionally enables tool-call streaming via WHAI_MOCK_TOOLCALL=1.
     """
     env = {k: v for k, v in os.environ.items()}
-    project_root = Path(__file__).resolve().parents[1]
+    # From tests/e2e/test_cli_e2e.py: parents[0]=e2e, parents[1]=tests, parents[2]=project_root
+    project_root = Path(__file__).resolve().parents[2]
     mocks_dir = project_root / "tests" / "mocks"
 
     # Ensure mocks dir comes first so `import litellm` resolves to our mock

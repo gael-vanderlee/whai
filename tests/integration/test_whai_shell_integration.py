@@ -20,6 +20,7 @@ from whai.context.capture import get_context
 from whai.core.executor import run_conversation_loop
 from whai.core.session_logger import SessionLogger
 from whai.llm import LLMProvider
+from whai.shell.session import _detect_script_variant
 
 
 @pytest.fixture
@@ -98,11 +99,23 @@ def _run_commands_in_recorded_shell(commands: list[str], cwd: Path, log_path: Pa
         return proc.returncode
     else:
         # Use script command (like whai shell does)
+        # Detect script variant to use appropriate syntax
         script_bin = "script"
-        # Run commands through script
+        variant = _detect_script_variant(script_bin)
         cmd_sequence = "; ".join(commands)
+        
+        if variant == "util-linux":
+            # util-linux: script -qf log -c "commands"
+            cmd = [script_bin, "-qf", str(log_path), "-c", cmd_sequence]
+        elif variant == "bsd":
+            # BSD: script -qF log sh -c "commands" (shell must be specified)
+            cmd = [script_bin, "-qF", str(log_path), "sh", "-c", cmd_sequence]
+        else:
+            # Unknown variant, try BSD syntax (more common on macOS)
+            cmd = [script_bin, "-qF", str(log_path), "sh", "-c", cmd_sequence]
+        
         proc = subprocess.run(
-            [script_bin, "-qf", str(log_path), "-c", cmd_sequence],
+            cmd,
             cwd=cwd,
             capture_output=True,
             text=True,

@@ -1,6 +1,7 @@
 """Unit tests for SessionLogger."""
 
 import os
+import platform
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -68,6 +69,7 @@ def test_session_logger_disabled_when_not_in_session():
     mock_console.print.assert_called_once()
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_session_logger_writes_to_separate_file(session_directory):
     """SessionLogger writes to a separate whai log file, not the transcript."""
     sess_dir, transcript_log = session_directory
@@ -92,6 +94,7 @@ def test_session_logger_writes_to_separate_file(session_directory):
     assert "LLM response" not in transcript_content
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_session_logger_logs_commands(session_directory):
     """SessionLogger logs executed commands to the whai log file."""
     sess_dir, _ = session_directory
@@ -107,6 +110,7 @@ def test_session_logger_logs_commands(session_directory):
     assert "$ git status\n" in content
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_session_logger_logs_command_output(session_directory):
     """SessionLogger logs command output to the whai log file."""
     sess_dir, _ = session_directory
@@ -154,6 +158,7 @@ def test_session_logger_prints_to_console(session_directory):
     )
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_session_logger_logs_multiple_interactions(session_directory):
     """SessionLogger captures multiple whai interactions in sequence."""
     sess_dir, _ = session_directory
@@ -179,6 +184,7 @@ def test_session_logger_logs_multiple_interactions(session_directory):
     assert "output2\n" in content
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_session_logger_handles_unicode(session_directory):
     """SessionLogger handles Unicode characters correctly."""
     sess_dir, _ = session_directory
@@ -197,6 +203,7 @@ def test_session_logger_handles_unicode(session_directory):
     assert "Café ☕" in content
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_session_logger_uses_most_recent_session_log(session_directory):
     """SessionLogger uses the most recent session log when multiple exist."""
     sess_dir, _ = session_directory

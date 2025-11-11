@@ -7,6 +7,7 @@ This test simulates the exact scenario reported in the issue:
 """
 
 import os
+import platform
 import tempfile
 from pathlib import Path
 
@@ -67,6 +68,7 @@ def simulated_whai_shell(monkeypatch):
             os.environ["WHAI_SESSION_ACTIVE"] = old_active
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_context_capture_fix_reproduces_original_issue(simulated_whai_shell):
     """Reproduce the original issue and verify it's fixed."""
     sess_dir, _ = simulated_whai_shell
@@ -112,6 +114,7 @@ Commands I can run for you (I will execute them if you want):
     assert "Get-ChildItem" in context_after_second_command
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_multiple_sequential_whai_calls(simulated_whai_shell):
     """Test multiple sequential whai calls maintain complete context."""
     sess_dir, _ = simulated_whai_shell
@@ -148,6 +151,7 @@ def test_multiple_sequential_whai_calls(simulated_whai_shell):
     assert "Response 3" in final_context
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_context_capture_with_commands_only_no_tool_calls(simulated_whai_shell):
     """Test that LLM responses without tool calls are still captured."""
     sess_dir, _ = simulated_whai_shell
@@ -166,6 +170,7 @@ def test_context_capture_with_commands_only_no_tool_calls(simulated_whai_shell):
     assert "doesn't execute any commands" in context
 
 
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
 def test_multiple_whai_calls_capture_story_output(simulated_whai_shell):
     """Test that first whai call output (like a story) is captured for second call."""
     sess_dir, transcript_log = simulated_whai_shell
