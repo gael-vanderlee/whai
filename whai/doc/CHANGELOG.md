@@ -4,6 +4,7 @@ Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the hi
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-12] [feature] [logging]: add info log when role is loaded from file
 [2025-11-11] [fix] [context]: fix command exclusion in whai shell sessions; strip ANSI escape sequences from extracted commands before matching to prevent exclusion failures when commands contain terminal control codes
 [2025-11-11] [test] [tests]: reorganize tests into unit/integration/e2e/performance/security subdirectories; add behavioral tests for CLI parsing, error recovery, multi-provider, cross-platform, performance, security; remove implementation-detail tests; mark Windows-only tests for SessionLogger
 [2025-11-11] [fix] [shell]: fix shell session script detection for BSD compatibility on macOS; detect script variant (util-linux vs BSD) and use appropriate flags (-qF for BSD, -qf for util-linux)
