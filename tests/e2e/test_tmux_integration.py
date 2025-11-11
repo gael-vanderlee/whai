@@ -16,7 +16,7 @@ import pytest
 @pytest.mark.skipif(not shutil.which("tmux"), reason="tmux required")
 @pytest.mark.integration
 def test_whai_in_real_tmux_captures_scrollback():
-    """whai running in real tmux session captures scrollback."""
+    """Test that whai running in a real tmux session captures scrollback context."""
     # This test launches a real tmux session to verify context capture
     
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -88,7 +88,7 @@ def test_whai_in_real_tmux_captures_scrollback():
 
 @pytest.mark.skipif(not shutil.which("tmux"), reason="tmux required")
 def test_tmux_context_prefers_deep_context():
-    """When in tmux, whai uses deep context (tmux scrollback)."""
+    """Test that tmux context is marked as deep context (includes command outputs)."""
     from whai.context.capture import get_context
     
     # Mock being in a tmux session

@@ -12,6 +12,7 @@ from whai.shell.session import launch_shell_session
 
 
 def test_bsd_variant_uses_qF_and_no_dashdash(monkeypatch, tmp_path: Path):
+    """Test that BSD script variant uses -qF flags without -- separator."""
     # Force script present
     monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/script" if name == "script" else None)
     # Force platform darwin
@@ -41,6 +42,7 @@ def test_bsd_variant_uses_qF_and_no_dashdash(monkeypatch, tmp_path: Path):
 
 
 def test_unknown_variant_falls_back_to_bsd_style(monkeypatch, tmp_path: Path):
+    """Test that unknown script variant falls back to BSD-style flags."""
     # Force script present
     monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/script" if name == "script" else None)
     # Force platform darwin

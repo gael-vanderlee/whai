@@ -30,7 +30,7 @@ def test_env(tmp_path, monkeypatch):
     ("gemini", "gemini-pro"),
 ])
 def test_provider_tool_call_format_consistent(provider_name, model_name):
-    """All providers handle tool calls consistently."""
+    """Test that all LLM providers handle tool calls in a consistent format."""
     # Create config for specified provider
     config = create_test_config(
         default_provider=provider_name,
@@ -69,7 +69,7 @@ def test_provider_tool_call_format_consistent(provider_name, model_name):
 
 @pytest.mark.parametrize("provider_name", ["openai", "anthropic", "gemini"])
 def test_provider_text_response_consistent(provider_name):
-    """All providers handle text-only responses consistently."""
+    """Test that all LLM providers handle text-only responses consistently."""
     # Create config for specified provider
     config = create_test_config(
         default_provider=provider_name,

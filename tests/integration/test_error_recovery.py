@@ -26,13 +26,13 @@ def test_config(tmp_path, monkeypatch):
 
 
 def test_command_timeout_shows_clear_message():
-    """When command times out, user sees helpful timeout message."""
+    """Test that command timeout raises RuntimeError with clear message."""
     with pytest.raises(RuntimeError, match="timed out"):
         execute_command("sleep 100", timeout=1)
 
 
 def test_malformed_tool_call_json_recovers_gracefully():
-    """When LLM returns invalid JSON for tool call, shows error."""
+    """Test that malformed tool call JSON is handled gracefully without crashing."""
     # Mock LLM to return malformed tool call JSON
     mock_tool_call = MagicMock()
     mock_tool_call.id = "call_123"
@@ -60,7 +60,7 @@ def test_malformed_tool_call_json_recovers_gracefully():
 
 
 def test_network_failure_shows_retry_message():
-    """When network fails, shows helpful retry message."""
+    """Test that network failures are handled gracefully with error messages."""
     # Mock litellm to raise connection error
     def raise_connection_error(**kwargs):
         raise ConnectionError("Failed to connect to API")
@@ -79,7 +79,7 @@ def test_network_failure_shows_retry_message():
 
 
 def test_config_file_corrupted_launches_wizard(tmp_path, monkeypatch):
-    """When config.toml is corrupted, prompts setup wizard."""
+    """Test that corrupted config file triggers config wizard."""
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
@@ -100,7 +100,7 @@ def test_config_file_corrupted_launches_wizard(tmp_path, monkeypatch):
 
 
 def test_very_large_command_output_truncated():
-    """When command outputs large data, handles it gracefully."""
+    """Test that very large command output is handled without crashing."""
     # Create a command that outputs ~500KB
     large_output = "A" * 500_000
     
@@ -123,7 +123,7 @@ def test_very_large_command_output_truncated():
 
 
 def test_llm_error_response_handled_gracefully():
-    """When LLM API returns error, shows clear message."""
+    """Test that LLM API errors (like rate limits) are handled gracefully."""
     # Mock API to return rate limit error
     def raise_rate_limit(**kwargs):
         from litellm.exceptions import RateLimitError

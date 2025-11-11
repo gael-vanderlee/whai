@@ -28,11 +28,7 @@ def large_text_content():
 
 @pytest.mark.performance
 def test_token_truncation_performance(large_text_content):
-    """Token truncation on large text completes in under 100ms.
-    
-    Token truncation uses tiktoken which is fast, but we want to ensure
-    it stays fast even with large context (100KB text).
-    """
+    """Test that token truncation on large text completes in under 100ms."""
     start_time = time.time()
     truncated, was_truncated = truncate_text_with_tokens(large_text_content, max_tokens=1000)
     elapsed = time.time() - start_time
@@ -44,10 +40,7 @@ def test_token_truncation_performance(large_text_content):
 
 @pytest.mark.performance
 def test_config_loading_performance(tmp_path, monkeypatch):
-    """Configuration loads in under 50ms.
-    
-    Config loading happens on every whai invocation, so it must be fast.
-    """
+    """Test that configuration loading completes in under 50ms."""
     # Create minimal config
     config_file = tmp_path / "config.toml"
     config_file.write_text("""
@@ -72,11 +65,7 @@ api_key = "test-key"
 
 @pytest.mark.performance
 def test_context_capture_history_fallback_performance(monkeypatch, tmp_path):
-    """Context capture with history fallback completes in under 300ms.
-    
-    When tmux is not available, whai falls back to parsing shell history.
-    This should still be fast enough for interactive use.
-    """
+    """Test that context capture with history fallback completes in under 300ms."""
     # Create a reasonably large history file
     history_file = tmp_path / ".bash_history"
     with open(history_file, "w") as f:
@@ -99,11 +88,7 @@ def test_context_capture_history_fallback_performance(monkeypatch, tmp_path):
 
 @pytest.mark.performance
 def test_large_tmux_pane_capture_performance(monkeypatch):
-    """Capturing large tmux panes completes in under 500ms.
-    
-    Tmux panes can have thousands of lines of scrollback.
-    Capture should still be reasonably fast.
-    """
+    """Test that capturing large tmux panes completes in under 500ms."""
     # Create mock tmux output with 5000 lines
     large_tmux_output = "\n".join([f"line {i}: some command output here" for i in range(5000)])
     
@@ -129,11 +114,7 @@ def test_large_tmux_pane_capture_performance(monkeypatch):
 
 @pytest.mark.performance
 def test_llm_message_preparation_performance():
-    """Message preparation for LLM completes in under 50ms.
-    
-    Building the message dict with system prompt, context, and user query
-    should be nearly instantaneous.
-    """
+    """Test that message preparation for LLM completes in under 50ms."""
     system_prompt = "You are a helpful assistant." * 100  # ~3KB
     context = "command output\n" * 1000  # ~15KB
     user_query = "explain this error"
@@ -153,10 +134,7 @@ def test_llm_message_preparation_performance():
 
 @pytest.mark.performance
 def test_role_file_loading_performance(tmp_path, monkeypatch):
-    """Role file loading completes in under 20ms.
-    
-    Role loading happens on every whai invocation and should be very fast.
-    """
+    """Test that role file loading completes in under 20ms."""
     # Create a role file
     roles_dir = tmp_path / "roles"
     roles_dir.mkdir()
@@ -183,11 +161,7 @@ You are a helpful terminal assistant.""")
 
 @pytest.mark.performance
 def test_command_exclusion_from_context_performance(tmp_path, monkeypatch):
-    """Excluding current command from context is fast (under 50ms).
-    
-    When whai captures context, it needs to exclude the current 'whai ...' command.
-    This regex matching should be fast even with large context.
-    """
+    """Test that excluding current command from context completes in under 300ms."""
     # Create large history with the command to exclude appearing once
     history_file = tmp_path / ".bash_history"
     with open(history_file, "w") as f:

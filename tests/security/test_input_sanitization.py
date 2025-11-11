@@ -23,7 +23,7 @@ def test_config(tmp_path, monkeypatch):
 
 
 def test_role_name_path_traversal_rejected(tmp_path, monkeypatch):
-    """Role names with path traversal are rejected."""
+    """Test that role names with path traversal attempts are rejected."""
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
@@ -37,7 +37,7 @@ def test_role_name_path_traversal_rejected(tmp_path, monkeypatch):
 
 
 def test_shell_parameter_with_suspicious_characters_handled():
-    """Shell parameter with suspicious characters is handled safely."""
+    """Test that shell parameters with suspicious characters are handled safely."""
     # Try to pass potentially malicious shell parameter
     # The shell parameter is passed to subprocess, which should handle it safely
     result = runner.invoke(app, ["shell", "--shell", "bash; echo malicious"])
@@ -52,7 +52,7 @@ def test_shell_parameter_with_suspicious_characters_handled():
 
 
 def test_api_keys_not_logged_in_verbose_mode(tmp_path, monkeypatch, caplog):
-    """API keys are masked in verbose output."""
+    """Test that API keys are masked in verbose output and logs."""
     from whai.configuration.user_config import (
         LLMConfig,
         OpenAIConfig,

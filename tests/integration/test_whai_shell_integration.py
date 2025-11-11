@@ -52,20 +52,17 @@ def whai_shell_session(monkeypatch, tmp_path):
     )
     
     # Set up session environment
-    old_active = os.environ.get("WHAI_SESSION_ACTIVE")
-    os.environ["WHAI_SESSION_ACTIVE"] = "1"
+    monkeypatch.setenv("WHAI_SESSION_ACTIVE", "1")
     
     yield sess_dir, tmp_path
-    
-    # Cleanup
-    if old_active is None:
-        os.environ.pop("WHAI_SESSION_ACTIVE", None)
-    else:
-        os.environ["WHAI_SESSION_ACTIVE"] = old_active
 
 
 def _run_commands_in_recorded_shell(commands: list[str], cwd: Path, log_path: Path, is_windows: bool):
-    """Run commands in a shell with recording enabled (like whai shell does)."""
+    """Run commands in a shell with recording enabled (like whai shell does).
+    
+    On Windows, uses PowerShell Start-Transcript. On Unix, uses script command
+    with appropriate flags based on variant detection.
+    """
     if is_windows:
         # Use PowerShell with Start-Transcript (like whai shell does)
         # Need to run all commands in a single session so transcript captures them
@@ -125,7 +122,7 @@ def _run_commands_in_recorded_shell(commands: list[str], cwd: Path, log_path: Pa
 
 
 def test_whai_shell_full_session_integration(whai_shell_session, monkeypatch):
-    """Test complete whai shell session with commands and whai call."""
+    """Test complete whai shell session: commands, outputs, and whai response are captured in context."""
     sess_dir, test_dir = whai_shell_session
     is_windows = os.name == "nt"
     

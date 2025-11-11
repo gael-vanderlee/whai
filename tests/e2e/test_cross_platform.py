@@ -27,7 +27,7 @@ def is_wsl():
 @pytest.mark.skipif(not is_wsl(), reason="WSL-only")
 @pytest.mark.integration
 def test_whai_shell_in_wsl_full_workflow():
-    """Full whai shell workflow in WSL environment."""
+    """Test that whai shell works correctly in WSL environment."""
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         env["WHAI_TEST_MODE"] = "1"
@@ -55,7 +55,7 @@ def test_whai_shell_in_wsl_full_workflow():
 @pytest.mark.skipif(platform.system() != "Darwin", reason="macOS-only")
 @pytest.mark.integration
 def test_whai_shell_on_macos_uses_bsd_script():
-    """whai shell on macOS uses BSD script flags."""
+    """Test that whai shell on macOS uses BSD script flags (-qF)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         log_path = Path(tmpdir) / "test_session.log"
         
@@ -79,7 +79,7 @@ def test_whai_shell_on_macos_uses_bsd_script():
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-only")
 @pytest.mark.integration
 def test_whai_shell_on_windows_powershell_full_flow():
-    """Full whai shell workflow in Windows PowerShell."""
+    """Test that whai shell works correctly in Windows PowerShell."""
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         env["WHAI_TEST_MODE"] = "1"

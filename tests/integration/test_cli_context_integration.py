@@ -33,6 +33,7 @@ def _has_pwsh() -> bool:
     reason="Windows+PowerShell required and WHAI_RUN_SHELL_TEST=1 to run",
 )
 def test_cli_llm_user_message_contains_git_typo_error(tmp_path: Path):
+    """Test that LLM user message contains commands and their error outputs from shell session."""
     # Define commands and their expected substrings in the LLM user message
     commands_expectations: list[tuple[str, list[str]]] = [
         (
