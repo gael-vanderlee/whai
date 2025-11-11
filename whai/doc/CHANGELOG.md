@@ -4,6 +4,9 @@ Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the hi
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-11] [test] [tests]: reorganize tests into unit/integration/e2e/performance/security subdirectories; add behavioral tests for CLI parsing, error recovery, multi-provider, cross-platform, performance, security; remove implementation-detail tests; mark Windows-only tests for SessionLogger
+[2025-11-11] [fix] [shell]: fix shell session script detection for BSD compatibility on macOS; detect script variant (util-linux vs BSD) and use appropriate flags (-qF for BSD, -qf for util-linux)
+[2025-11-11] [fix] [cli]: improve inline flag parsing to support flags placed after query; extract --role, --model, --provider, --temperature, --timeout, --no-context, and -v/-vv from query tokens
 [2025-11-07] [fix] [context]: fix tmux empty capture detection; when tmux is active but capture is empty (new session), correctly identify tmux as active instead of showing "no tmux detected" message; return empty string with is_deep_context=True to indicate tmux presence
 [2025-11-07] [change] [config]: config wizard loops back to menu after each action; re-displays configuration summary each iteration; exit option saves config before exiting
 [2025-11-07] [feature] [cli]: add --provider flag to override default provider; supports inline flag parsing when placed after query; LLMProvider accepts provider parameter to use specified provider instead of default
