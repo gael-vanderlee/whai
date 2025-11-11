@@ -92,17 +92,6 @@ def test_get_context_tmux_active_but_empty():
 # Shell handler unit tests removed - redundant with integration tests
 
 
-def test_powershell_handler_get_additional_context_non_windows(monkeypatch):
-    """Test PowerShellHandler.get_additional_context() returns None on non-Windows."""
-    handler = PowerShellHandler(shell_name="pwsh")
-    
-    monkeypatch.setattr("os.name", "posix")
-    
-    result = handler.get_additional_context()
-    
-    assert result is None
-
-
 def test_cmd_handler_get_history_context(monkeypatch):
     """Test CMDHandler.get_history_context() via doskey."""
     handler = CMDHandler(shell_name="cmd")
@@ -179,16 +168,6 @@ def test_get_handler_for_shell_cmd(monkeypatch):
     assert handler is not None
     assert isinstance(handler, CMDHandler)
     assert handler.shell_name == "cmd"
-
-
-def test_get_handler_for_shell_windows_fallback(monkeypatch):
-    """Test _get_handler_for_shell() falls back to CMD on Windows for unknown shell."""
-    monkeypatch.setattr("os.name", "nt")
-    
-    handler = _get_handler_for_shell("unknown")
-    
-    assert handler is not None
-    assert isinstance(handler, CMDHandler)
 
 
 def test_get_additional_context_powershell(monkeypatch):

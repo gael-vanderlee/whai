@@ -55,16 +55,6 @@ def test_session_log_context_from_env(tmp_path, monkeypatch):
     assert "pwd" in context
 
 
-@pytest.mark.skip(reason="Session logs are ephemeral by default; cache lookup is not applicable")
-def test_session_log_context_from_cache_dir_unix(tmp_path, monkeypatch):
-    pass
-
-
-@pytest.mark.skip(reason="Session logs are ephemeral by default; cache lookup is not applicable")
-def test_session_log_context_from_cache_dir_windows(tmp_path, monkeypatch):
-    pass
-
-
 def test_session_log_context_no_log_available(monkeypatch):
     """Test session log context returns None when no log is available."""
     from pathlib import Path
