@@ -161,7 +161,17 @@ def _filter_excluded_command(content: str, exclude_command: Optional[str]) -> st
             continue
         
         normalized_line = _normalize_command_for_matching(extracted_cmd)
+        
         if normalized_line == normalized_exclude:
+            excluded_count = len(lines) - i
+            logger.info(
+                "Filtered context: excluded %d lines using exclude_command='%s' (normalized to '%s')",
+                excluded_count,
+                exclude_command,
+                normalized_exclude
+            )
+            return "\n".join(lines[:i]).strip()
+        elif normalized_line.strip() == normalized_exclude.strip():
             excluded_count = len(lines) - i
             logger.info(
                 "Filtered context: excluded %d lines using exclude_command='%s' (normalized to '%s')",
@@ -193,9 +203,18 @@ def _extract_command_from_line(line: str) -> Optional[str]:
 
 
 def _normalize_command_for_matching(cmd: str) -> str:
-    """Normalize a command string for matching by removing quotes and normalizing whitespace."""
+    """Normalize a command string for matching by removing quotes, ANSI codes, and normalizing whitespace."""
+    # Strip ANSI escape sequences first (before other processing)
+    cmd = re.sub(r"\x1b\[[0-9;?]*[a-zA-Z]", "", cmd)  # CSI sequences like \x1b[?1l, \x1b[0m
+    cmd = re.sub(r"\x1b\][0-9]+;[^\x07\x1b\\]*[\x07\x1b\\]", "", cmd)  # OSC sequences
+    cmd = re.sub(r"\x1b[=><OP]", "", cmd)  # Single escape sequences like \x1b>
+    cmd = re.sub(r"\[\d+m", "", cmd)  # Color codes like [0m, [31m that might remain
+    cmd = re.sub(r"[\x08\r\x07]", "", cmd)  # Control characters (backspace, carriage return, bell)
+    
+    # Normalize whitespace
     cmd = re.sub(r"\s+", " ", cmd).strip()
 
+    # Remove quotes
     cmd = re.sub(r' "([^"]+)"', r" \1", cmd)
     cmd = re.sub(r'"([^"]+)" ', r"\1 ", cmd)
     cmd = re.sub(r'^"([^"]+)"', r"\1", cmd)
@@ -206,6 +225,7 @@ def _normalize_command_for_matching(cmd: str) -> str:
     cmd = re.sub(r"^'([^']+)'", r"\1", cmd)
     cmd = re.sub(r"'([^']+)'$", r"\1", cmd)
 
+    # Final whitespace normalization
     return re.sub(r"\s+", " ", cmd).strip()
 
 
