@@ -177,9 +177,9 @@ def _detect_script_variant(script_bin: str) -> str:
             test_log.unlink(missing_ok=True)
             return "util-linux"
         
-        # Test BSD syntax (with -- separator)
+        # Test BSD syntax (no -- separator, capital -F for flush on BSD)
         result = subprocess.run(
-            [script_bin, "-qf", str(test_log), "--", "sh", "-c", "echo test"],
+            [script_bin, "-qF", str(test_log), "sh", "-c", "echo test"],
             capture_output=True,
             text=True,
             timeout=2,
@@ -227,13 +227,13 @@ def _launch_unix(shell: str, log_path: Path) -> int:
                 shell,
             )
         elif variant == "bsd":
-            # BSD script: use -- separator with shell arguments
-            cmd: List[str] = [script_bin, "-qf", str(log_path), "--", shell, "-l"]
+            # BSD script: do not use --, use capital -F (flush) if available
+            cmd: List[str] = [script_bin, "-qF", str(log_path), shell, "-l"]
             logger.info("Starting recorded shell via script (BSD): %s", shlex.join(cmd))
         else:
-            # Unknown variant, try BSD syntax first (more common on macOS)
+            # Unknown variant, try BSD-compatible syntax first (more common on macOS)
             logger.warning("Unknown script variant, trying BSD syntax")
-            cmd = [script_bin, "-qf", str(log_path), "--", shell, "-l"]
+            cmd = [script_bin, "-qF", str(log_path), shell, "-l"]
             logger.info("Starting recorded shell via script: %s", shlex.join(cmd))
         
         try:
