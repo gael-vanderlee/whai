@@ -293,7 +293,9 @@ def load_role(role_name: str = DEFAULT_ROLE_NAME) -> Role:
 
     # Load the role file
     role_file = get_config_dir() / "roles" / f"{role_name}.md"
-    return Role.from_file(role_file, role_name)
+    role = Role.from_file(role_file, role_name)
+    logger.info("Loaded role '%s' from %s", role_name, role_file)
+    return role
 
 
 def resolve_role(
