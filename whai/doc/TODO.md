@@ -37,6 +37,11 @@ Features:
 - [x] Better performance logging
 - [x] More context
 - [x] Review tests
+- [ ] Improve README with new features
+- [ ] Add version tags to commit + CI/CD for automatic PyPI on tag push
+- [ ] Retroactively tag previous versions
+- [ ] Add provider to role settings
+- [ ] Put role settings info in README
 
 Issues:
 - [x] Timeout issue
