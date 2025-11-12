@@ -4,6 +4,8 @@ Format: [YYYY-MM-DD] [category] [scope]: short and concise description of the hi
 Categories: feature, change, fix, docs, security, test, chore
 Order: reverse chronological (newest at the top). Add your changes at the top!
 
+[2025-11-12] [change] [roles]: move new role template to defaults folder; template now loaded from whai/defaults/roles/new.md with placeholder substitution for role name and default model
+[2025-11-12] [test] [config]: fix tests to match actual default role content instead of hardcoded strings
 [2025-11-12] [fix] [config]: fix config wizard to display summary on each loop iteration
 [2025-11-12] [feature] [logging]: add info log when role is loaded from file
 [2025-11-11] [fix] [context]: fix command exclusion in whai shell sessions; strip ANSI escape sequences from extracted commands before matching to prevent exclusion failures when commands contain terminal control codes
