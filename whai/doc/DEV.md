@@ -130,11 +130,17 @@ git commit -am "Bump version to vX.Y.Z"
 git tag vX.Y.Z
 ```
 
-4. Push with tags:
+4. Push the commit and tag:
 
 ```bash
-git push && git push --tags
+# Push the commit first
+git push
+
+# Then push the specific tag to trigger the workflow
+git push origin vX.Y.Z
 ```
+
+**Important**: Use `git push origin vX.Y.Z` to push the specific tag, NOT `git push --tags`. The `--tags` flag pushes all tags, and if a tag already exists on the remote, GitHub won't recognize it as a new tag push event and won't trigger the workflow.
 
 That's it! GitHub Actions will automatically:
 - Run tests across Python 3.10, 3.11, 3.12, 3.13
@@ -146,6 +152,18 @@ That's it! GitHub Actions will automatically:
 - Create a GitHub Release with CHANGELOG entries
 
 You can monitor the progress in the "Actions" tab of your GitHub repository.
+
+#### Troubleshooting: Workflow Didn't Trigger
+
+If you pushed a tag but the workflow didn't trigger:
+
+1. **Check if the tag was already on the remote**: `git ls-remote --tags origin | grep vX.Y.Z`
+2. **If the tag exists, delete it from remote and push again**:
+   ```bash
+   git push --delete origin vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+3. **Verify the tag appears as `[new tag]`** in the push output - this confirms GitHub recognizes it as a new event.
 
 #### Testing the Pipeline (Without Publishing)
 
