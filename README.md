@@ -426,7 +426,7 @@ You can disable this with the `--no-context` flag.
 
 ### Can I use it with local models?
 
-Yes! Configure any LiteLLM-compatible provider, including Ollama for local models. See the configuration section above.
+Yes! Configure any LiteLLM-compatible provider, including Ollama and LMStudio for local models. See the configuration section above.
 
 ## Acknowledgments
 
