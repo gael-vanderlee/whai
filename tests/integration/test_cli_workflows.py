@@ -406,3 +406,150 @@ def test_real_command_execution():
 
     assert "Hello from whai" in stdout or "Hello" in stdout
     assert code == 0
+
+
+def test_provider_precedence_cli_over_role(mock_llm_text_only, tmp_path, monkeypatch):
+    """Test that CLI provider override takes precedence over role provider."""
+    from pathlib import Path
+    from unittest.mock import patch
+
+    from whai.configuration import user_config as config
+    from whai.configuration.roles import ensure_default_roles
+
+    # Set up config directory
+    monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
+    monkeypatch.setenv("WHAI_TEST_MODE", "1")
+
+    # Create config with multiple providers
+    from whai.configuration.user_config import (
+        AnthropicConfig,
+        LLMConfig,
+        OpenAIConfig,
+        RolesConfig,
+        WhaiConfig,
+    )
+
+    test_config = WhaiConfig(
+        llm=LLMConfig(
+            default_provider="openai",
+            providers={
+                "openai": OpenAIConfig(
+                    api_key="sk-test-openai",
+                    default_model="gpt-4",
+                ),
+                "anthropic": AnthropicConfig(
+                    api_key="sk-test-anthropic",
+                    default_model="claude-3-opus",
+                ),
+            },
+        ),
+        roles=RolesConfig(default_role="default"),
+    )
+    config.save_config(test_config)
+
+    # Create a role with provider="anthropic" in frontmatter
+    ensure_default_roles()
+    roles_dir = tmp_path / "roles"
+    custom_role = roles_dir / "custom.md"
+    custom_role.write_text("""---
+provider: anthropic
+model: claude-3-opus
+---
+
+You are a custom assistant.
+""")
+
+    # Mock LLM to capture which provider was used
+    provider_used = []
+
+    def mock_completion_with_provider_check(**kwargs):
+        # Check the model to infer provider (simplified check)
+        model = kwargs.get("model", "")
+        if "claude" in model.lower():
+            provider_used.append("anthropic")
+        elif "gpt" in model.lower():
+            provider_used.append("openai")
+        return mock_llm_text_only(**kwargs)
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion_with_provider_check),
+        patch("whai.context.get_context", return_value=("", False)),
+    ):
+        # Run CLI with --provider openai (should override role's anthropic)
+        result = runner.invoke(
+            app, ["test query", "--role", "custom", "--provider", "openai", "--no-context"]
+        )
+
+        assert result.exit_code == 0
+        # Verify that openai was used (CLI override wins)
+        # The model should be gpt-4 (from openai provider default)
+        output = result.stdout + result.stderr
+        assert "gpt-4" in output or "openai" in output.lower()
+
+
+def test_provider_from_role_metadata(mock_llm_text_only, tmp_path, monkeypatch):
+    """Test that role provider is used when no CLI override is provided."""
+    from pathlib import Path
+    from unittest.mock import patch
+
+    from whai.configuration import user_config as config
+    from whai.configuration.roles import ensure_default_roles
+
+    # Set up config directory
+    monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
+    monkeypatch.setenv("WHAI_TEST_MODE", "1")
+
+    # Create config with multiple providers, default is openai
+    from whai.configuration.user_config import (
+        AnthropicConfig,
+        LLMConfig,
+        OpenAIConfig,
+        RolesConfig,
+        WhaiConfig,
+    )
+
+    test_config = WhaiConfig(
+        llm=LLMConfig(
+            default_provider="openai",
+            providers={
+                "openai": OpenAIConfig(
+                    api_key="sk-test-openai",
+                    default_model="gpt-4",
+                ),
+                "anthropic": AnthropicConfig(
+                    api_key="sk-test-anthropic",
+                    default_model="claude-3-opus",
+                ),
+            },
+        ),
+        roles=RolesConfig(default_role="default"),
+    )
+    config.save_config(test_config)
+
+    # Create a role with provider="anthropic" in frontmatter
+    ensure_default_roles()
+    roles_dir = tmp_path / "roles"
+    custom_role = roles_dir / "anthropic-role.md"
+    custom_role.write_text("""---
+provider: anthropic
+model: claude-3-opus
+---
+
+You are an Anthropic assistant.
+""")
+
+    with (
+        patch("litellm.completion", side_effect=mock_llm_text_only),
+        patch("whai.context.get_context", return_value=("", False)),
+    ):
+        # Run CLI with the role but NO --provider override
+        # Should use anthropic from role metadata, not default openai
+        result = runner.invoke(
+            app, ["test query", "--role", "anthropic-role", "--no-context"]
+        )
+
+        assert result.exit_code == 0
+        # Verify that anthropic provider/model was used (from role, not default)
+        output = result.stdout + result.stderr
+        # Should show claude-3-opus or anthropic (from role metadata)
+        assert "claude-3-opus" in output or "anthropic" in output.lower()

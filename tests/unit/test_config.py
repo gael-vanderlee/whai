@@ -357,6 +357,40 @@ Body text.
         Role.from_markdown("test", content)
 
 
+def test_role_with_provider_works_end_to_end():
+    """Test that a role with provider and model in frontmatter loads correctly."""
+    from whai.configuration.roles import Role
+
+    content = """---
+provider: anthropic
+model: claude-3-opus
+temperature: 0.7
+---
+
+You are a helpful assistant.
+"""
+
+    role = Role.from_markdown("test", content)
+
+    assert isinstance(role, Role)
+    assert role.provider == "anthropic"
+    assert role.model == "claude-3-opus"
+    assert role.temperature == 0.7
+    assert "helpful assistant" in role.body
+
+    # Test serialization round-trip
+    serialized = role.to_markdown()
+    assert "provider: anthropic" in serialized
+    assert "model: claude-3-opus" in serialized
+    assert "temperature: 0.7" in serialized
+
+    # Test loading from serialized form
+    role2 = Role.from_markdown("test2", serialized)
+    assert role2.provider == "anthropic"
+    assert role2.model == "claude-3-opus"
+    assert role2.temperature == 0.7
+
+
 def test_save_config(tmp_path, monkeypatch):
     """Test saving configuration to file."""
     # Use a temporary directory as the config directory
