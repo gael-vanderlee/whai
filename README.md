@@ -337,7 +337,8 @@ Define it once, use it everywhere. Roles are stored in `~/.config/whai/roles/` a
 ```yaml
 ---
 model: gpt-5-mini
-# Optional parameter you can add here (uncomment if needed):
+# Optional parameters you can add here (uncomment if needed):
+# provider: openai                # Override default provider for this role
 # temperature: 0.3               # Only used when supported by the selected model
 ---
 You are a helpful terminal assistant.

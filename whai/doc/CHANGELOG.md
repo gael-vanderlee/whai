@@ -8,6 +8,7 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-12] [feature] [roles]: add provider field to role frontmatter; roles can specify provider to use models from non-default providers; precedence: CLI override > role metadata > default provider; resolve_provider() returns tuple with source for logging
 [2025-11-12] [feature] [ci]: add GitHub Actions workflow for automated releases; tests across Python versions, validates version, builds package, publishes to TestPyPI and PyPI, creates GitHub releases with changelog extraction
 [2025-11-12] [docs] [dev]: update release documentation with automated pipeline instructions and test mode workflow
 [2025-11-12] [change] [changelog]: add version headers to changelog based on git tags; update format guidelines for version sections
