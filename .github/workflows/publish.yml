@@ -11,10 +11,6 @@ on:
         required: false
         default: false
         type: boolean
-      version:
-        description: 'Version to test (e.g., 0.7.1) - only used in test mode'
-        required: false
-        type: string
 
 jobs:
   test:
