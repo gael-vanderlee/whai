@@ -5,7 +5,11 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from whai.configuration import user_config as config
-from whai.configuration.roles import ensure_default_roles
+from whai.configuration.roles import (
+    ensure_default_roles,
+    get_default_role,
+    render_new_role_template,
+)
 from whai.cli.role import role_app
 
 runner = CliRunner()
@@ -64,7 +68,7 @@ def test_create_role(tmp_path, monkeypatch):
     role_path = tmp_path / "roles" / "test-role.md"
     assert role_path.exists()
     content = role_path.read_text()
-    assert "test-role" in content
+    assert content == render_new_role_template("test-role")
 
 
 def test_create_role_duplicate(tmp_path, monkeypatch):
@@ -218,7 +222,7 @@ def test_reset_default(tmp_path, monkeypatch):
 
     # Verify it was reset
     content = default_role.read_text()
-    assert "helpful terminal assistant" in content
+    assert content == get_default_role("default")
 
     # Verify config was updated
     cfg = config.load_config()

@@ -10,6 +10,7 @@ import yaml
 
 from whai.configuration.user_config import WhaiConfig
 from whai.constants import (
+    DEFAULT_MODEL_OPENAI,
     DEFAULT_ROLE_FILENAME,
     DEFAULT_ROLE_NAME,
     ENV_WHAI_ROLE,
@@ -19,6 +20,10 @@ from whai.logging_setup import get_logger
 from whai.ui import warn
 
 logger = get_logger(__name__)
+
+NEW_ROLE_TEMPLATE_FILENAME = "new.md"
+ROLE_TEMPLATE_PLACEHOLDER = "{{role_name}}"
+ROLE_TEMPLATE_MODEL_PLACEHOLDER = "{{default_model}}"
 
 
 class InvalidRoleMetadataError(ValueError):
@@ -251,6 +256,60 @@ def get_default_role(role_name: str) -> str:
 
     logger.debug("Loaded default role '%s' from %s", role_name, role_file)
     return role_file.read_text()
+
+
+def get_new_role_template() -> str:
+    """
+    Return the packaged template used when creating a new role.
+
+    Returns:
+        The raw template content.
+
+    Raises:
+        FileNotFoundError: If the template file is missing from the installation.
+    """
+    roles_dir = files("whai").joinpath("defaults", "roles")
+    template_file = roles_dir / NEW_ROLE_TEMPLATE_FILENAME
+
+    if not template_file.exists():
+        raise FileNotFoundError(
+            f"New role template not found at {template_file}. "
+            "This indicates a broken installation. Please reinstall whai."
+        )
+
+    logger.debug("Loaded new role template from %s", template_file, extra={"category": "config"})
+    return template_file.read_text()
+
+
+def render_new_role_template(role_name: str) -> str:
+    """
+    Render the new role template with the provided role name.
+
+    Args:
+        role_name: The role name to embed into the template.
+
+    Returns:
+        The rendered template text.
+
+    Raises:
+        RuntimeError: If the template placeholder is missing.
+    """
+    template = get_new_role_template()
+
+    if ROLE_TEMPLATE_PLACEHOLDER not in template:
+        raise RuntimeError(
+            f"New role template missing placeholder '{ROLE_TEMPLATE_PLACEHOLDER}'. "
+        )
+
+    rendered = template.replace(ROLE_TEMPLATE_PLACEHOLDER, role_name)
+
+    if ROLE_TEMPLATE_MODEL_PLACEHOLDER in rendered:
+        rendered = rendered.replace(
+            ROLE_TEMPLATE_MODEL_PLACEHOLDER, DEFAULT_MODEL_OPENAI
+        )
+
+    logger.info("Rendered new role template for '%s'", role_name, extra={"category": "config"})
+    return rendered
 
 
 def ensure_default_roles() -> None:

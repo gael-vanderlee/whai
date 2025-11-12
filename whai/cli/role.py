@@ -17,9 +17,9 @@ from whai.configuration import (
     resolve_role,
     save_config,
 )
-from whai.configuration.roles import get_default_role
+from whai.configuration.roles import get_default_role, render_new_role_template
 from whai.configuration.user_config import get_config_dir
-from whai.constants import DEFAULT_MODEL_OPENAI, DEFAULT_ROLE_NAME
+from whai.constants import DEFAULT_ROLE_NAME
 from whai.logging_setup import get_logger
 from whai.utils import SUPPORTED_SHELLS, ShellType, detect_shell
 
@@ -47,24 +47,6 @@ def _validate_role_name(name: str) -> None:
         raise typer.BadParameter(
             "Role name must match ^[a-zA-Z0-9_-]+$ (letters, digits, underscore, hyphen)."
         )
-
-
-def _template(name: str) -> str:
-    """Generate a template for a new role."""
-    return f"""---
-# Role metadata (optional frontmatter)
-# Allowed fields:
-#   model: string              # LLM model name (e.g., "{DEFAULT_MODEL_OPENAI}", "claude-3-sonnet")
-#                              # Falls back to provider config if not specified
-#   temperature: float         # Temperature setting (0.0 to 2.0)
-#                              # Only used when supported by the selected model
-#                              # Falls back to provider default if not specified
-model: {DEFAULT_MODEL_OPENAI}
-# temperature: 0.3            # Uncomment and adjust if needed
----
-You are a helpful terminal assistant with the '{name}' specialization.
-Describe behaviors, tone, and constraints here.
-"""
 
 
 def _open_in_editor(path: Path) -> None:
@@ -120,7 +102,7 @@ def create_role(
     if path.exists():
         ui.error(f"Role '{name}' already exists: {path}")
         raise typer.Exit(2)
-    path.write_text(_template(name))
+    path.write_text(render_new_role_template(name))
     ui.success(f"Created role at {path}")
     _open_in_editor(path)
 
