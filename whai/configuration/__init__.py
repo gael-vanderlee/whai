@@ -7,6 +7,7 @@ from whai.configuration.roles import (
     ensure_default_roles,
     load_role,
     resolve_model,
+    resolve_provider,
     resolve_role,
     resolve_temperature,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "load_role",
     "resolve_role",
     "resolve_model",
+    "resolve_provider",
     "resolve_temperature",
     "ensure_default_roles",
     # User Config

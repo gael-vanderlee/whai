@@ -19,6 +19,7 @@ from whai.configuration import (
     load_config,
     load_role,
     resolve_model,
+    resolve_provider,
     resolve_role,
     resolve_temperature,
 )
@@ -434,9 +435,10 @@ def main(
                     ui.info("No context available (no tmux, no history).")
 
         # 4. Initialize LLM provider
-        # Resolve model and temperature using consolidated precedence logic
+        # Resolve model, temperature, and provider using consolidated precedence logic
         llm_model, model_source = resolve_model(model, role_obj, config)
         llm_temperature = resolve_temperature(temperature, role_obj)
+        llm_provider_name, provider_source = resolve_provider(provider, role_obj, config)
 
         logger.info(
             "Model loaded: %s (source: %s, temperature=%s)",
@@ -447,14 +449,15 @@ def main(
         )
 
         logger.info(
-            "Initializing LLMProvider: provider=%s, model=%s",
-            provider,
+            "Initializing LLMProvider: provider=%s (source: %s), model=%s",
+            llm_provider_name,
+            provider_source,
             llm_model,
             extra={"category": "api"},
         )
         try:
             llm_provider = LLMProvider(
-                config, model=llm_model, temperature=llm_temperature, perf_logger=startup_perf, provider=provider
+                config, model=llm_model, temperature=llm_temperature, perf_logger=startup_perf, provider=llm_provider_name
             )
             startup_perf.log_section(
                 "LLM initialization",

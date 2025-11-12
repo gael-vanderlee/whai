@@ -45,12 +45,15 @@ class Role:
         temperature: Optional temperature setting (0.0 to 2.0).
                      Only used when supported by the selected model.
                      If not set, uses provider default or CLI override.
+        provider: Optional LLM provider name to use for this role.
+                  If not set, falls back to default provider from config.
     """
 
     name: str
     body: str
     model: Optional[str] = None
     temperature: Optional[float] = None
+    provider: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Validate role values after initialization."""
@@ -80,6 +83,12 @@ class Role:
             if isinstance(self.temperature, int):
                 object.__setattr__(self, "temperature", float(self.temperature))
 
+        if self.provider is not None:
+            if not isinstance(self.provider, str) or not self.provider.strip():
+                raise InvalidRoleMetadataError(
+                    "Role metadata 'provider' must be a non-empty string if provided."
+                )
+
     def to_markdown(self) -> str:
         """
         Serialize role to markdown with YAML frontmatter.
@@ -93,6 +102,8 @@ class Role:
             frontmatter_parts.append(f"model: {self.model}")
         if self.temperature is not None:
             frontmatter_parts.append(f"temperature: {self.temperature}")
+        if self.provider is not None:
+            frontmatter_parts.append(f"provider: {self.provider}")
 
         # If no frontmatter, return just the body
         if not frontmatter_parts:
@@ -118,7 +129,7 @@ class Role:
             InvalidRoleMetadataError: If any field has an invalid value.
         """
         # Only extract known fields; ignore unknown ones with a warning
-        known_fields = {"model", "temperature"}
+        known_fields = {"model", "temperature", "provider"}
         unknown_fields = set(metadata.keys()) - known_fields
         if unknown_fields:
             warn(f"Role metadata contains unknown fields (ignored): {unknown_fields}")
@@ -128,6 +139,7 @@ class Role:
             body=body,
             model=metadata.get("model"),
             temperature=metadata.get("temperature"),
+            provider=metadata.get("provider"),
         )
 
     @classmethod
@@ -216,7 +228,11 @@ class Role:
             raise InvalidRoleMetadataError(f"Invalid role metadata: {e}") from e
 
         logger.debug(
-            "Parsed role: %s (model=%s, temp=%s)", name, role.model, role.temperature
+            "Parsed role: %s (model=%s, temp=%s, provider=%s)",
+            name,
+            role.model,
+            role.temperature,
+            role.provider,
         )
         return role
 
@@ -498,3 +514,45 @@ def resolve_temperature(
 
     # 3) No temperature set
     return None
+
+
+def resolve_provider(
+    cli_provider: Optional[str] = None,
+    role: Optional[Role] = None,
+    config: Optional[WhaiConfig] = None,
+) -> Tuple[Optional[str], str]:
+    """Resolve the LLM provider to use based on precedence.
+
+    Precedence: CLI override > role metadata > default provider from config.
+
+    Args:
+        cli_provider: Provider name provided explicitly by CLI options.
+        role: Role instance from the active role.
+        config: WhaiConfig instance. If None, it will be loaded.
+
+    Returns:
+        Tuple of (provider_name, source_description) where source_description indicates
+        where the provider came from for logging purposes.
+    """
+    # 1) CLI override has highest precedence
+    if cli_provider:
+        return cli_provider, "CLI override"
+
+    # 2) Role metadata
+    if role and role.provider:
+        return role.provider, "role metadata"
+
+    # 3) Default provider from config
+    if config is None:
+        try:
+            from whai.configuration.user_config import load_config
+
+            config = load_config()
+        except Exception:
+            pass
+
+    if config and config.llm.default_provider:
+        return config.llm.default_provider, f"default provider '{config.llm.default_provider}'"
+
+    # No provider resolved
+    return None, "none (will use LLMProvider default)"
