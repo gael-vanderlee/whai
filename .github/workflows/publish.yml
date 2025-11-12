@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  create:
   workflow_dispatch:
     inputs:
       test_mode:
@@ -16,9 +15,6 @@ on:
 jobs:
   test:
     name: Test on Python ${{ matrix.python-version }}
-    if: >
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-      (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -43,9 +39,6 @@ jobs:
 
   validate-version:
     name: Validate Tag Matches Version
-    if: >
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-      (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get-version.outputs.version }}
@@ -94,9 +87,6 @@ jobs:
 
   build:
     name: Build Package
-    if: >
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-      (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
     runs-on: ubuntu-latest
     needs: [test, validate-version]
     
@@ -119,11 +109,7 @@ jobs:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
     needs: [build, validate-version]
-    if: >
-      (
-        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
-      ) && needs.validate-version.outputs.is_test_mode != 'true'
+    if: needs.validate-version.outputs.is_test_mode != 'true'
     environment:
       name: testpypi
       url: https://test.pypi.org/project/whai/
@@ -149,11 +135,7 @@ jobs:
     name: Verify TestPyPI Package
     runs-on: ubuntu-latest
     needs: [publish-testpypi, validate-version]
-    if: >
-      (
-        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
-      ) && needs.validate-version.outputs.is_test_mode != 'true'
+    if: needs.validate-version.outputs.is_test_mode != 'true'
     
     steps:
       - uses: actions/checkout@v4
@@ -207,11 +189,7 @@ jobs:
     name: Verify Local Build (Test Mode)
     runs-on: ubuntu-latest
     needs: [build, validate-version]
-    if: >
-      (
-        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
-      ) && needs.validate-version.outputs.is_test_mode == 'true'
+    if: needs.validate-version.outputs.is_test_mode == 'true'
     
     steps:
       - uses: actions/checkout@v4
@@ -267,11 +245,7 @@ jobs:
     name: Publish to PyPI
     runs-on: ubuntu-latest
     needs: verify-testpypi
-    if: >
-      (
-        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
-      ) && needs.validate-version.outputs.is_test_mode != 'true'
+    if: needs.validate-version.outputs.is_test_mode != 'true'
     environment:
       name: pypi
       url: https://pypi.org/project/whai/
@@ -297,11 +271,7 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: [publish-pypi, validate-version]
-    if: >
-      (
-        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
-      ) && needs.validate-version.outputs.is_test_mode != 'true'
+    if: needs.validate-version.outputs.is_test_mode != 'true'
     permissions:
       contents: write
     
@@ -361,13 +331,10 @@ jobs:
           cat release_notes.txt
       
       - name: Create GitHub Release
-        uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body_path: release_notes.txt
-          draft: false
-          prerelease: false
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "Release ${{ github.ref_name }}" \
+            --notes-file release_notes.txt
 
