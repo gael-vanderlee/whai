@@ -8,6 +8,9 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-12] [feature] [ci]: add GitHub Actions workflow for automated releases; tests across Python versions, validates version, builds package, publishes to TestPyPI and PyPI, creates GitHub releases with changelog extraction
+[2025-11-12] [docs] [dev]: update release documentation with automated pipeline instructions and test mode workflow
+[2025-11-12] [change] [changelog]: add version headers to changelog based on git tags; update format guidelines for version sections
 [2025-11-12] [change] [roles]: move new role template to defaults folder; template now loaded from whai/defaults/roles/new.md with placeholder substitution for role name and default model
 [2025-11-12] [test] [config]: fix tests to match actual default role content instead of hardcoded strings
 
