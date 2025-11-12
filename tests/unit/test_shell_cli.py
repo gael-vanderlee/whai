@@ -120,6 +120,11 @@ def test_shell_command_handles_launch_failure(tmp_path):
 
 def test_shell_command_invoked_via_subprocess(tmp_path):
     """Test `whai shell` via actual subprocess (e2e)."""
+    # Skip in CI environments where there's no TTY (subprocess will hang)
+    # GitHub Actions sets CI=true, and we also check for GITHUB_ACTIONS
+    if os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS"):
+        pytest.skip("Skipping subprocess test in CI environment (no TTY)")
+    
     env = dict(os.environ)
     env["WHAI_TEST_MODE"] = "1"
     

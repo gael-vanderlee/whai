@@ -334,7 +334,7 @@ def test_cli_with_context_warning(mock_llm_text_only):
     # Mock LLM
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("whai.context.get_context", return_value=("some history", False)),
+        patch("whai.context.capture.get_context", return_value=("some history", False)),
     ):  # Shallow context
         result = runner.invoke(app, ["test query"])
 
