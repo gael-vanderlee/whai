@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  create:
   workflow_dispatch:
     inputs:
       test_mode:
@@ -15,6 +16,9 @@ on:
 jobs:
   test:
     name: Test on Python ${{ matrix.python-version }}
+    if: >
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -39,6 +43,9 @@ jobs:
 
   validate-version:
     name: Validate Tag Matches Version
+    if: >
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get-version.outputs.version }}
@@ -87,6 +94,9 @@ jobs:
 
   build:
     name: Build Package
+    if: >
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
     runs-on: ubuntu-latest
     needs: [test, validate-version]
     
@@ -109,7 +119,11 @@ jobs:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
     needs: [build, validate-version]
-    if: needs.validate-version.outputs.is_test_mode != 'true'
+    if: >
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
+      ) && needs.validate-version.outputs.is_test_mode != 'true'
     environment:
       name: testpypi
       url: https://test.pypi.org/project/whai/
@@ -135,7 +149,11 @@ jobs:
     name: Verify TestPyPI Package
     runs-on: ubuntu-latest
     needs: [publish-testpypi, validate-version]
-    if: needs.validate-version.outputs.is_test_mode != 'true'
+    if: >
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
+      ) && needs.validate-version.outputs.is_test_mode != 'true'
     
     steps:
       - uses: actions/checkout@v4
@@ -189,7 +207,11 @@ jobs:
     name: Verify Local Build (Test Mode)
     runs-on: ubuntu-latest
     needs: [build, validate-version]
-    if: needs.validate-version.outputs.is_test_mode == 'true'
+    if: >
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
+      ) && needs.validate-version.outputs.is_test_mode == 'true'
     
     steps:
       - uses: actions/checkout@v4
@@ -245,7 +267,11 @@ jobs:
     name: Publish to PyPI
     runs-on: ubuntu-latest
     needs: verify-testpypi
-    if: needs.validate-version.outputs.is_test_mode != 'true'
+    if: >
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
+      ) && needs.validate-version.outputs.is_test_mode != 'true'
     environment:
       name: pypi
       url: https://pypi.org/project/whai/
@@ -271,7 +297,11 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: [publish-pypi, validate-version]
-    if: needs.validate-version.outputs.is_test_mode != 'true'
+    if: >
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'create' && github.ref_type == 'tag' && startsWith(github.ref, 'v'))
+      ) && needs.validate-version.outputs.is_test_mode != 'true'
     permissions:
       contents: write
     
