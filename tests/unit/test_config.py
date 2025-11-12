@@ -10,6 +10,7 @@ from whai.configuration.roles import (
     InvalidRoleMetadataError,
     Role,
     ensure_default_roles,
+    get_default_role,
     load_role,
 )
 
@@ -200,9 +201,9 @@ def test_ensure_default_roles(tmp_path, monkeypatch):
     default_role = tmp_path / "roles" / "default.md"
     assert default_role.exists()
 
-    # Check content
+    # Check content matches the packaged default
     default_content = default_role.read_text()
-    assert "helpful terminal assistant" in default_content
+    assert default_content == get_default_role("default")
     assert "execute_shell" in default_content
 
 
@@ -219,8 +220,8 @@ def test_load_role_default(tmp_path, monkeypatch):
     assert role.model is None
     assert role.temperature is None
 
-    # Verify prompt
-    assert "terminal assistant" in role.body.lower()
+    # Verify prompt matches the packaged default (body is stripped, so strip the file content too)
+    assert role.body == get_default_role("default").strip()
 
 
 def test_load_role_custom(tmp_path, monkeypatch):
