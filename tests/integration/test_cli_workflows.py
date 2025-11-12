@@ -332,9 +332,10 @@ def test_cli_keyboard_interrupt(mock_llm_text_only):
 def test_cli_with_context_warning(mock_llm_text_only):
     """Test that warning is shown when only shallow context is available."""
     # Mock LLM
+    # Patch where it's imported and used in main.py
     with (
         patch("litellm.completion", side_effect=mock_llm_text_only),
-        patch("whai.context.capture.get_context", return_value=("some history", False)),
+        patch("whai.cli.main.get_context", return_value=("some history", False)),
     ):  # Shallow context
         result = runner.invoke(app, ["test query"])
 
