@@ -174,7 +174,7 @@ python -m whai --help
 uv venv .venv_testpypi
 
 # Read current version from pyproject.toml
-ver=$(uv run --no-project -- python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+ver=$(grep '^version = ' pyproject.toml | head -n1 | sed -E 's/^version = "(.*)"/\1/') 
 echo "$ver"
 
 # Check if version is available on TestPyPI (before attempting install)
