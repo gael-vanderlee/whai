@@ -296,13 +296,15 @@ That's it! `whai` will:
 > whai "what's the biggest file?"
 > ```
 
+> **Getting Help:** For a complete list of command-line options and flags, run `whai --help`.
+
 ## Key Features
 
 ### Roles
 
-Roles allow you to customize `whai`'s behavior and responses. More importantly, they let you save information about your preferences, system, environment, constraints, and workflow so you don't have to repeat yourself in every conversation.
+Roles allow you to customize `whai`'s behavior and responses. More importantly, they let you save information you don't have to repeat yourself in every conversation.
 
-For example, you can create a role that tells `whai` to respond only in emoji:
+lets create a role that tells `whai` to respond only in emoji:
 
 ```zsh
 $ whai role create emoji # "Answer using only emojis"
@@ -333,18 +335,34 @@ whai "help me with this task" -r my-workflow
 whai role list
 ```
 
+For a complete list of role management commands, run `whai role --help`.
+
 Define it once, use it everywhere. Roles are stored in `~/.config/whai/roles/` as Markdown files with YAML frontmatter, like so:
 ```yaml
 ---
 model: gpt-5-mini
-# Optional parameters you can add here (uncomment if needed):
+# Optional parameters you can add:
 # provider: openai                # Override default provider for this role
-# temperature: 0.3               # Only used when supported by the selected model
+# temperature: 0.3                # Only used when supported by the selected model
 ---
 You are a helpful terminal assistant.
-Describe behaviors, tone, and constraints here.
+Describe context, behaviors, tone, and constraints here.
 
 ```
+
+**Available Providers:**
+
+You can specify any of the following providers in the `provider` field:
+
+- `openai` - OpenAI models (e.g., `gpt-5-mini`, `gpt-4`)
+- `anthropic` - Anthropic Claude models (e.g., `claude-3-5-sonnet-20241022`)
+- `gemini` - Google Gemini models (e.g., `gemini-2.5-flash`)
+- `azure_openai` - Azure OpenAI service
+- `ollama` - Local Ollama models (requires local Ollama instance)
+- `lm_studio` - LM Studio local models (requires LM Studio server running)
+
+The provider must be configured in your `~/.config/whai/config.toml` file before it can be used. If no `provider` is specified in the role, `whai` uses the default provider from your configuration.
+
 The default role is defined in the config.
 
 ### Context Awareness
