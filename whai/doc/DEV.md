@@ -93,7 +93,88 @@ nox -s lint
 nox -l
 ```
 
-## Publish to TestPyPI, verify, then publish to PyPI
+## Publishing Releases
+
+### Automated Release Pipeline (Recommended)
+
+The project uses GitHub Actions to automatically test, build, publish, and release new versions when you push a version tag.
+
+#### Prerequisites
+
+Set up GitHub repository secrets (one-time setup):
+1. Go to your GitHub repository settings
+2. Navigate to Secrets and variables → Actions
+3. Add two secrets:
+   - `TEST_PYPI_TOKEN` - Your TestPyPI API token ([get it here](https://test.pypi.org/manage/account/token/))
+   - `PYPI_TOKEN` - Your PyPI API token ([get it here](https://pypi.org/manage/account/token/))
+
+#### Release Process
+
+1. Ensure `CHANGELOG.md` is up-to-date with all changes:
+   - During development, continuously add entries at the top (after the format header)
+   - Before releasing, add a version header: `## vX.Y.Z` (where X.Y.Z is your new version)
+   - Add an empty line after all entries for this version (before the next version header)
+
+2. Bump the version:
+
+```bash
+# Options: major | minor | patch | stable | alpha | beta | rc | post | dev
+uv version --bump patch
+```
+
+3. Commit and tag the new version:
+
+```bash
+# Replace X.Y.Z with your new version number
+git commit -am "Bump version to vX.Y.Z"
+git tag vX.Y.Z
+```
+
+4. Push with tags:
+
+```bash
+git push && git push --tags
+```
+
+That's it! GitHub Actions will automatically:
+- Run tests across Python 3.10, 3.11, 3.12, 3.13
+- Validate that the tag matches the version in `pyproject.toml`
+- Build the package
+- Publish to TestPyPI
+- Verify the TestPyPI package with smoke tests
+- Publish to PyPI
+- Create a GitHub Release with CHANGELOG entries
+
+You can monitor the progress in the "Actions" tab of your GitHub repository.
+
+#### Testing the Pipeline (Without Publishing)
+
+Before your first real release, you can test the entire pipeline without actually publishing:
+
+1. Go to your GitHub repository
+2. Click on the "Actions" tab
+3. Select "Build, Test, and Publish" workflow from the left sidebar
+4. Click "Run workflow" button (top right)
+5. Check the "Test mode (skip publishing)" checkbox
+6. Click "Run workflow"
+
+This will:
+- Run all tests across Python 3.10, 3.11, 3.12, 3.13
+- Build the package
+- Verify the built package locally (install and run smoke tests)
+- Skip all publishing steps (TestPyPI, PyPI, GitHub Release)
+
+This is perfect for:
+- Verifying the workflow works before your first release
+- Testing changes to the workflow itself
+- Validating that your package builds correctly
+
+### Manual Publishing (Fallback)
+
+<details>
+<summary>Click to expand manual publishing instructions</summary>
+
+Use these commands if you need to publish manually or the automated workflow fails.
 
 The following commands work on Windows PowerShell. They bump the version, build artifacts, publish to TestPyPI, verify in a clean venv, then publish to PyPI.
 
@@ -225,6 +306,8 @@ rm -rf dist .venv_testpypi .nox
 Notes:
 - The `--index-strategy unsafe-best-match` flag is required when the package name exists on both TestPyPI and PyPI but the requested version is only on TestPyPI.
 - Test from outside the repo root or use the console script; running `python -m whai` from the repo can import local sources instead of the installed wheel.
+
+</details>
 
 ### Subprocess CLI E2E tests
 The test suite includes end-to-end tests that invoke `python -m whai` in a subprocess. These tests avoid network calls by placing a mock `litellm` module under `tests/mocks` and prepending that directory to `PYTHONPATH` inside the test harness. You can force a tool-call flow by setting `WHAI_MOCK_TOOLCALL=1` in the subprocess environment. No test-related code lives in the `whai/` package.
