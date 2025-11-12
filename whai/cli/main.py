@@ -131,7 +131,7 @@ def main(
         "--verbose",
         "-v",
         count=True,
-        help="Increase verbosity: -v for INFO, -vv for DEBUG",
+        help="Increase verbosity (for debugging purposes): -v for INFO, -vv for DEBUG",
     ),
     interactive_config: bool = typer.Option(
         False,
@@ -157,28 +157,6 @@ def main(
 
     Note: If your query contains spaces, apostrophes ('), quotation marks, or shell glob characters (? * []), always wrap it in double quotes to avoid shell parsing errors.
     """
-    detected_flags: List[str] = []
-    if verbose >= 2:
-        detected_flags.append("-vv")
-    elif verbose == 1:
-        detected_flags.append("-v")
-    if no_context:
-        detected_flags.append("--no-context")
-    if interactive_config:
-        detected_flags.append("--interactive-config")
-    if version_flag:
-        detected_flags.append("--version")
-    if role is not None:
-        detected_flags.append("--role")
-    if model is not None:
-        detected_flags.append("--model")
-    if provider is not None:
-        detected_flags.append("--provider")
-    if temperature is not None:
-        detected_flags.append("--temperature")
-    if timeout is not None:
-        detected_flags.append("--timeout")
-
     # Handle --version flag
     if version_flag:
         # Try to get version from installed package metadata
