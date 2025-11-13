@@ -432,3 +432,74 @@ def test_flag_with_equals_syntax():
             call_kwargs = mock_llm.call_args[1]
             assert call_kwargs.get("model") == "gpt-5"
 
+
+def test_unrecognized_flag_warning(mock_llm_capture_messages):
+    """Test: whai run a command --no-contxt (misspelled flag)
+    
+    Verifies that misspelled flags trigger a warning and are included in the query.
+    """
+    mock_completion, captured_calls = mock_llm_capture_messages
+    
+    with (
+        patch("litellm.completion", side_effect=mock_completion),
+        patch("whai.context.get_context", return_value=("", False)),
+    ):
+        result = runner.invoke(app, ["run", "a", "command", "--no-contxt", "--no-context"])
+        
+        assert result.exit_code == 0
+        
+        # Verify warning was shown
+        output = result.stdout + result.stderr
+        assert "--no-contxt" in output
+        assert "not recognized" in output.lower()
+        # Check for key parts of warning message (accounting for potential newlines)
+        output_lower = output.lower().replace("\n", " ")
+        assert "passed to the model" in output_lower or "passed to the" in output_lower
+        
+        # Verify LLM was called
+        assert len(captured_calls) > 0
+        call_kwargs = captured_calls[0]
+        
+        # Verify query contains the misspelled flag
+        messages = call_kwargs.get("messages", [])
+        user_messages = [m for m in messages if m.get("role") == "user"]
+        assert len(user_messages) > 0
+        user_content = user_messages[0]["content"]
+        assert "--no-contxt" in user_content
+        assert "run" in user_content
+        assert "command" in user_content
+
+
+def test_multiple_unrecognized_flags_warning(mock_llm_capture_messages):
+    """Test: whai test query --unknown-flag --another-unknown
+    
+    Verifies that multiple unrecognized flags are all warned about.
+    """
+    mock_completion, captured_calls = mock_llm_capture_messages
+    
+    with (
+        patch("litellm.completion", side_effect=mock_completion),
+        patch("whai.context.get_context", return_value=("", False)),
+    ):
+        result = runner.invoke(app, ["test", "query", "--unknown-flag", "--another-unknown", "--no-context"])
+        
+        assert result.exit_code == 0
+        
+        # Verify warning mentions both flags
+        output = result.stdout + result.stderr
+        assert "--unknown-flag" in output
+        assert "--another-unknown" in output
+        assert "not recognized" in output.lower()
+        # Check for key parts of warning message (accounting for potential newlines)
+        output_lower = output.lower().replace("\n", " ")
+        assert "passed to the model" in output_lower or "passed to the" in output_lower
+        
+        # Verify both flags are in the query
+        assert len(captured_calls) > 0
+        call_kwargs = captured_calls[0]
+        messages = call_kwargs.get("messages", [])
+        user_messages = [m for m in messages if m.get("role") == "user"]
+        assert len(user_messages) > 0
+        user_content = user_messages[0]["content"]
+        assert "--unknown-flag" in user_content
+        assert "--another-unknown" in user_content

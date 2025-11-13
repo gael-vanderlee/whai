@@ -22,6 +22,7 @@ def extract_inline_overrides(
     Returns a tuple of (cleaned_tokens, overrides_dict).
     """
     cleaned: List[str] = []
+    unrecognized_flags: List[str] = []
     i = 0
     # Local copies to mutate
     o_role = role
@@ -103,9 +104,20 @@ def extract_inline_overrides(
             i += 1
             continue
 
+        # Check for unrecognized flags (tokens starting with --)
+        if token.startswith("--"):
+            unrecognized_flags.append(token)
         # Regular token
         cleaned.append(token)
         i += 1
+
+    # Warn about unrecognized flags
+    if unrecognized_flags:
+        flag_list = ", ".join(unrecognized_flags)
+        ui.warn(
+            f"{flag_list} not recognized as flag(s). "
+            f"They will be passed to the model as part of your query."
+        )
 
     return cleaned, {
         "role": o_role,
