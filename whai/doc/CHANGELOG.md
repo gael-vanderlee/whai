@@ -8,6 +8,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-13] [fix] [context]: record command timeouts and failures in session log so subsequent whai calls receive deep context
+[2025-11-13] [test] [context]: add unit and integration coverage for session timeout logging
 [2025-11-13] [fix] [execution]: fix Windows command timeout by removing shell=True; subprocess.run with shell=True creates nested process hierarchy (cmd.exe → PowerShell) where killing parent doesn't terminate child, causing timeouts to fail; invoke shell directly to allow proper timeout handling
 [2025-11-13] [fix] [execution]: fix UnicodeDecodeError warnings in subprocess calls by explicitly using utf-8 encoding with errors=replace; Windows defaults to cp1252 which fails on UTF-8 bytes from subprocess output
 [2025-11-13] [feature] [ui]: add spinner indicator during command execution; shows "Executing command..." with animated spinner while shell commands run

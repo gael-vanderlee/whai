@@ -223,3 +223,72 @@ def test_session_logger_uses_most_recent_session_log(session_directory):
     assert recent_whai_log.exists()
     assert "new content\n" in recent_whai_log.read_text(encoding='utf-8')
     assert not older_whai_log.exists()
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
+def test_session_logger_logs_command_timeout(session_directory):
+    """SessionLogger logs timeout failures with clear markers."""
+    sess_dir, _ = session_directory
+    
+    logger = SessionLogger()
+    
+    logger.log_command("Start-Sleep -Seconds 70")
+    logger.log_command_failure("Command timed out after 60 seconds", timeout=60)
+    
+    whai_log = sess_dir / "session_20250101_120000_whai.log"
+    content = whai_log.read_text(encoding='utf-8')
+    
+    assert "$ Start-Sleep -Seconds 70\n" in content
+    assert "[COMMAND TIMED OUT after 60s]\n" in content
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
+def test_session_logger_logs_general_command_failure(session_directory):
+    """SessionLogger logs general command failures."""
+    sess_dir, _ = session_directory
+    
+    logger = SessionLogger()
+    
+    logger.log_command("invalid-command")
+    logger.log_command_failure("Command not found: invalid-command")
+    
+    whai_log = sess_dir / "session_20250101_120000_whai.log"
+    content = whai_log.read_text(encoding='utf-8')
+    
+    assert "$ invalid-command\n" in content
+    assert "[COMMAND FAILED: Command not found: invalid-command]\n" in content
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")
+def test_session_logger_logs_full_command_lifecycle_with_timeout(session_directory):
+    """SessionLogger captures full lifecycle: whai query, LLM response, command, timeout."""
+    sess_dir, _ = session_directory
+    
+    logger = SessionLogger()
+    
+    # Simulate full whai interaction with timeout
+    logger.log_command("whai run a command that takes 70 seconds to run")
+    logger.print("I'll run a PowerShell sleep command...")
+    logger.log_command("Start-Sleep -Seconds 70")
+    logger.log_command_failure("Command timed out after 60 seconds", timeout=60)
+    logger.print("The command was interrupted by timeout.")
+    
+    whai_log = sess_dir / "session_20250101_120000_whai.log"
+    content = whai_log.read_text(encoding='utf-8')
+    
+    # Verify full context is captured in order
+    assert "$ whai run a command that takes 70 seconds to run\n" in content
+    assert "I'll run a PowerShell sleep command...\n" in content
+    assert "$ Start-Sleep -Seconds 70\n" in content
+    assert "[COMMAND TIMED OUT after 60s]\n" in content
+    assert "The command was interrupted by timeout.\n" in content
+
+
+def test_session_logger_failure_disabled_when_not_in_session():
+    """log_command_failure does nothing when not in a session."""
+    os.environ.pop("WHAI_SESSION_ACTIVE", None)
+    
+    logger = SessionLogger()
+    
+    # Should not crash or do anything
+    logger.log_command_failure("Some error", timeout=60)

@@ -500,6 +500,7 @@ def main(
                 f"TERMINAL CONTEXT:\n```\n{context_str}\n```\n\nUSER QUERY: {query_str}"
             )
         else:
+            logger.info("No terminal context available; sending user query only")
             user_message = query_str
 
         messages = [

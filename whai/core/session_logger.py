@@ -148,5 +148,27 @@ class SessionLogger:
         
         if parts:
             self._append_to_log(''.join(parts))
+    
+    def log_command_failure(self, error_message: str, timeout: Optional[int] = None) -> None:
+        """
+        Log command execution failure to session file.
+        
+        This ensures that failures (timeouts, crashes, etc.) are recorded in the
+        session transcript for deep context capture, so subsequent queries can see
+        what went wrong.
+        
+        Args:
+            error_message: Description of the failure.
+            timeout: Timeout value in seconds if this was a timeout failure.
+        """
+        if not self.enabled:
+            return
+        
+        if timeout is not None and "timed out" in error_message.lower():
+            # Standardized timeout marker for LLM context
+            self._append_to_log(f"[COMMAND TIMED OUT after {timeout}s]\n")
+        else:
+            # General failure marker
+            self._append_to_log(f"[COMMAND FAILED: {error_message}]\n")
 
 

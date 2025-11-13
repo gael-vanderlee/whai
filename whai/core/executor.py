@@ -167,9 +167,10 @@ def run_conversation_loop(
                         # Surface error to user
                         ui.error(f"Failed to execute command: {error_text}")
 
-                        # If this was a timeout, include a clear, standardized marker
-                        # in the tool result content so the LLM can react appropriately.
+                        # Log failure to session for deep context capture
+                        # This ensures subsequent commands will have context about the failure
                         if "timed out" in error_text.lower():
+                            session_logger.log_command_failure(error_text, timeout=timeout)
                             timeout_note = (
                                 f"Command: {approved_command}\n\n"
                                 f"OUTPUT: NO OUTPUT, {timeout}s TIMEOUT EXCEEDED"
@@ -181,6 +182,7 @@ def run_conversation_loop(
                                 }
                             )
                         else:
+                            session_logger.log_command_failure(error_text)
                             tool_results.append(
                                 {
                                     "tool_call_id": tool_call["id"],
