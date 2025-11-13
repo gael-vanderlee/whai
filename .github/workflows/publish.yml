@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     
     steps:
       - uses: actions/checkout@v4
@@ -278,56 +278,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      
       - name: Extract CHANGELOG for this version
         id: changelog
         run: |
           VERSION="${{ needs.validate-version.outputs.version }}"
           echo "Extracting changelog for version $VERSION"
-          
-          # Extract lines from CHANGELOG.md for this version
-          # Look for version header, then collect entries until empty line or next version header
-          python -c "
-          import re
-          
-          with open('whai/doc/CHANGELOG.md', 'r') as f:
-              lines = f.readlines()
-          
-          version = '$VERSION'
-          entries = []
-          in_version_section = False
-          
-          for line in lines:
-              stripped = line.strip()
-              
-              # Check for version header (## vX.Y.Z or ## X.Y.Z)
-              if stripped.startswith('## '):
-                  if version in stripped or f'v{version}' in stripped:
-                      in_version_section = True
-                      continue
-                  elif in_version_section:
-                      # Found next version header, stop
-                      break
-              
-              # If we're in the right version section
-              if in_version_section:
-                  # Stop at empty line (signals end of version)
-                  if not stripped:
-                      break
-                  # Collect entry lines (starting with date)
-                  if stripped.startswith('[20'):
-                      entries.append(stripped)
-          
-          # Format for GitHub release
-          if entries:
-              changelog = '\n'.join(f'- {entry}' for entry in entries)
-          else:
-              changelog = 'No changelog entries found for this version.'
-          
-          # Save to file for multi-line output
-          with open('release_notes.txt', 'w') as f:
-              f.write(changelog)
-          "
-          
+          uv run --no-project -- python -m whai.doc.release_notes --version "$VERSION" --output release_notes.txt
           cat release_notes.txt
       
       - name: Create GitHub Release
