@@ -254,7 +254,8 @@ Get API keys from:
 - [Azure Portal](https://portal.azure.com/) (for Azure OpenAI)
 - [Google AI Studio](https://aistudio.google.com/app/api-keys) (for Gemini) 
 
-#### Using Local Models (LM Studio)
+<details>
+<summary><strong>Using Local Models (LM Studio)</strong></summary>
 
 To use a local model with LM Studio:
 
@@ -277,6 +278,8 @@ To use a local model with LM Studio:
    ```zsh
    curl http://localhost:1234/v1/models
    ```
+
+</details>
 
 ### 2. Start using whai
 
