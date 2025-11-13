@@ -1,6 +1,6 @@
 # whai - Terminal Assistant
 
-<video src="assets/demo.mp4" controls width="100%"></video>
+https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 
 ## Table of Contents
 
