@@ -116,9 +116,10 @@ def run_conversation_loop(
                         # Log command to session for context
                         session_logger.log_command(approved_command)
                         
-                        stdout, stderr, returncode = execute_command(
-                            approved_command, timeout=timeout
-                        )
+                        with ui.spinner("Executing command..."):
+                            stdout, stderr, returncode = execute_command(
+                                approved_command, timeout=timeout
+                            )
                         loop_perf.log_section(
                             "Command execution",
                             extra_info={"command": approved_command, "exit_code": returncode},
