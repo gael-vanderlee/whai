@@ -9,7 +9,6 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 ## In Progress
 
 [2025-11-14] [docs] [readme]: add demo video to README
-[2025-11-14] [chore] [repo]: remove demo.mov from repository and git history; add *.mov to gitignore
 
 ## v0.8.1
 
