@@ -8,6 +8,11 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-13] [feature] [release]: add helper to extract and format release notes from the changelog
+[2025-11-13] [change] [ci]: update GitHub release workflow to use release notes helper and prioritize categories
+[2025-11-13] [test] [release]: add unit tests covering release note formatting and ordering
+[2025-11-13] [docs] [dev]: document automated release notes formatting in developer guide
+
 ## v0.8.0
 
 [2025-11-13] [change] [prompt]: add separators around examples and explicit role instructions header in system prompt
