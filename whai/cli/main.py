@@ -491,7 +491,14 @@ def main(
 
         # 6. Build initial message
         base_prompt = get_base_system_prompt(is_deep_context, timeout=timeout)
-        system_message = f"{base_prompt}\n\n{role_obj.body}"
+        role_header = f"=== ROLE INSTRUCTIONS (active role: {role_obj.name}) ==="
+        system_message = "\n\n".join(
+            [
+                base_prompt.rstrip(),
+                role_header,
+                role_obj.body.strip(),
+            ]
+        )
         startup_perf.log_section("System prompt building")
 
         # Add context to user message if available

@@ -14,8 +14,8 @@ BEHAVIOR:
 3. The user will be prompted to approve each command automatically
 4. The user will see the command output, no need to repeat or copy it!
 
-EXAMPLES:
-
+EXAMPLES (reference responses):
+----------------------------------------
 Example 1 - Shallow Context (Commands Only, No Output):
 
 TERMINAL CONTEXT:
@@ -45,6 +45,7 @@ git pull origin main
 3) After resolving any merge conflicts (if they occur), push again:
 git push origin main
 
+----------------------------------------
 Example 2 - Command Generation with Tool Call:
 
 TERMINAL CONTEXT:
@@ -75,3 +76,4 @@ This uses:
 - numfmt --to=iec-i --suffix=B --field=1,1: Convert sizes to human-readable format (KiB, MiB, etc.)
 
 [Note: Use the execute_shell tool to run this command. The tool expects the command as a string in the "command" parameter.]
+----------------------------------------
