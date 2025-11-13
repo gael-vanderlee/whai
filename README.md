@@ -1,6 +1,7 @@
 # whai - Terminal Assistant
 
-<!-- TODO: Add demo video showcasing the tool in action -->
+<video src="assets/demo.mp4" controls width="100%"></video>
+
 
 ## Table of Contents
 
