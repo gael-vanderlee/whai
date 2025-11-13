@@ -8,6 +8,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-13] [fix] [execution]: fix Windows command timeout by removing shell=True; subprocess.run with shell=True creates nested process hierarchy (cmd.exe → PowerShell) where killing parent doesn't terminate child, causing timeouts to fail; invoke shell directly to allow proper timeout handling
+[2025-11-13] [fix] [execution]: fix UnicodeDecodeError warnings in subprocess calls by explicitly using utf-8 encoding with errors=replace; Windows defaults to cp1252 which fails on UTF-8 bytes from subprocess output
 [2025-11-13] [feature] [ui]: add spinner indicator during command execution; shows "Executing command..." with animated spinner while shell commands run
 [2025-11-13] [test] [context]: fix test_get_context_combines_history_and_additional_context to properly mock session context check
 [2025-11-13] [feature] [cli]: warn users when unrecognized flags are passed inline; flags are still passed to model as part of query
