@@ -11,6 +11,7 @@ import yaml
 from whai.configuration.user_config import WhaiConfig
 from whai.constants import (
     DEFAULT_MODEL_OPENAI,
+    DEFAULT_PROVIDER,
     DEFAULT_ROLE_FILENAME,
     DEFAULT_ROLE_NAME,
     ENV_WHAI_ROLE,
@@ -24,6 +25,7 @@ logger = get_logger(__name__)
 NEW_ROLE_TEMPLATE_FILENAME = "new.md"
 ROLE_TEMPLATE_PLACEHOLDER = "{{role_name}}"
 ROLE_TEMPLATE_MODEL_PLACEHOLDER = "{{default_model}}"
+ROLE_TEMPLATE_PROVIDER_PLACEHOLDER = "{{default_provider}}"
 
 
 class InvalidRoleMetadataError(ValueError):
@@ -322,6 +324,11 @@ def render_new_role_template(role_name: str) -> str:
     if ROLE_TEMPLATE_MODEL_PLACEHOLDER in rendered:
         rendered = rendered.replace(
             ROLE_TEMPLATE_MODEL_PLACEHOLDER, DEFAULT_MODEL_OPENAI
+        )
+
+    if ROLE_TEMPLATE_PROVIDER_PLACEHOLDER in rendered:
+        rendered = rendered.replace(
+            ROLE_TEMPLATE_PROVIDER_PLACEHOLDER, DEFAULT_PROVIDER
         )
 
     logger.info("Rendered new role template for '%s'", role_name, extra={"category": "config"})
