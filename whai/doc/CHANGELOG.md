@@ -8,6 +8,9 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-13] [feature] [ui]: add spinner indicator during command execution; shows "Executing command..." with animated spinner while shell commands run
+[2025-11-13] [test] [context]: fix test_get_context_combines_history_and_additional_context to properly mock session context check
+[2025-11-13] [feature] [cli]: warn users when unrecognized flags are passed inline; flags are still passed to model as part of query
 [2025-11-12] [chore] [license]: add MIT license file to repository
 
 ## v0.7.2
