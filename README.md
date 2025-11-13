@@ -307,7 +307,7 @@ That's it! `whai` will:
 
 Roles allow you to customize `whai`'s behavior and responses. More importantly, they let you save information you don't have to repeat yourself in every conversation.
 
-lets create a role that tells `whai` to respond only in emoji:
+Lets create a role that tells `whai` to respond only in emoji:
 
 ```zsh
 $ whai role create emoji # "Answer using only emojis"
