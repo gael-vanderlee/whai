@@ -51,3 +51,6 @@ playground/
 
 # Generated release notes
 release_notes.txt
+
+# Large media files
+*.mov
