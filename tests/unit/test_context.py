@@ -50,6 +50,7 @@ def test_get_context_combines_history_and_additional_context():
     """Test that get_context combines history and additional context."""
     with (
         patch("whai.context.capture._get_tmux_context", return_value=None),
+        patch("whai.context.capture.read_session_context", return_value=None),
         patch("whai.context.capture._get_history_context", return_value="history output"),
         patch("whai.context.capture.get_additional_context", return_value="error output"),
     ):
