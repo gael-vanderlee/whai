@@ -48,3 +48,6 @@ playground/
 
 # Secrets
 .env
+
+# Generated release notes
+release_notes.txt
