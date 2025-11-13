@@ -8,6 +8,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+## v0.8.1
+
 [2025-11-13] [change] [roles]: add default provider placeholder to new role template
 [2025-11-13] [feature] [release]: add helper to extract and format release notes from the changelog
 [2025-11-13] [change] [ci]: update GitHub release workflow to use release notes helper and prioritize categories

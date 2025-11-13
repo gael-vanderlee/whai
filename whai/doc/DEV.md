@@ -114,7 +114,7 @@ Set up GitHub repository secrets (one-time setup):
    - During development, continuously add entries at the top (after the format header)
    - Before releasing, add a version header: `## vX.Y.Z` (where X.Y.Z is your new version)
    - Add an empty line after all entries for this version (before the next version header)
-   - The release workflow uses `python -m whai.doc.release_notes` to build GitHub notes, which sorts entries by category importance (Feature → Security → Fix → Change → Docs → Chore → Test) and removes the leading date in the published list.
+   - The release workflow uses `python -m whai.doc.release_notes` to build GitHub notes, which sorts entries by category importance (Feature → Security → Fix → Change → Docs → Chore → Test) and removes the leading date in the published list. (`uv run whai/doc/release_notes.py --version X.Y.Z` to run it)
 
 2. Bump the version:
 
