@@ -8,6 +8,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+## v0.8.0
+
 [2025-11-13] [change] [prompt]: add separators around examples and explicit role instructions header in system prompt
 [2025-11-13] [fix] [context]: record command timeouts and failures in session log so subsequent whai calls receive deep context
 [2025-11-13] [test] [context]: add unit and integration coverage for session timeout logging

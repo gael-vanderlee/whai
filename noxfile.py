@@ -3,7 +3,7 @@
 import nox
 
 nox.options.sessions = ["tests"]
-PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13"]
+PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 # Use uv for all sessions
 nox.options.default_venv_backend = "uv"
 # Don't reuse virtual environments - create fresh ones each time
