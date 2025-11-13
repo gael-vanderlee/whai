@@ -36,28 +36,42 @@ def execute_command(
     try:
         if is_windows():
             # Windows: use detected shell (PowerShell or cmd)
+            # Don't use shell=True to ensure timeout works properly.
+            # When shell=True, subprocess wraps command in cmd.exe, creating a process hierarchy.
+            # On Windows, killing the parent (cmd.exe) doesn't properly terminate child processes
+            # (PowerShell), causing timeouts to fail. Invoking the shell directly avoids this issue.
             shell_type = detect_shell()
             if shell_type == "pwsh":
-                full_command = f'powershell.exe -Command "{command}"'
+                # PowerShell: pass command directly, PowerShell handles quoting
+                result = subprocess.run(
+                    ["powershell.exe", "-Command", command],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=timeout,
+                )
             else:
-                full_command = f'cmd.exe /c "{command}"'
-            result = subprocess.run(
-                full_command,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                shell=True,
-            )
+                # cmd.exe: use /c with the command
+                result = subprocess.run(
+                    ["cmd.exe", "/c", command],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=timeout,
+                )
         else:
             # Unix-like systems: use detected shell or fallback
+            # Don't use shell=True to ensure timeout works properly
             shell = os.environ.get("SHELL", "/bin/sh")
-            full_command = f"{shell} -c {shlex.quote(command)}"
             result = subprocess.run(
-                full_command,
+                [shell, "-c", command],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout,
-                shell=True,
             )
 
         logger.debug(

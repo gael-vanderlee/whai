@@ -45,6 +45,8 @@ def test_whai_shell_in_wsl_full_workflow():
                 env=env,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=10,
             )
             
@@ -95,6 +97,8 @@ def test_whai_shell_on_windows_powershell_full_flow():
                 env=env,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=10,
             )
             

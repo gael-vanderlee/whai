@@ -55,6 +55,8 @@ def _run_cli(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         env=env,
         cwd=str(Path(__file__).resolve().parents[1]),
     )

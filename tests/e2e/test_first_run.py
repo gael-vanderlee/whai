@@ -39,6 +39,8 @@ def test_first_run_without_wizard_shows_helpful_error(tmp_path):
         input="\n",  # Just press enter, wizard will fail
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         env=env,
         timeout=30,
     )

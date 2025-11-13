@@ -52,6 +52,8 @@ def test_whai_in_real_tmux_captures_scrollback():
                 ["tmux", "capture-pane", "-t", session_name, "-p"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=5,
             )
             
@@ -65,6 +67,8 @@ def test_whai_in_real_tmux_captures_scrollback():
                 ["tmux", "capture-pane", "-t", session_name, "-p"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=5,
             )
             
