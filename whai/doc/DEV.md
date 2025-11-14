@@ -1,6 +1,32 @@
 # whai Dev Cheatsheet
 
-Compact commands for Windows, macOS, and Linux.
+## Code Structure
+
+**Entry Flow**: `__main__.py` → `cli/main.py` → `core/executor.py`
+
+**Core Modules**:
+- `cli/main.py` - CLI entry point, argument parsing, initialization orchestration
+- `core/executor.py` - Main conversation loop, tool call handling, message history
+- `configuration/user_config.py` - Config dataclasses, provider configs, TOML I/O
+- `configuration/config_wizard.py` - Interactive setup wizard
+- `llm/provider.py` - LLM wrapper (LiteLLM), API calls, streaming
+- `llm/streaming.py` - Stream response parsing (text chunks, tool calls)
+- `context/capture.py` - Context capture coordinator (tmux → session → history)
+- `context/tmux.py` - Tmux scrollback capture
+- `context/history.py` - Shell history parsing
+- `context/session_reader.py` - Recorded session log reading
+- `interaction/approval.py` - Command approval loop (approve/reject/modify)
+- `interaction/execution.py` - Command execution via subprocess
+- `shell/session.py` - Interactive shell with session recording
+- `ui/output.py` - Rich/plain output formatting, panels, spinners
+- `constants.py` - Centralized defaults and constants
+
+**Standard Operation Flow**:
+1. User runs `whai "query"` → `__main__.py` configures logging → `cli/main.py:main()`
+2. `main()` loads config (`configuration/user_config.py`), resolves role, captures context (`context/capture.py`)
+3. Initializes LLM provider (`llm/provider.py`), builds messages with system prompt + role + context
+4. Calls `core/executor.py:run_conversation_loop()`
+5. Loop: LLM responds → extracts tool calls → `interaction/approval.py` for approval → `interaction/execution.py` executes → results fed back → repeat until done
 
 ## uv venv
 
