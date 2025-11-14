@@ -586,19 +586,7 @@ def main(
         startup_perf.log_complete()
 
         # 7. Reconstruct command string for logging
-        # Use sys.argv to get the exact command as typed, including all flags
-        command_string = None
-        if len(sys.argv) > 1:
-            # Normalize command name to "whai" for consistency
-            argv0 = sys.argv[0]
-            if "whai" in argv0.lower():
-                command_name = "whai"
-            else:
-                command_name = Path(argv0).name
-            
-            # Join all arguments, preserving quotes and special characters
-            args_str = " ".join(sys.argv[1:])
-            command_string = f"{command_name} {args_str}"
+        command_string = _reconstruct_invocation_command()
 
         # 8. Main conversation loop
         run_conversation_loop(llm_provider, messages, timeout, command_string=command_string)
