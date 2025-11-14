@@ -36,7 +36,7 @@ def test_command_timeout_raises_clear_error():
     assert "1" in error_message  # Timeout value should be mentioned
 
 
-def test_timeout_error_shown_to_user_via_cli():
+def test_timeout_error_shown_to_user_via_cli(mock_litellm_module):
     """Test that timeout error is shown to user in CLI output, not as stack trace."""
     # Mock LLM to propose a long-running command
     mock_tool_call = MagicMock()
@@ -55,6 +55,7 @@ def test_timeout_error_shown_to_user_via_cli():
     def mock_execute_timeout(cmd, timeout=None):
         raise RuntimeError(f"Command timed out after {timeout} seconds")
     
+    mock_litellm_module.completion = lambda **kwargs: mock_response
     with (
         patch("litellm.completion", return_value=mock_response),
         patch("whai.context.get_context", return_value=("", False)),
@@ -81,10 +82,18 @@ def test_timeout_error_shown_to_user_via_cli():
 
 def test_timeout_with_different_values():
     """Test that different timeout values are respected."""
-    test_cases = [
-        (1, "sleep 5"),
-        (2, "sleep 10"),
-    ]
+    import platform
+    
+    if platform.system() == "Windows":
+        test_cases = [
+            (0.1, "Start-Sleep -Seconds 1"),
+            (0.2, "Start-Sleep -Seconds 2"),
+        ]
+    else:
+        test_cases = [
+            (0.1, "sleep 1"),
+            (0.2, "sleep 2"),
+        ]
     
     for timeout, command in test_cases:
         with pytest.raises(RuntimeError) as exc_info:
@@ -111,7 +120,7 @@ def test_fast_command_does_not_timeout():
     assert "fast" in stdout
 
 
-def test_timeout_user_workflow():
+def test_timeout_user_workflow(mock_litellm_module):
     """Test complete user workflow: LLM proposes slow command → timeout → error shown."""
     # Mock LLM to propose sleep command
     call_count = [0]
@@ -146,6 +155,7 @@ def test_timeout_user_workflow():
     def mock_timeout(cmd, timeout=None):
         raise RuntimeError(f"Command '{cmd}' timed out after {timeout} seconds")
     
+    mock_litellm_module.completion = mock_llm_sequence
     with (
         patch("litellm.completion", side_effect=mock_llm_sequence),
         patch("whai.context.get_context", return_value=("", False)),

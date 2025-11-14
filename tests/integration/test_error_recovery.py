@@ -31,7 +31,7 @@ def test_command_timeout_shows_clear_message():
         execute_command("sleep 100", timeout=1)
 
 
-def test_malformed_tool_call_json_recovers_gracefully():
+def test_malformed_tool_call_json_recovers_gracefully(mock_litellm_module):
     """Test that malformed tool call JSON is handled gracefully without crashing."""
     # Mock LLM to return malformed tool call JSON
     mock_tool_call = MagicMock()
@@ -46,6 +46,7 @@ def test_malformed_tool_call_json_recovers_gracefully():
     mock_response.choices[0].message.content = "Let me run that."
     mock_response.choices[0].message.tool_calls = [mock_tool_call]
     
+    mock_litellm_module.completion = lambda **kwargs: mock_response
     with (
         patch("litellm.completion", return_value=mock_response),
         patch("whai.context.get_context", return_value=("", False)),

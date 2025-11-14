@@ -105,3 +105,23 @@ def create_test_perf_logger() -> PerformanceLogger:
     perf_logger = PerformanceLogger("Test")
     perf_logger.start()
     return perf_logger
+
+
+@pytest.fixture
+def mock_litellm_module():
+    """Mock litellm module in sys.modules to prevent slow import overhead.
+    
+    This fixture patches sys.modules to insert a mock litellm module before
+    the real module can be imported, avoiding the slow SSL certificate loading
+    that happens during litellm import (especially on Windows).
+    
+    Use this fixture in any test that mocks litellm.completion to prevent
+    the slow import overhead.
+    """
+    import sys
+    from unittest.mock import patch
+    
+    mock_litellm = MagicMock()
+    mock_litellm.exceptions = MagicMock()
+    with patch.dict("sys.modules", {"litellm": mock_litellm}):
+        yield mock_litellm
