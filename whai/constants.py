@@ -21,6 +21,9 @@ DEFAULT_MODEL_AZURE_OPENAI = "gpt-4"
 DEFAULT_MODEL_OLLAMA = "mistral"
 DEFAULT_MODEL_LM_STUDIO = "llama-3-8b-instruct"
 
+# Model prefixes for special handling
+GPT5_MODEL_PREFIX = "gpt-5"
+
 # API defaults
 DEFAULT_AZURE_API_VERSION = "2023-05-15"
 DEFAULT_OLLAMA_API_BASE = "http://localhost:11434"

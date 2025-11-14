@@ -6,7 +6,7 @@ import re
 from typing import Any, Dict, Generator, List, Optional, Union
 
 from whai.configuration.user_config import WhaiConfig
-from whai.constants import DEFAULT_PROVIDER, get_default_model_for_provider
+from whai.constants import DEFAULT_PROVIDER, GPT5_MODEL_PREFIX, get_default_model_for_provider
 from whai.llm.streaming import handle_complete_response, handle_streaming_response
 from whai.logging_setup import get_logger
 from whai.utils import PerformanceLogger
@@ -178,7 +178,7 @@ class LLMProvider:
                 completion_kwargs["api_base"] = self.api_base
 
             # Only include temperature if explicitly set AND model supports it
-            if self.temperature is not None and self.model and not self.model.startswith("gpt-5"):
+            if self.temperature is not None and self.model and not self.model.startswith(GPT5_MODEL_PREFIX):
                 completion_kwargs["temperature"] = self.temperature
 
             if tools:  # Only add tools if list is not empty
