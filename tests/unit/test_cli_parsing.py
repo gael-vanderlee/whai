@@ -251,6 +251,84 @@ def test_timeout_flag_parsing():
                 assert call_kwargs.get("timeout") == 30
 
 
+def test_timeout_zero_infinite():
+    """Test: whai --timeout 0 run this command (infinite timeout)"""
+    with (
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.core.executor.execute_command", return_value=("output", "", 0)) as mock_exec,
+        patch("litellm.completion") as mock_llm,
+    ):
+        # Mock LLM to return a tool call
+        import json
+        mock_tool_call = MagicMock()
+        mock_tool_call.id = "call_123"
+        mock_tool_call.function = MagicMock()
+        mock_tool_call.function.name = "execute_shell"
+        mock_tool_call.function.arguments = json.dumps({"command": "echo test"})
+        
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message = MagicMock()
+        mock_response.choices[0].message.content = "Let me run that."
+        mock_response.choices[0].message.tool_calls = [mock_tool_call]
+        mock_llm.return_value = mock_response
+        
+        with patch("builtins.input", return_value="a"):  # Approve command
+            result = runner.invoke(app, ["--timeout", "0", "--no-context", "run", "this", "command"])
+            
+            # Should succeed (0 is valid for infinite timeout)
+            assert result.exit_code == 0
+            
+            # Verify timeout=0 was passed to execute_command
+            if mock_exec.called:
+                call_kwargs = mock_exec.call_args[1] if mock_exec.call_args else {}
+                assert call_kwargs.get("timeout") == 0
+
+
+def test_timeout_negative_rejected():
+    """Test: whai --timeout -1 run this command (should be rejected)"""
+    result = runner.invoke(app, ["--timeout", "-1", "--no-context", "test", "query"])
+    
+    # Should fail with error about invalid timeout
+    assert result.exit_code == 2
+    assert "timeout" in result.stdout.lower() or "timeout" in result.stderr.lower()
+    assert "non-negative" in result.stdout.lower() or "non-negative" in result.stderr.lower() or "infinite" in result.stdout.lower() or "infinite" in result.stderr.lower()
+
+
+def test_timeout_zero_inline_flag():
+    """Test: whai test query --timeout 0 (inline flag)"""
+    with (
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.core.executor.execute_command", return_value=("output", "", 0)) as mock_exec,
+        patch("litellm.completion") as mock_llm,
+    ):
+        # Mock LLM to return a tool call
+        import json
+        mock_tool_call = MagicMock()
+        mock_tool_call.id = "call_123"
+        mock_tool_call.function = MagicMock()
+        mock_tool_call.function.name = "execute_shell"
+        mock_tool_call.function.arguments = json.dumps({"command": "echo test"})
+        
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message = MagicMock()
+        mock_response.choices[0].message.content = "Let me run that."
+        mock_response.choices[0].message.tool_calls = [mock_tool_call]
+        mock_llm.return_value = mock_response
+        
+        with patch("builtins.input", return_value="a"):  # Approve command
+            result = runner.invoke(app, ["test", "query", "--timeout", "0", "--no-context"])
+            
+            # Should succeed (0 is valid for infinite timeout)
+            assert result.exit_code == 0
+            
+            # Verify timeout=0 was passed to execute_command
+            if mock_exec.called:
+                call_kwargs = mock_exec.call_args[1] if mock_exec.call_args else {}
+                assert call_kwargs.get("timeout") == 0
+
+
 def test_query_with_special_characters(mock_llm_capture_messages):
     """Test: whai explain this: git commit -m "message" --no-context"""
     mock_completion, captured_calls = mock_llm_capture_messages

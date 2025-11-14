@@ -23,7 +23,7 @@ def execute_command(
 
     Args:
         command: The command to execute.
-        timeout: Maximum time to wait for command completion (seconds).
+        timeout: Maximum time to wait for command completion (seconds). Use 0 for infinite timeout (no limit).
 
     Returns:
         Tuple of (stdout, stderr, return_code).
@@ -32,6 +32,8 @@ def execute_command(
         subprocess.TimeoutExpired: If command execution exceeds timeout.
         RuntimeError: For other execution errors.
     """
+    # Convert 0 to None for infinite timeout
+    timeout_for_subprocess = None if timeout == 0 else timeout
 
     try:
         if is_windows():
@@ -49,7 +51,7 @@ def execute_command(
                     text=True,
                     encoding="utf-8",
                     errors="replace",
-                    timeout=timeout,
+                    timeout=timeout_for_subprocess,
                 )
             else:
                 # cmd.exe: use /c with the command
@@ -59,7 +61,7 @@ def execute_command(
                     text=True,
                     encoding="utf-8",
                     errors="replace",
-                    timeout=timeout,
+                    timeout=timeout_for_subprocess,
                 )
         else:
             # Unix-like systems: use detected shell or fallback
@@ -71,7 +73,7 @@ def execute_command(
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=timeout,
+                timeout=timeout_for_subprocess,
             )
 
         logger.debug(
@@ -84,8 +86,9 @@ def execute_command(
         return result.stdout, result.stderr, result.returncode
 
     except subprocess.TimeoutExpired:
+        timeout_msg = f"{timeout} seconds" if timeout > 0 else "infinite timeout"
         raise RuntimeError(
-            f"Command timed out after {timeout} seconds. You can change timeout limits with the --timeout flag"
+            f"Command timed out after {timeout_msg}. You can change timeout limits with the --timeout flag"
         )
     except Exception as e:
         raise RuntimeError(f"Error executing command: {e}")

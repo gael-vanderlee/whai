@@ -107,6 +107,28 @@ def test_execute_command_timeout():
             interaction.execute_command("sleep 100", timeout=30)
 
 
+def test_execute_command_infinite_timeout():
+    """Test that execute_command with timeout=0 passes None to subprocess (infinite timeout)."""
+    with (
+        patch("whai.interaction.execution.is_windows", return_value=False),
+        patch("subprocess.run") as mock_run,
+        patch.dict("os.environ", {"SHELL": "/bin/bash"}),
+    ):
+        mock_result = MagicMock()
+        mock_result.stdout = "output\n"
+        mock_result.stderr = ""
+        mock_result.returncode = 0
+        mock_run.return_value = mock_result
+
+        stdout, stderr, code = interaction.execute_command("echo test", timeout=0)
+
+        assert stdout == "output\n"
+        assert code == 0
+        # Verify that None was passed as timeout (infinite timeout)
+        call_kwargs = mock_run.call_args[1]
+        assert call_kwargs["timeout"] is None
+
+
 def test_execute_command_other_error():
     """Test that execute_command handles other errors."""
     with (

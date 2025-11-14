@@ -324,7 +324,7 @@ def main(
     timeout: int = typer.Option(
         None,
         "--timeout",
-        help="Per-command timeout in seconds (applies to each approved command)",
+        help="Per-command timeout in seconds (applies to each approved command). Use 0 for infinite timeout.",
     ),
     verbose: int = typer.Option(
         0,
@@ -445,8 +445,8 @@ def main(
         timeout = DEFAULT_COMMAND_TIMEOUT
 
     # Validate timeout after possible inline overrides
-    if timeout <= 0:
-        ui.error("--timeout must be a positive integer (seconds)")
+    if timeout < 0:
+        ui.error("--timeout must be a non-negative integer (seconds). Use 0 for infinite timeout.")
         raise typer.Exit(2)
 
     # Determine effective log level from verbose count or inline overrides

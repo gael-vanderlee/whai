@@ -43,8 +43,8 @@ def extract_inline_overrides(
             value_token = tokens[i + 1]
             try:
                 timeout_value = int(value_token)
-                if timeout_value <= 0:
-                    ui.error("--timeout must be a positive integer (seconds)")
+                if timeout_value < 0:
+                    ui.error("--timeout must be a non-negative integer (seconds). Use 0 for infinite timeout.")
                     raise typer.Exit(2)
                 o_timeout = timeout_value
             except ValueError:
