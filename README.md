@@ -4,6 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/whai)](https://pepy.tech/project/whai)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
 [![GitHub stars](https://img.shields.io/github/stars/gael-vanderlee/whai.svg?style=social&label=Star)](https://github.com/gael-vanderlee/whai)
 
 https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
