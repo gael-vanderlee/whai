@@ -10,6 +10,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 [2025-11-14] [chore] [refactor]: remove duplicate command reconstruction code by reusing existing function
 [2025-11-14] [docs] [dev]: add code structure overview section to developer documentation
+[2025-11-14] [chore] [refactor]: improve code maintainability by extracting helper functions from main(), simplifying subcommand routing, reducing provider config duplication, and extracting magic values to constants
+[2025-11-14] [docs] [readme]: add demo video to README
 
 ## v0.8.1
 
