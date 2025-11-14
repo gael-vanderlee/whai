@@ -1,5 +1,11 @@
 # Whai - Your Terminal Assistant
 
+[![PyPI version](https://badge.fury.io/py/whai.svg)](https://badge.fury.io/py/whai)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://pepy.tech/badge/whai)](https://pepy.tech/project/whai)
+[![GitHub stars](https://img.shields.io/github/stars/gael-vanderlee/whai.svg?style=social&label=Star)](https://github.com/gael-vanderlee/whai)
+
 https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 
 ## Table of Contents
@@ -7,10 +13,13 @@ https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 - [What is it](#what-is-it)
 - [Core Features](#core-features)
 - [Quick Examples](#quick-examples)
+- [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Key Features](#key-features)
 - [FAQ](#faq)
+- [Contributing](#contributing)
+- [Changelog](#changelog)
 - [Acknowledgments](#acknowledgments)
 
 ## What is it
@@ -194,6 +203,11 @@ I'll show the quick ways to exit Vim and what each one does.
 - ZZ (Shift+Z twice) — save and quit (same as :wq if there are changes).
 - ZQ — quit without saving (same as :q!).
 ```
+
+## Requirements
+
+- Python 3.10 or higher
+- An API key from one of the supported LLM providers (OpenAI, Anthropic, Gemini, etc.) or a local model setup (Ollama, LM Studio)
 
 ## Installation
 
@@ -430,6 +444,24 @@ You can disable this with the `--no-context` flag.
 ### Can I use it with local models?
 
 Yes! Configure any LiteLLM-compatible provider, including Ollama and LMStudio for local models. See the configuration section above.
+
+## Contributing
+
+Contributions are welcome! If you'd like to contribute to `whai`, please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run the test suite (`uv run pytest`)
+5. Commit your changes (`git commit -m 'Add some amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+For detailed development setup and guidelines, see [DEV.md](whai/doc/DEV.md).
+
+## Changelog
+
+See [CHANGELOG.md](whai/doc/CHANGELOG.md) for a detailed list of changes and version history.
 
 ## Acknowledgments
 
