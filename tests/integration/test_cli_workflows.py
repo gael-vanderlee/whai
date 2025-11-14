@@ -553,3 +553,134 @@ You are an Anthropic assistant.
         output = result.stdout + result.stderr
         # Should show claude-3-opus or anthropic (from role metadata)
         assert "claude-3-opus" in output or "anthropic" in output.lower()
+
+
+def test_provider_without_model_uses_provider_default(mock_llm_text_only, tmp_path, monkeypatch):
+    """Test that --provider without --model uses the specified provider's default model, not the default provider's model."""
+    from unittest.mock import patch
+
+    from whai.configuration import user_config as config
+    from whai.configuration.roles import ensure_default_roles
+
+    # Set up config directory
+    monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
+    monkeypatch.setenv("WHAI_TEST_MODE", "1")
+
+    # Create config with multiple providers, default is openai
+    from whai.configuration.user_config import (
+        AnthropicConfig,
+        LLMConfig,
+        OpenAIConfig,
+        RolesConfig,
+        WhaiConfig,
+    )
+
+    test_config = WhaiConfig(
+        llm=LLMConfig(
+            default_provider="openai",
+            providers={
+                "openai": OpenAIConfig(
+                    api_key="sk-test-openai",
+                    default_model="gpt-4",
+                ),
+                "anthropic": AnthropicConfig(
+                    api_key="sk-test-anthropic",
+                    default_model="claude-3-opus",
+                ),
+            },
+        ),
+        roles=RolesConfig(default_role="default"),
+    )
+    config.save_config(test_config)
+    ensure_default_roles()
+
+    # Track which model was actually used
+    models_used = []
+
+    def mock_completion_with_model_check(**kwargs):
+        model = kwargs.get("model", "")
+        models_used.append(model)
+        return mock_llm_text_only(**kwargs)
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion_with_model_check),
+        patch("whai.context.get_context", return_value=("", False)),
+    ):
+        # Run CLI with --provider anthropic but NO --model
+        # Should use anthropic's default model (claude-3-opus), not openai's default (gpt-4)
+        result = runner.invoke(
+            app, ["test query", "--provider", "anthropic", "--no-context"]
+        )
+
+        assert result.exit_code == 0
+        # Verify that claude-3-opus was used (anthropic's default), not gpt-4 (openai's default)
+        assert len(models_used) > 0
+        # The model should be claude-3-opus (from anthropic provider default)
+        assert any("claude-3-opus" in model.lower() or "claude_3_opus" in model.lower() for model in models_used)
+        # Should NOT use gpt-4 (which is the default provider's model)
+        assert not any("gpt-4" in model.lower() or "gpt_4" in model.lower() for model in models_used)
+
+
+def test_provider_with_model_uses_cli_model_override(mock_llm_text_only, tmp_path, monkeypatch):
+    """Test that --provider X --model Y uses model Y (CLI override still works)."""
+    from unittest.mock import patch
+
+    from whai.configuration import user_config as config
+    from whai.configuration.roles import ensure_default_roles
+
+    # Set up config directory
+    monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
+    monkeypatch.setenv("WHAI_TEST_MODE", "1")
+
+    # Create config with multiple providers
+    from whai.configuration.user_config import (
+        AnthropicConfig,
+        LLMConfig,
+        OpenAIConfig,
+        RolesConfig,
+        WhaiConfig,
+    )
+
+    test_config = WhaiConfig(
+        llm=LLMConfig(
+            default_provider="openai",
+            providers={
+                "openai": OpenAIConfig(
+                    api_key="sk-test-openai",
+                    default_model="gpt-4",
+                ),
+                "anthropic": AnthropicConfig(
+                    api_key="sk-test-anthropic",
+                    default_model="claude-3-opus",
+                ),
+            },
+        ),
+        roles=RolesConfig(default_role="default"),
+    )
+    config.save_config(test_config)
+    ensure_default_roles()
+
+    # Track which model was actually used
+    models_used = []
+
+    def mock_completion_with_model_check(**kwargs):
+        model = kwargs.get("model", "")
+        models_used.append(model)
+        return mock_llm_text_only(**kwargs)
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion_with_model_check),
+        patch("whai.context.get_context", return_value=("", False)),
+    ):
+        # Run CLI with --provider anthropic AND --model claude-3-sonnet
+        # Should use claude-3-sonnet (CLI override), not claude-3-opus (provider default)
+        result = runner.invoke(
+            app, ["test query", "--provider", "anthropic", "--model", "claude-3-sonnet", "--no-context"]
+        )
+
+        assert result.exit_code == 0
+        # Verify that claude-3-sonnet was used (CLI override), not claude-3-opus (provider default)
+        assert len(models_used) > 0
+        assert any("claude-3-sonnet" in model.lower() or "claude_3_sonnet" in model.lower() for model in models_used)
+        # Should NOT use claude-3-opus (provider default)
+        assert not any("claude-3-opus" in model.lower() or "claude_3_opus" in model.lower() for model in models_used)

@@ -422,6 +422,7 @@ def resolve_model(
     cli_model: Optional[str] = None,
     role: Optional[Role] = None,
     config: Optional[WhaiConfig] = None,
+    provider: Optional[str] = None,
 ) -> Tuple[str, str]:
     """Resolve the LLM model to use based on precedence.
 
@@ -431,6 +432,9 @@ def resolve_model(
         cli_model: Model name provided explicitly by CLI options.
         role: Role instance from the active role.
         config: WhaiConfig instance. If None, it will be loaded.
+        provider: Optional provider name. If provided, uses this provider's default model
+                 instead of the config's default provider. If None, falls back to config's
+                 default provider.
 
     Returns:
         Tuple of (model_name, source_description) where source_description indicates
@@ -463,18 +467,19 @@ def resolve_model(
                 "No LLM providers configured. Run 'whai --interactive-config' to set up a provider."
             )
 
-        # Check if default_provider is set and exists
-        default_provider = config.llm.default_provider
-        if default_provider is None:
+        # Use provided provider if available, otherwise fall back to default provider
+        provider_to_use = provider if provider is not None else config.llm.default_provider
+        
+        if provider_to_use is None:
             raise RuntimeError(
                 "No default provider configured. Run 'whai --interactive-config' to set up a provider."
             )
 
-        provider_config = config.llm.get_provider(default_provider)
+        provider_config = config.llm.get_provider(provider_to_use)
         if not provider_config:
             available = list(config.llm.providers.keys())
             raise RuntimeError(
-                f"Default provider '{default_provider}' is not configured. "
+                f"Provider '{provider_to_use}' is not configured. "
                 f"Available providers: {available if available else 'none'}. "
                 "Run 'whai --interactive-config' to fix this."
             )
@@ -482,11 +487,11 @@ def resolve_model(
         if provider_config.default_model:
             return (
                 provider_config.default_model,
-                f"provider config '{default_provider}'",
+                f"provider config '{provider_to_use}'",
             )
         else:
             raise RuntimeError(
-                f"Default provider '{default_provider}' has no default model configured. "
+                f"Provider '{provider_to_use}' has no default model configured. "
                 "Run 'whai --interactive-config' to fix this."
             )
 

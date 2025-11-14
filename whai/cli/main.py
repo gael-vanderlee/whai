@@ -166,10 +166,10 @@ def _initialize_llm_provider(
     startup_perf: PerformanceLogger
 ) -> LLMProvider:
     """Initialize and configure the LLM provider."""
-    # Resolve model, temperature, and provider using consolidated precedence logic
-    llm_model, model_source = resolve_model(model, role_obj, config)
+    # Resolve provider first, then model (so model can use the correct provider's default)
     llm_temperature = resolve_temperature(temperature, role_obj)
     llm_provider_name, provider_source = resolve_provider(provider, role_obj, config)
+    llm_model, model_source = resolve_model(model, role_obj, config, provider=llm_provider_name)
     
     logger.info(
         "Model loaded: %s (source: %s, temperature=%s)",
