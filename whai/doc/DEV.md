@@ -152,22 +152,34 @@ uv version --bump patch
 3. Commit and tag the new version:
 
 ```bash
-# Replace X.Y.Z with your new version number
-git commit -am "Bump version to vX.Y.Z"
-git tag vX.Y.Z
+# macOS/Linux - Read version from pyproject.toml
+ver=$(uv run --no-project -- python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+git commit -am "Bump version to v$ver"
+git tag "v$ver"
+```
+
+```powershell
+# Windows PowerShell - Read version from pyproject.toml
+$ver = (uv run --no-project -- python -c "import tomllib,sys;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])").Trim()
+git commit -am "Bump version to v$ver"
+git tag "v$ver"
 ```
 
 4. Push the commit and tag:
 
 ```bash
-# Push the commit first
+# macOS/Linux
 git push
-
-# Then push the specific tag to trigger the workflow
-git push origin vX.Y.Z
+git push origin "v$ver"
 ```
 
-**Important**: Use `git push origin vX.Y.Z` to push the specific tag, NOT `git push --tags`. The `--tags` flag pushes all tags, and if a tag already exists on the remote, GitHub won't recognize it as a new tag push event and won't trigger the workflow.
+```powershell
+# Windows PowerShell
+git push
+git push origin "v$ver"
+```
+
+**Important**: Use `git push origin "v$ver"` to push the specific tag, NOT `git push --tags`. The `--tags` flag pushes all tags, and if a tag already exists on the remote, GitHub won't recognize it as a new tag push event and won't trigger the workflow.
 
 That's it! GitHub Actions will automatically:
 - Run tests across Python 3.10, 3.11, 3.12, 3.13
@@ -184,12 +196,30 @@ You can monitor the progress in the "Actions" tab of your GitHub repository.
 
 If you pushed a tag but the workflow didn't trigger:
 
-1. **Check if the tag was already on the remote**: `git ls-remote --tags origin | grep vX.Y.Z`
+1. **Check if the tag was already on the remote**:
+   ```bash
+   # macOS/Linux
+   ver=$(uv run --no-project -- python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+   git ls-remote --tags origin | grep "v$ver"
+   ```
+   ```powershell
+   # Windows PowerShell
+   $ver = (uv run --no-project -- python -c "import tomllib,sys;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])").Trim()
+   git ls-remote --tags origin | Select-String "v$ver"
+   ```
+
 2. **If the tag exists, delete it from remote and push again**:
    ```bash
-   git push --delete origin vX.Y.Z
-   git push origin vX.Y.Z
+   # macOS/Linux (using $ver from step 1)
+   git push --delete origin "v$ver"
+   git push origin "v$ver"
    ```
+   ```powershell
+   # Windows PowerShell (using $ver from step 1)
+   git push --delete origin "v$ver"
+   git push origin "v$ver"
+   ```
+
 3. **Verify the tag appears as `[new tag]`** in the push output - this confirms GitHub recognizes it as a new event.
 
 #### Testing the Pipeline (Without Publishing)
