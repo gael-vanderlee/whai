@@ -8,6 +8,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+## v0.8.2
+
 [2025-11-14] [fix] [ollama]: use ollama_chat prefix for LiteLLM compatibility; fixes empty responses with Ollama models by using recommended prefix format
 [2025-11-14] [fix] [config]: resolve model from specified provider instead of default provider when --provider flag is used
 [2025-11-14] [chore] [refactor]: remove duplicate command reconstruction code by reusing existing function
