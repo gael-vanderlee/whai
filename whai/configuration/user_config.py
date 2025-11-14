@@ -472,10 +472,11 @@ class OllamaConfig(ProviderConfig):
     provider_name: str = "ollama"
 
     def __post_init__(self) -> None:
-        """Strip ollama/ prefix from model name if present."""
+        """Strip ollama/ or ollama_chat/ prefix from model name if present."""
         super().__post_init__()
         if self.default_model:
             self.default_model = self._strip_provider_prefix(self.default_model, "ollama/")
+            self.default_model = self._strip_provider_prefix(self.default_model, "ollama_chat/")
 
     def _validate_required_fields(self) -> None:
         """Validate Ollama-specific requirements."""
@@ -493,20 +494,24 @@ class OllamaConfig(ProviderConfig):
         return fields
 
     def _get_litellm_model_name(self) -> str:
-        """Get model name with ollama/ prefix."""
-        return f"ollama/{self.default_model or 'default'}"
+        """Get model name with ollama_chat/ prefix (recommended by LiteLLM for better responses)."""
+        return f"ollama_chat/{self.default_model or 'default'}"
 
     def sanitize_model_name(self, model: str) -> str:
-        """Strip ollama/ prefix if present, then add it back for LiteLLM."""
+        """Strip ollama/ or ollama_chat/ prefix if present, then add ollama_chat/ for LiteLLM."""
         base_model = self._strip_provider_prefix(model, "ollama/")
-        return f"ollama/{base_model}"
+        base_model = self._strip_provider_prefix(base_model, "ollama_chat/")
+        return f"ollama_chat/{base_model}"
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "OllamaConfig":
-        """Create OllamaConfig from dictionary, stripping ollama/ prefix if present."""
+        """Create OllamaConfig from dictionary, stripping ollama/ or ollama_chat/ prefix if present."""
         default_model = data.get("default_model")
-        if default_model and default_model.startswith("ollama/"):
-            default_model = default_model[len("ollama/") :]
+        if default_model:
+            if default_model.startswith("ollama/"):
+                default_model = default_model[len("ollama/") :]
+            elif default_model.startswith("ollama_chat/"):
+                default_model = default_model[len("ollama_chat/") :]
         return cls(
             api_key=data.get("api_key"),
             api_base=data.get("api_base"),
