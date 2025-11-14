@@ -8,6 +8,9 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-14] [test] [performance]: optimize test suite by preventing slow litellm imports; add shared mock_litellm_module fixture to avoid SSL certificate loading overhead; reduce timeout test durations; improve test suite speed by ~45%
+[2025-11-14] [feature] [execution]: support timeout=0 for infinite timeout; allow users to disable command timeouts by setting --timeout 0
+
 ## v0.8.2
 
 [2025-11-14] [fix] [ollama]: use ollama_chat prefix for LiteLLM compatibility; fixes empty responses with Ollama models by using recommended prefix format
