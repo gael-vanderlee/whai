@@ -117,9 +117,22 @@ class ProviderConfig:
                     f"{self.provider_name} provider 'api_base' must be a valid HTTP/HTTPS URL, got: {self.api_base}"
                 )
 
+    def _validate_non_empty_field(self, field_name: str, field_value: Optional[str]) -> None:
+        """Validate that a required field is non-empty."""
+        if not field_value or not field_value.strip():
+            raise InvalidProviderConfigError(
+                f"{self.provider_name} provider requires '{field_name}'"
+            )
+
     def _validate_required_fields(self) -> None:
         """Validate required fields. Override in subclasses if needed."""
         pass
+
+    def _get_masked_key(self, key: Optional[str]) -> str:
+        """Get masked version of API key for display."""
+        if not key:
+            return "MISSING"
+        return key[:8] + "..." if len(key) > 8 else "***"
 
     def get_summary_fields(self) -> Dict[str, str]:
         """
@@ -134,11 +147,7 @@ class ProviderConfig:
         """
         fields = {}
         fields["model"] = self.default_model or "MISSING"
-        if self.api_key:
-            masked_key = self.api_key[:8] + "..." if len(self.api_key) > 8 else "***"
-            fields["key"] = masked_key
-        else:
-            fields["key"] = "MISSING"
+        fields["key"] = self._get_masked_key(self.api_key)
         return fields
 
     def validate(
@@ -372,10 +381,8 @@ class OpenAIConfig(ProviderConfig):
 
     def _validate_required_fields(self) -> None:
         """Validate OpenAI-specific requirements."""
-        if not self.api_key or not self.api_key.strip():
-            raise InvalidProviderConfigError("OpenAI provider requires 'api_key'")
-        if not self.default_model or not self.default_model.strip():
-            raise InvalidProviderConfigError("OpenAI provider requires 'default_model'")
+        self._validate_non_empty_field("api_key", self.api_key)
+        self._validate_non_empty_field("default_model", self.default_model)
 
 
 @dataclass
@@ -386,12 +393,8 @@ class AnthropicConfig(ProviderConfig):
 
     def _validate_required_fields(self) -> None:
         """Validate Anthropic-specific requirements."""
-        if not self.api_key or not self.api_key.strip():
-            raise InvalidProviderConfigError("Anthropic provider requires 'api_key'")
-        if not self.default_model or not self.default_model.strip():
-            raise InvalidProviderConfigError(
-                "Anthropic provider requires 'default_model'"
-            )
+        self._validate_non_empty_field("api_key", self.api_key)
+        self._validate_non_empty_field("default_model", self.default_model)
 
 
 @dataclass
@@ -408,10 +411,8 @@ class GeminiConfig(ProviderConfig):
 
     def _validate_required_fields(self) -> None:
         """Validate Gemini-specific requirements."""
-        if not self.api_key or not self.api_key.strip():
-            raise InvalidProviderConfigError("Gemini provider requires 'api_key'")
-        if not self.default_model or not self.default_model.strip():
-            raise InvalidProviderConfigError("Gemini provider requires 'default_model'")
+        self._validate_non_empty_field("api_key", self.api_key)
+        self._validate_non_empty_field("default_model", self.default_model)
 
     def _get_litellm_model_name(self) -> str:
         """Get model name with gemini/ prefix."""
@@ -445,30 +446,16 @@ class AzureOpenAIConfig(ProviderConfig):
 
     def _validate_required_fields(self) -> None:
         """Validate Azure OpenAI-specific requirements."""
-        if not self.api_key or not self.api_key.strip():
-            raise InvalidProviderConfigError("Azure OpenAI provider requires 'api_key'")
-        if not self.api_base or not self.api_base.strip():
-            raise InvalidProviderConfigError(
-                "Azure OpenAI provider requires 'api_base'"
-            )
-        if not self.api_version or not self.api_version.strip():
-            raise InvalidProviderConfigError(
-                "Azure OpenAI provider requires 'api_version'"
-            )
-        if not self.default_model or not self.default_model.strip():
-            raise InvalidProviderConfigError(
-                "Azure OpenAI provider requires 'default_model'"
-            )
+        self._validate_non_empty_field("api_key", self.api_key)
+        self._validate_non_empty_field("api_base", self.api_base)
+        self._validate_non_empty_field("api_version", self.api_version)
+        self._validate_non_empty_field("default_model", self.default_model)
 
     def get_summary_fields(self) -> Dict[str, str]:
         """Get Azure OpenAI-specific fields for summary."""
         fields = {}
         fields["model"] = self.default_model or "MISSING"
-        if self.api_key:
-            masked_key = self.api_key[:8] + "..." if len(self.api_key) > 8 else "***"
-            fields["key"] = masked_key
-        else:
-            fields["key"] = "MISSING"
+        fields["key"] = self._get_masked_key(self.api_key)
         fields["api_base"] = self.api_base or "MISSING"
         fields["api_version"] = self.api_version or "MISSING"
         return fields
@@ -492,10 +479,8 @@ class OllamaConfig(ProviderConfig):
 
     def _validate_required_fields(self) -> None:
         """Validate Ollama-specific requirements."""
-        if not self.api_base or not self.api_base.strip():
-            raise InvalidProviderConfigError("Ollama provider requires 'api_base'")
-        if not self.default_model or not self.default_model.strip():
-            raise InvalidProviderConfigError("Ollama provider requires 'default_model'")
+        self._validate_non_empty_field("api_base", self.api_base)
+        self._validate_non_empty_field("default_model", self.default_model)
 
     def get_summary_fields(self) -> Dict[str, str]:
         """Get Ollama-specific fields for summary."""
@@ -504,8 +489,7 @@ class OllamaConfig(ProviderConfig):
         fields["api_base"] = self.api_base or "MISSING"
         # API key is optional for Ollama, only show if present
         if self.api_key:
-            masked_key = self.api_key[:8] + "..." if len(self.api_key) > 8 else "***"
-            fields["key"] = masked_key
+            fields["key"] = self._get_masked_key(self.api_key)
         return fields
 
     def _get_litellm_model_name(self) -> str:
@@ -548,12 +532,8 @@ class LMStudioConfig(ProviderConfig):
 
     def _validate_required_fields(self) -> None:
         """Validate LM Studio-specific requirements."""
-        if not self.api_base or not self.api_base.strip():
-            raise InvalidProviderConfigError("LM Studio provider requires 'api_base'")
-        if not self.default_model or not self.default_model.strip():
-            raise InvalidProviderConfigError(
-                "LM Studio provider requires 'default_model'"
-            )
+        self._validate_non_empty_field("api_base", self.api_base)
+        self._validate_non_empty_field("default_model", self.default_model)
 
     def get_summary_fields(self) -> Dict[str, str]:
         """Get LM Studio-specific fields for summary."""
@@ -562,8 +542,7 @@ class LMStudioConfig(ProviderConfig):
         fields["api_base"] = self.api_base or "MISSING"
         # API key is optional for LM Studio, only show if present
         if self.api_key:
-            masked_key = self.api_key[:8] + "..." if len(self.api_key) > 8 else "***"
-            fields["key"] = masked_key
+            fields["key"] = self._get_masked_key(self.api_key)
         return fields
 
     def _get_litellm_model_name(self) -> str:
