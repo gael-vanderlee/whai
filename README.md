@@ -1,4 +1,4 @@
-# whai - Terminal Assistant
+# Whai - Your Terminal helper
 
 https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 
