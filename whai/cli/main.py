@@ -43,6 +43,205 @@ app.add_typer(role_app, name="role")
 logger = get_logger(__name__)
 
 
+def _parse_shell_options(args: List[str]) -> tuple[Optional[str], Optional[str]]:
+    """Parse --shell/-s and --log/-l options from args."""
+    opt_shell: Optional[str] = None
+    opt_log: Optional[str] = None
+    i = 0
+    while i < len(args):
+        tok = args[i]
+        if tok in ("--shell", "-s") and i + 1 < len(args):
+            opt_shell = args[i + 1]
+            i += 2
+            continue
+        if tok in ("--log", "-l") and i + 1 < len(args):
+            opt_log = args[i + 1]
+            i += 2
+            continue
+        # Skip unrecognized tokens
+        i += 1
+    return opt_shell, opt_log
+
+
+def _dispatch_to_subcommand(query: List[str], ctx: typer.Context) -> bool:
+    """
+    Check if query starts with a registered subcommand and dispatch if so.
+    
+    Returns True if a subcommand was dispatched, False otherwise.
+    """
+    if not query or len(query) == 0:
+        return False
+    
+    subcommand_name = query[0]
+    
+    # Check if this is a registered subcommand
+    if subcommand_name not in ["role", "shell"]:
+        return False
+    
+    # Dispatch to appropriate subcommand
+    if subcommand_name == "role":
+        role_click_group = typer.main.get_command(role_app)
+        remaining_args = query[1:] if len(query) > 1 else []
+        with role_click_group.make_context("role", list(remaining_args), parent=ctx) as subctx:
+            role_click_group.invoke(subctx)
+        return True
+    
+    elif subcommand_name == "shell":
+        # Parse shell command options
+        remaining_args = query[1:] if len(query) > 1 else []
+        opt_shell, opt_log = _parse_shell_options(remaining_args)
+        shell_command(shell=opt_shell, log_path=opt_log)
+        return True
+    
+    return False
+
+
+def _reconstruct_invocation_command() -> Optional[str]:
+    """Reconstruct the full whai command invocation for context exclusion."""
+    if len(sys.argv) <= 1:
+        return None
+    
+    # Reconstruct the full command as it would appear in history/tmux
+    # Handle cases where sys.argv[0] might be full path, alias, or just "whai"
+    argv0 = sys.argv[0]
+    
+    # Normalize the command name: if it ends with "whai" or contains "whai",
+    # use just "whai" to match what typically appears in history
+    if argv0.endswith("whai") or argv0.endswith(os.sep + "whai"):
+        # Extract just "whai" from path
+        command_name = "whai"
+    elif "whai" in argv0.lower():
+        # Fallback: if "whai" appears anywhere, try to extract it
+        # This handles edge cases like aliases
+        command_name = "whai"
+    else:
+        # Use the basename if it's not obviously whai
+        # This handles aliases or other executable names
+        command_name = Path(argv0).name
+    
+    # Join arguments, preserving quotes as they might appear in history
+    args_str = " ".join(sys.argv[1:])
+    return f"{command_name} {args_str}"
+
+
+def _setup_context_capture(
+    no_context: bool, 
+    exclude_command: Optional[str],
+    startup_perf: PerformanceLogger
+) -> tuple[str, bool]:
+    """Setup and capture terminal context (tmux/session/history)."""
+    if no_context:
+        startup_perf.log_section("Context capture", extra_info={"skipped": True})
+        return "", False
+    
+    context_str, is_deep_context = get_context(exclude_command=exclude_command)
+    startup_perf.log_section(
+        "Context capture",
+        extra_info={
+            "deep": is_deep_context,
+            "has_content": bool(context_str),
+        },
+    )
+    
+    if not is_deep_context and context_str:
+        ui.warn(
+            "Using shell history only (no tmux detected). History analysis will not include outputs."
+        )
+    elif not context_str:
+        # Check if tmux is active but empty
+        if "TMUX" in os.environ:
+            ui.info("Tmux session detected but no context available yet (new session).")
+        else:
+            ui.info("No context available (no tmux, no history).")
+    
+    return context_str, is_deep_context
+
+
+def _initialize_llm_provider(
+    config,
+    role_obj,
+    model: Optional[str],
+    provider: Optional[str],
+    temperature: Optional[float],
+    startup_perf: PerformanceLogger
+) -> LLMProvider:
+    """Initialize and configure the LLM provider."""
+    # Resolve model, temperature, and provider using consolidated precedence logic
+    llm_model, model_source = resolve_model(model, role_obj, config)
+    llm_temperature = resolve_temperature(temperature, role_obj)
+    llm_provider_name, provider_source = resolve_provider(provider, role_obj, config)
+    
+    logger.info(
+        "Model loaded: %s (source: %s, temperature=%s)",
+        llm_model,
+        model_source,
+        llm_temperature,
+        extra={"category": "api"},
+    )
+    
+    logger.info(
+        "Initializing LLMProvider: provider=%s (source: %s), model=%s",
+        llm_provider_name,
+        provider_source,
+        llm_model,
+        extra={"category": "api"},
+    )
+    
+    try:
+        llm_provider = LLMProvider(
+            config, model=llm_model, temperature=llm_temperature, perf_logger=startup_perf, provider=llm_provider_name
+        )
+        startup_perf.log_section(
+            "LLM initialization",
+            extra_info={"model": llm_model, "temperature": llm_temperature},
+        )
+        return llm_provider
+    except RuntimeError as e:
+        ui.error(str(e))
+        raise typer.Exit(1)
+    except Exception as e:
+        ui.error(f"Failed to initialize LLM provider: {e}")
+        raise typer.Exit(1)
+
+
+def _build_initial_messages(
+    role_obj,
+    context_str: str,
+    query_str: str,
+    is_deep_context: bool,
+    timeout: int,
+    startup_perf: PerformanceLogger
+) -> List[dict]:
+    """Build initial conversation messages with system prompt and user query."""
+    base_prompt = get_base_system_prompt(is_deep_context, timeout=timeout)
+    role_header = f"=== ROLE INSTRUCTIONS (active role: {role_obj.name}) ==="
+    system_message = "\n\n".join(
+        [
+            base_prompt.rstrip(),
+            role_header,
+            role_obj.body.strip(),
+        ]
+    )
+    startup_perf.log_section("System prompt building")
+    
+    # Add context to user message if available
+    if context_str:
+        user_message = (
+            f"TERMINAL CONTEXT:\n```\n{context_str}\n```\n\nUSER QUERY: {query_str}"
+        )
+    else:
+        logger.info("No terminal context available; sending user query only")
+        user_message = query_str
+    
+    messages = [
+        {"role": "system", "content": system_message},
+        {"role": "user", "content": user_message},
+    ]
+    
+    startup_perf.log_section("Message construction", extra_info={"message_count": len(messages)})
+    return messages
+
+
 @app.command(name="shell")
 def shell_command(
     shell: Optional[str] = typer.Option(
@@ -199,42 +398,8 @@ def main(
     if ctx.invoked_subcommand is not None:
         return
 
-    # Check if first word is "role" - if so, it should be handled as a subcommand
-    # This is needed because query is greedy and consumes all args before subcommand detection
-    if query and len(query) > 0 and query[0] == "role":
-        # Get the Click group command for role_app
-        role_click_group = typer.main.get_command(role_app)
-        remaining_args = query[1:] if len(query) > 1 else []
-
-        # Create a new context for the subcommand and invoke it
-        with role_click_group.make_context(
-            "role", list(remaining_args), parent=ctx
-        ) as subctx:
-            role_click_group.invoke(subctx)
-        return
-
-    # Route "shell" explicitly to the subcommand to avoid being parsed as free-form text
-    if query and len(query) > 0 and query[0] == "shell":
-        remaining_args = query[1:] if len(query) > 1 else []
-        # Minimal parsing for supported options (--shell/-s, --log/-l)
-        opt_shell: Optional[str] = None
-        opt_log: Optional[str] = None
-        i = 0
-        while i < len(remaining_args):
-            tok = remaining_args[i]
-            if tok in ("--shell", "-s") and i + 1 < len(remaining_args):
-                opt_shell = remaining_args[i + 1]
-                i += 2
-                continue
-            if tok in ("--log", "-l") and i + 1 < len(remaining_args):
-                opt_log = remaining_args[i + 1]
-                i += 2
-                continue
-            # Skip unrecognized tokens
-            i += 1
-
-        # Call the subcommand directly and exit early
-        shell_command(shell=opt_shell, log_path=opt_log)
+    # Check if query starts with a subcommand and dispatch if so
+    if _dispatch_to_subcommand(query, ctx):
         return
 
     # Handle interactive config flag
@@ -380,98 +545,23 @@ def main(
             raise typer.Exit(1)
 
         # 2. Get context (tmux or history)
-        if no_context:
-            context_str = ""
-            is_deep_context = False
-            startup_perf.log_section("Context capture", extra_info={"skipped": True})
+        command_to_exclude = _reconstruct_invocation_command()
+        if command_to_exclude:
+            logger.debug("Will exclude command from context: %s", command_to_exclude)
         else:
-            # Reconstruct the command that invoked whai to exclude it from context
-            command_to_exclude = None
-            if len(sys.argv) > 1:
-                # Reconstruct the full command as it would appear in history/tmux
-                # Handle cases where sys.argv[0] might be full path, alias, or just "whai"
-                argv0 = sys.argv[0]
-
-                # Normalize the command name: if it ends with "whai" or contains "whai",
-                # use just "whai" to match what typically appears in history
-                if argv0.endswith("whai") or argv0.endswith(os.sep + "whai"):
-                    # Extract just "whai" from path
-                    command_name = "whai"
-                elif "whai" in argv0.lower():
-                    # Fallback: if "whai" appears anywhere, try to extract it
-                    # This handles edge cases like aliases
-                    command_name = "whai"
-                else:
-                    # Use the basename if it's not obviously whai
-                    # This handles aliases or other executable names
-                    command_name = Path(argv0).name
-
-                # Join arguments, preserving quotes as they might appear in history
-                args_str = " ".join(sys.argv[1:])
-                command_to_exclude = f"{command_name} {args_str}"
-            else:
-                logger.debug("No command arguments to exclude from context")
-
-            context_str, is_deep_context = get_context(
-                exclude_command=command_to_exclude
-            )
-            startup_perf.log_section(
-                "Context capture",
-                extra_info={
-                    "deep": is_deep_context,
-                    "has_content": bool(context_str),
-                },
-            )
-
-            if not is_deep_context and context_str:
-                ui.warn(
-                    "Using shell history only (no tmux detected). History analysis will not include outputs."
-                )
-            elif not context_str:
-                # Check if tmux is active but empty
-                if "TMUX" in os.environ:
-                    ui.info("Tmux session detected but no context available yet (new session).")
-                else:
-                    ui.info("No context available (no tmux, no history).")
+            logger.debug("No command arguments to exclude from context")
+        
+        context_str, is_deep_context = _setup_context_capture(
+            no_context, command_to_exclude, startup_perf
+        )
 
         # 4. Initialize LLM provider
-        # Resolve model, temperature, and provider using consolidated precedence logic
-        llm_model, model_source = resolve_model(model, role_obj, config)
-        llm_temperature = resolve_temperature(temperature, role_obj)
-        llm_provider_name, provider_source = resolve_provider(provider, role_obj, config)
-
-        logger.info(
-            "Model loaded: %s (source: %s, temperature=%s)",
-            llm_model,
-            model_source,
-            llm_temperature,
-            extra={"category": "api"},
+        llm_provider = _initialize_llm_provider(
+            config, role_obj, model, provider, temperature, startup_perf
         )
-
-        logger.info(
-            "Initializing LLMProvider: provider=%s (source: %s), model=%s",
-            llm_provider_name,
-            provider_source,
-            llm_model,
-            extra={"category": "api"},
-        )
-        try:
-            llm_provider = LLMProvider(
-                config, model=llm_model, temperature=llm_temperature, perf_logger=startup_perf, provider=llm_provider_name
-            )
-            startup_perf.log_section(
-                "LLM initialization",
-                extra_info={"model": llm_model, "temperature": llm_temperature},
-            )
-        except RuntimeError as e:
-            ui.error(str(e))
-            raise typer.Exit(1)
-        except Exception as e:
-            ui.error(f"Failed to initialize LLM provider: {e}")
-            raise typer.Exit(1)
 
         # Display loaded configuration
-        ui.console.print(Text(f"Model: {llm_model} | Provider: {llm_provider.default_provider} | Role: {role}", style="blue"))
+        ui.console.print(Text(f"Model: {llm_provider.model} | Provider: {llm_provider.default_provider} | Role: {role}", style="blue"))
 
         # 5. Truncate context if needed (before building messages)
         if context_str:
@@ -490,32 +580,9 @@ def main(
             startup_perf.log_section("Context truncation", extra_info={"skipped": True})
 
         # 6. Build initial message
-        base_prompt = get_base_system_prompt(is_deep_context, timeout=timeout)
-        role_header = f"=== ROLE INSTRUCTIONS (active role: {role_obj.name}) ==="
-        system_message = "\n\n".join(
-            [
-                base_prompt.rstrip(),
-                role_header,
-                role_obj.body.strip(),
-            ]
+        messages = _build_initial_messages(
+            role_obj, context_str, query_str, is_deep_context, timeout, startup_perf
         )
-        startup_perf.log_section("System prompt building")
-
-        # Add context to user message if available
-        if context_str:
-            user_message = (
-                f"TERMINAL CONTEXT:\n```\n{context_str}\n```\n\nUSER QUERY: {query_str}"
-            )
-        else:
-            logger.info("No terminal context available; sending user query only")
-            user_message = query_str
-
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": user_message},
-        ]
-
-        startup_perf.log_section("Message construction", extra_info={"message_count": len(messages)})
         startup_perf.log_complete()
 
         # 7. Reconstruct command string for logging
