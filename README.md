@@ -1,4 +1,4 @@
-# Whai - A CLI assistant that doesn't replace you
+# Whai - A Terminal assistant for developers who want control
 
 [![PyPI version](https://badge.fury.io/py/whai.svg)](https://badge.fury.io/py/whai)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -14,7 +14,6 @@ https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 - [What is it](#what-is-it)
 - [Core Features](#core-features)
 - [Quick Examples](#quick-examples)
-- [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Key Features](#key-features)
@@ -25,29 +24,27 @@ https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 
 ## What is it
 
-`whai` is a lightweight and fast AI terminal assistant that integrates directly into your native shell.
-The philosophy of `whai` is to never interrupt your workflow. You use your terminal as you normally would. 
-It is not a sub-shell or a separate REPL; it is a single, fast binary that you call on-demand.
-When you get stuck, need a command, or encounter an error, you simply call `whai` for immediate help.
+`whai` is a lightweight AI terminal assistant that integrates directly into your native shell and workflow.
+The philosophy of `whai` is to supplement your normal terminal usage without taking control. 
+You don't have to start a chat loop, alt-tab or copy paste.
+When you get stuck, need a command, or encounter an error, just call `whai` for help on demand.
 
 ### Core Features
 
-* **Analyze Previous Errors:** If a command fails, you don't need to copy-paste. Just call `whai` (no arguments needed!) or ask `whai why did that fail?`.
-    It reads the failed command and its full error output from your terminal history to provide an immediate diagnosis and solution. *Note: Command output is available when running inside tmux or a `whai shell` session. Otherwise, the model will only see your commands but not their outputs.*
-* **Persistent Roles (Memory):** `whai` uses simple, file-based "Roles" to provide persistent memory. This is the core of its customization. You define your context *once*, what machine you are on, what tools are available, your personal preferences, and how you like to work, and `whai` retains this context for all future interactions.
-* **Full Session Context:** When running inside `tmux` or a `whai shell` session, `whai` securely reads your command history and outputs to understand both what you ran and what happened. This provides intelligent, multi-step assistance based on the actual state of your terminal.
-* **On-Demand Assistance:** Get help exactly when you need it, from command generation to complex debugging, right in your active shell:
+* **Analyze Previous Errors:** If a command fails, you can call `whai` (no arguments needed!) or ask `whai why did that fail?`.
+    It reads the failed command and its error output from your terminal history to provide a diagnosis and solution. *Note: Command output is available when running inside tmux or a `whai shell` session. Otherwise, the model will only see your commands but not their outputs.*
+* **Persistent Roles (Memory):** `whai` uses simple, file-based "Roles" to provide persistent memory. You define your context *once*, what machine you are on, what tools are available, your personal preferences, and how you like to work, and `whai` retains this context for all future interactions.
+* **Session Context:** When running inside `tmux` or a `whai shell` session, `whai` reads your command history and outputs to understand both what you ran and what happened.
+* **Help On Demand:** Get help as you're using your shell:
 
     `> whai check my docker containers logs for errors`
 
-    `> whai "how do I debug this high resource usage?"`
+    `> whai "Is this resource usage normal?"`
 
-* **Safe by Design:** No command is *ever* executed without your explicit `[a]pprove` / `[r]eject` confirmation.
-* **Model-Agnostic:** Natively supports OpenAI, Gemini, Anthropic, local Ollama models, and more.
+* **Requires Approval:** Every `whai` command requires your explicit `[a]pprove` / `[r]eject` confirmation.
+* **Model-Agnostic:** Use models from OpenAI, Gemini, Anthropic, local Ollama models, and more.
 
 ## Quick Examples
-
-See `whai` in action:
 
 ### Example 1: Running a command
 
@@ -205,11 +202,6 @@ I'll show the quick ways to exit Vim and what each one does.
 - ZQ — quit without saving (same as :q!).
 ```
 
-## Requirements
-
-- Python 3.10 or higher
-- An API key from one of the supported LLM providers (OpenAI, Anthropic, Gemini, etc.) or a local model setup (Ollama, LM Studio)
-
 ## Installation
 
 ### Option 1: uv (Recommended)
@@ -274,12 +266,12 @@ Get API keys from:
 
 To use a local model with LM Studio:
 
-1. **Enable the server in LM Studio:**
+1. Enable the server in LM Studio:
    - Open LM Studio
    - Go to the Developer menu
    - Enable the server toggle
 
-2. **Configure whai:**
+2. Configure whai:
    ```zsh
    whai --interactive-config
    ```
@@ -289,7 +281,7 @@ To use a local model with LM Studio:
    
    Note: Model names are stored without provider prefixes in the config file. Prefixes are automatically added at runtime when needed.
 
-3. **Check available models:**
+3. Check available models:
    ```zsh
    curl http://localhost:1234/v1/models
    ```
@@ -297,6 +289,8 @@ To use a local model with LM Studio:
 </details>
 
 ### 2. Start using whai
+
+> Getting Help: For a complete list of command-line options and flags, run `whai --help`.
 
 ```zsh
 whai "your question"
@@ -308,21 +302,23 @@ That's it! `whai` will:
 - Suggest commands with `[a]pprove` / `[r]eject` / `[m]odify` prompts
 - Execute approved commands and continue the conversation
 
-> **Tip:** Quotes are not necessary, but do use them if you use special characters like `'` or `?`
+> Tip: Quotes are not necessary, but do use them if you use special characters like `'` or `?`
 > ```bash
 > whai show me the biggest file here
 > whai "what's the biggest file?"
 > ```
 
-> **Getting Help:** For a complete list of command-line options and flags, run `whai --help`.
-
 ## Key Features
 
 ### Roles
 
-Roles allow you to customize `whai`'s behavior and responses. More importantly, they let you save information you don't have to repeat yourself in every conversation.
+Roles allow you to customize `whai`'s behavior and responses, and let you save information you don't have to repeat yourself in every conversation.
+- Your system information (OS, available tools, paths)
+- Your preferences (shell style, preferred commands, workflows)
+- Environment constraints (what you can/can't do, security policies)
+- Project-specific context (tools in use, conventions, setup)
 
-Lets create a role that tells `whai` to respond only in emoji:
+Let's create a toy role that tells `whai` to respond only in emoji:
 
 ```zsh
 $ whai role create emoji # "Answer using only emojis"
@@ -336,11 +332,6 @@ Info: Model: gpt-5-mini | Role: emoji
 🎉🎶🧅
 ```
 
-But more practically, roles let you store:
-- Your system information (OS, available tools, paths)
-- Your preferences (shell style, preferred commands, workflows)
-- Environment constraints (what you can/can't do, security policies)
-- Project-specific context (tools in use, conventions, setup)
 
 ```zsh
 # Create a new role
@@ -354,13 +345,12 @@ whai role list
 ```
 
 For a complete list of role management commands, run `whai role --help`.
-
-Define it once, use it everywhere. Roles are stored in `~/.config/whai/roles/` as Markdown files with YAML frontmatter, like so:
+Roles are stored in `~/.config/whai/roles/` as Markdown files with YAML frontmatter, like so:
 ```yaml
 ---
+provider: openai
 model: gpt-5-mini
 # Optional parameters you can add:
-# provider: openai                # Override default provider for this role
 # temperature: 0.3                # Only used when supported by the selected model
 ---
 You are a helpful terminal assistant.
@@ -368,7 +358,7 @@ Describe context, behaviors, tone, and constraints here.
 
 ```
 
-**Available Providers:**
+#### Available Providers:
 
 You can specify any of the following providers in the `provider` field:
 
@@ -386,13 +376,13 @@ The default role is defined in the config.
 ### Context Awareness
 
 `whai` automatically captures context from:
-- **tmux scrollback** (recommended): Full commands + output for intelligent debugging *(only available when running in tmux)*
-- **Recorded shell sessions**: Full commands + output when using `whai shell` *(deep context without tmux)*
-- **Shell history** (fallback): Recent commands only when not in tmux *(command output is not available in this mode)*
+- tmux scrollback (recommended): Full commands + output context
+- Recorded shell sessions: Full commands + output when using `whai shell`
+- Shell history (fallback): Recent commands only when not in tmux
 
 #### Recorded Shell Sessions
 
-For deep context without tmux, use `whai shell` to launch an interactive shell with session recording:
+For output context without tmux, use `whai shell` to launch an interactive shell with session recording:
 
 ```zsh
 whai shell
@@ -401,14 +391,13 @@ whai shell
 This command:
 - Opens your normal shell (bash, zsh, fish, or PowerShell) with identical behavior
 - Records all commands and outputs to a session log
-- Provides deep context (commands + outputs) to whai without requiring tmux
-- Preloads the LLM library, making future `whai` calls significantly faster (1-4 seconds faster)
+- Provides commands + outputs to whai without requiring tmux
 
-The recorded session behaves exactly like your normal shell - same prompt, keybindings, history, and environment. The only difference is that `whai` can now access full command outputs for better assistance.
+The recorded session behaves exactly like your normal shell. The only difference is that `whai` can now access full command outputs for better assistance.
 
-**To exit:** Type `exit` in the shell to return to your previous terminal.
+To exit: Type `exit` in the shell to return to your previous terminal.
 
-**Options:**
+Options:
 ```zsh
 # Launch with a specific shell
 whai shell --shell zsh
@@ -418,7 +407,7 @@ whai shell --log ~/my-session.log
 ```
 
 Session logs are stored temporarily during the session and are deleted when you exit the shell.
-When you run `whai` from within a recorded shell session, it automatically uses the in-session log for deep context.
+When you run `whai` from within a recorded shell session, it automatically uses the in-session log.
 
 ### Safety First
 
@@ -431,9 +420,9 @@ When you run `whai` from within a recorded shell session, it automatically uses 
 
 ### How is this different from [insert app here] ?
 
-`whai` is integrated into your terminal with full context awareness. It sees your command history and can execute commands.
-Most terminal assistants either require you to explicitely start a REPL loop which takes you out of your usual workflow, don't allow for roles, or don't allow to mix natural language conversation and shell execution. 
-I wanted something that's flexible, understands you, and is always ready to help while leaving you in control.
+`whai` is integrated into your terminal with context awareness. It sees your command history and can execute commands.
+Most terminal assistants either require you to explicitely start a chat loop which takes you out of your usual workflow, don't allow for roles, or don't allow to mix natural language conversation and shell execution. 
+The goal was really to replace alt-tabbing to google with a CLI command.
 
 ### Does it send my terminal history to the LLM?
 
@@ -444,7 +433,7 @@ You can disable this with the `--no-context` flag.
 
 ### Can I use it with local models?
 
-Yes! Configure any LiteLLM-compatible provider, including Ollama and LMStudio for local models. See the configuration section above.
+Yes! Configure Ollama or LMStudio for local models. See the configuration section above.
 
 ## Contributing
 
@@ -459,10 +448,6 @@ Contributions are welcome! If you'd like to contribute to `whai`, please:
 7. Open a Pull Request
 
 For detailed development setup and guidelines, see [DEV.md](whai/doc/DEV.md).
-
-## Changelog
-
-See [CHANGELOG.md](whai/doc/CHANGELOG.md) for a detailed list of changes and version history.
 
 ## Acknowledgments
 
