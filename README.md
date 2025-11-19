@@ -265,7 +265,7 @@ Get API keys from:
 - [Google AI Studio](https://aistudio.google.com/app/api-keys) (for Gemini) 
 
 <details>
-<summary><strong>Using Local Models (LM Studio)</strong></summary>
+<summary><strong>Using Local Models with LM Studio</strong></summary>
 
 To use a local model with LM Studio:
 
@@ -279,16 +279,11 @@ To use a local model with LM Studio:
    whai --interactive-config
    ```
    - Select `lm_studio` as the provider
+   - Leave the API key blank (not required for local models)
    - Enter the API base URL: `http://localhost:1234/v1`
-   - Enter the API key (optional, leave empty if not required)
    - Enter the model name without prefix (e.g., `llama-3-8b-instruct`)
    
    Note: Model names are stored without provider prefixes in the config file. Prefixes are automatically added at runtime when needed.
-
-3. Check available models:
-   ```zsh
-   curl http://localhost:1234/v1/models
-   ```
 
 </details>
 
