@@ -6,7 +6,14 @@ Order: reverse chronological (newest at the top).
 When making changes, always add them at the very top of the "In Progress" section.
 When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is your version) with empty lines above and below.
 
+
 ## In Progress
+
+## 0.8.4
+
+[2025-11-19] [fix] [lm_studio]: fix authentication error when using LM Studio without OpenAI configured; switch from openai/ prefix to official lm_studio/ prefix with LM_STUDIO_API_BASE and LM_STUDIO_API_KEY environment variables; update _configure_api_keys() to only set environment variables for active provider; maintain backward compatibility with existing openai/ prefix configs
+
+## v0.8.3
 
 [2025-11-19] [fix] [config]: preserve optional API keys for LM Studio and Ollama; add api_key field to provider fields list, update wizard to indicate optional API keys, pass API keys directly to LiteLLM completion calls
 [2025-11-19] [fix] [config]: fix LM Studio validation warning by using GET /models instead of HEAD /v1/; API base validation now queries proper OpenAI-compatible endpoint, eliminating "Unexpected endpoint or method" errors in LM Studio console

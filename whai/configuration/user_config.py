@@ -525,7 +525,12 @@ class OllamaConfig(ProviderConfig):
 
 @dataclass
 class LMStudioConfig(ProviderConfig):
-    """Configuration for LM Studio provider (no API key required)."""
+    """
+    Configuration for LM Studio provider.
+    
+    LM Studio uses the official 'lm_studio/' prefix in LiteLLM with
+    LM_STUDIO_API_BASE and optional LM_STUDIO_API_KEY environment variables.
+    """
 
     provider_name: str = "lm_studio"
 
@@ -554,28 +559,29 @@ class LMStudioConfig(ProviderConfig):
         return fields
 
     def _get_litellm_model_name(self) -> str:
-        """Get model name with openai/ prefix (LM Studio uses OpenAI-compatible API)."""
-        return f"openai/{self.default_model or 'default'}"
+        """Get model name with lm_studio/ prefix (official LiteLLM approach)."""
+        return f"lm_studio/{self.default_model or 'default'}"
 
     def sanitize_model_name(self, model: str) -> str:
         """
         Transform a model name to the format required by LiteLLM for LM Studio.
 
-        LM Studio uses an OpenAI-compatible API, so LiteLLM expects 'openai/{model}' format.
-        This method handles model names that may come with 'lm_studio/' or 'openai/' prefixes.
+        LM Studio uses the official 'lm_studio/' prefix in LiteLLM.
+        This method handles model names that may come with prefixes and ensures
+        they're formatted correctly as 'lm_studio/{model}'.
 
         Args:
             model: The model name to transform (may include 'lm_studio/' or 'openai/' prefix).
 
         Returns:
-            Model name formatted as 'openai/{base_model}' for LiteLLM.
+            Model name formatted as 'lm_studio/{base_model}' for LiteLLM.
         """
         # Strip 'lm_studio/' prefix if present
         base_model = self._strip_provider_prefix(model, "lm_studio/")
-        # Strip 'openai/' prefix if present (in case user already formatted it)
+        # Also strip 'openai/' prefix if present (for backward compatibility with old configs)
         base_model = self._strip_provider_prefix(base_model, "openai/")
-        # Format as 'openai/{model}' for LiteLLM
-        return f"openai/{base_model}"
+        # Format as 'lm_studio/{model}' for LiteLLM (official approach)
+        return f"lm_studio/{base_model}"
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "LMStudioConfig":

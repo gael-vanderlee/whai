@@ -102,39 +102,55 @@ class LLMProvider:
         )
 
     def _configure_api_keys(self):
-        """Configure API keys and endpoints from config for LiteLLM."""
-        # Set OpenAI key if present
-        openai_cfg = self.config.llm.get_provider("openai")
-        if openai_cfg and openai_cfg.api_key:
-            os.environ["OPENAI_API_KEY"] = openai_cfg.api_key
-
-        # Set Anthropic key if present
-        anthropic_cfg = self.config.llm.get_provider("anthropic")
-        if anthropic_cfg and anthropic_cfg.api_key:
-            os.environ["ANTHROPIC_API_KEY"] = anthropic_cfg.api_key
-
-        # Set Gemini key if present
-        gemini_cfg = self.config.llm.get_provider("gemini")
-        if gemini_cfg and gemini_cfg.api_key:
-            os.environ["GEMINI_API_KEY"] = gemini_cfg.api_key
-
-        # Set Azure OpenAI configuration if present
-        azure_cfg = self.config.llm.get_provider("azure_openai")
-        if azure_cfg:
-            if azure_cfg.api_key:
-                os.environ["AZURE_API_KEY"] = azure_cfg.api_key
-            if azure_cfg.api_base:
-                os.environ["AZURE_API_BASE"] = azure_cfg.api_base
-            if azure_cfg.api_version:
-                os.environ["AZURE_API_VERSION"] = azure_cfg.api_version
-
-        # Set Ollama base URL if present
-        ollama_cfg = self.config.llm.get_provider("ollama")
-        if ollama_cfg and ollama_cfg.api_base:
-            os.environ["OLLAMA_API_BASE"] = ollama_cfg.api_base
-
-        # Note: LM Studio and Ollama API keys are passed directly to completion() call
-        # rather than via environment variables, so we don't set them here
+        """
+        Configure API keys and endpoints from config for LiteLLM.
+        
+        Only sets environment variables for the currently active provider to avoid
+        conflicts and security issues. Each provider uses its specific environment
+        variables as documented by LiteLLM.
+        """
+        # Only set API keys for the provider we're actually using
+        # This prevents conflicts when multiple providers are configured
+        
+        provider_cfg = self.config.llm.get_provider(self.default_provider)
+        
+        if self.default_provider == "openai":
+            if provider_cfg and provider_cfg.api_key:
+                os.environ["OPENAI_API_KEY"] = provider_cfg.api_key
+        
+        elif self.default_provider == "anthropic":
+            if provider_cfg and provider_cfg.api_key:
+                os.environ["ANTHROPIC_API_KEY"] = provider_cfg.api_key
+        
+        elif self.default_provider == "gemini":
+            if provider_cfg and provider_cfg.api_key:
+                os.environ["GEMINI_API_KEY"] = provider_cfg.api_key
+        
+        elif self.default_provider == "azure_openai":
+            if provider_cfg:
+                if provider_cfg.api_key:
+                    os.environ["AZURE_API_KEY"] = provider_cfg.api_key
+                if provider_cfg.api_base:
+                    os.environ["AZURE_API_BASE"] = provider_cfg.api_base
+                if provider_cfg.api_version:
+                    os.environ["AZURE_API_VERSION"] = provider_cfg.api_version
+        
+        elif self.default_provider == "ollama":
+            if provider_cfg and provider_cfg.api_base:
+                os.environ["OLLAMA_API_BASE"] = provider_cfg.api_base
+        
+        elif self.default_provider == "lm_studio":
+            # LM Studio uses lm_studio/ prefix with official LiteLLM support
+            # Set LM_STUDIO_API_BASE for the endpoint
+            if provider_cfg and provider_cfg.api_base:
+                os.environ["LM_STUDIO_API_BASE"] = provider_cfg.api_base
+            
+            # Set LM_STUDIO_API_KEY if configured (defaults to empty string)
+            if provider_cfg and provider_cfg.api_key:
+                os.environ["LM_STUDIO_API_KEY"] = provider_cfg.api_key
+            else:
+                # LiteLLM defaults to empty string if not set
+                os.environ["LM_STUDIO_API_KEY"] = ""
 
     def send_message(
         self,

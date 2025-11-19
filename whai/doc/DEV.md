@@ -140,7 +140,7 @@ Set up GitHub repository secrets (one-time setup):
    - During development, continuously add entries at the top (after the format header)
    - Before releasing, add a version header: `## vX.Y.Z` (where X.Y.Z is your new version)
    - Add an empty line after all entries for this version (before the next version header)
-   - The release workflow uses `python -m whai.doc.release_notes` to build GitHub notes, which sorts entries by category importance (Feature → Security → Fix → Change → Docs → Chore → Test) and removes the leading date in the published list. (`uv run whai/doc/release_notes.py --version X.Y.Z` to run it)
+   - The release workflow uses `whai.doc.release_notes` to build GitHub notes, which sorts entries by category importance (Feature → Security → Fix → Change → Docs → Chore → Test) and removes the leading date in the published list. (`uv run whai/doc/release_notes.py --version X.Y.Z` to run it)
 
 2. Bump the version:
 
@@ -153,7 +153,7 @@ uv version --bump patch
 
 ```bash
 # macOS/Linux - Read version from pyproject.toml
-$ver = uv run --no-project -- python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+ver=$(uv run --no-project -- python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
 git commit -am "Bump version to v$ver"
 git tag "v$ver"
 ```
