@@ -277,6 +277,7 @@ To use a local model with LM Studio:
    ```
    - Select `lm_studio` as the provider
    - Enter the API base URL: `http://localhost:1234/v1`
+   - Enter the API key (optional, leave empty if not required)
    - Enter the model name without prefix (e.g., `llama-3-8b-instruct`)
    
    Note: Model names are stored without provider prefixes in the config file. Prefixes are automatically added at runtime when needed.

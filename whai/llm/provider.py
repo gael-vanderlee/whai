@@ -82,6 +82,9 @@ class LLMProvider:
         # Store custom API base for providers that need it
         self.api_base = provider_cfg.api_base if provider_cfg else None
 
+        # Store API key for providers that pass it directly (LM Studio, Ollama)
+        self.api_key = provider_cfg.api_key if provider_cfg else None
+
         # Only set temperature when explicitly provided; many models (e.g., gpt-5*)
         # do not support it and should omit it entirely by default.
         self.temperature = temperature
@@ -89,11 +92,12 @@ class LLMProvider:
         # Set API keys for LiteLLM
         self._configure_api_keys()
         logger.debug(
-            "LLMProvider initialized: provider=%s model=%s temp=%s api_base=%s",
+            "LLMProvider initialized: provider=%s model=%s temp=%s api_base=%s api_key=%s",
             self.default_provider,
             self.model,
             self.temperature if self.temperature is not None else "default",
             self.api_base or "default",
+            "***" if self.api_key else "none",
             extra={"category": "config"},
         )
 
@@ -129,8 +133,8 @@ class LLMProvider:
         if ollama_cfg and ollama_cfg.api_base:
             os.environ["OLLAMA_API_BASE"] = ollama_cfg.api_base
 
-        # Note: LM Studio uses custom api_base passed directly to completion() call
-        # No environment variable needed
+        # Note: LM Studio and Ollama API keys are passed directly to completion() call
+        # rather than via environment variables, so we don't set them here
 
     def send_message(
         self,
@@ -176,6 +180,10 @@ class LLMProvider:
             # Add custom API base if configured (for LM Studio, Ollama, etc.)
             if self.api_base:
                 completion_kwargs["api_base"] = self.api_base
+
+            # Add API key if configured (for LM Studio, Ollama - passed directly to completion)
+            if self.api_key and self.default_provider in ("lm_studio", "ollama"):
+                completion_kwargs["api_key"] = self.api_key
 
             # Only include temperature if explicitly set AND model supports it
             if self.temperature is not None and self.model and not self.model.startswith(GPT5_MODEL_PREFIX):

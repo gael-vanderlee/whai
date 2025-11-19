@@ -90,9 +90,15 @@ def _get_provider_config(
                     # Store actual value to use when user presses Enter
                     actual_default = existing_value
 
+            # Check if API key is optional for this provider
+            is_optional = provider in ("lm_studio", "ollama")
+            prompt_text = f"{field}"
+            if is_optional:
+                prompt_text += " (optional, leave empty for no API key)"
+
             while True:
                 value = typer.prompt(
-                    f"{field}",
+                    prompt_text,
                     default=display_default if display_default else "",
                     hide_input=True,
                 )
@@ -116,6 +122,12 @@ def _get_provider_config(
                     if actual_default:
                         # Use the actual default if available
                         value = actual_default
+                        break
+                    # Check if API key is optional for this provider
+                    # LM Studio and Ollama allow optional API keys
+                    if provider in ("lm_studio", "ollama"):
+                        # Allow empty for optional API keys
+                        value = ""
                         break
                     warn("API key cannot be empty. Please paste/type your key.")
                     continue

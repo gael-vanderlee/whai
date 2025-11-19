@@ -51,14 +51,14 @@ PROVIDER_DEFAULTS = {
         },
     },
     "ollama": {
-        "fields": ["api_base", "default_model"],
+        "fields": ["api_key", "api_base", "default_model"],
         "defaults": {
             "api_base": DEFAULT_OLLAMA_API_BASE,
             "default_model": DEFAULT_MODEL_OLLAMA,
         },
     },
     "lm_studio": {
-        "fields": ["api_base", "default_model"],
+        "fields": ["api_key", "api_base", "default_model"],
         "defaults": {
             "api_base": DEFAULT_LM_STUDIO_API_BASE,
             "default_model": DEFAULT_MODEL_LM_STUDIO,
