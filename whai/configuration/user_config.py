@@ -506,6 +506,32 @@ class OllamaConfig(ProviderConfig):
         base_model = self._strip_provider_prefix(base_model, "ollama_chat/")
         return f"ollama_chat/{base_model}"
 
+    def _get_available_models(self) -> List[str]:
+        """
+        Get list of available model names from Ollama's /api/tags endpoint.
+        
+        Returns:
+            List of model names (empty list if query fails or no models available)
+        """
+        if not self.api_base:
+            return []
+        
+        try:
+            import json
+            import urllib.error
+            import urllib.request
+
+            # Query Ollama's /api/tags endpoint
+            models_url = f"{self.api_base.rstrip('/')}/api/tags"
+            req = urllib.request.Request(models_url, method="GET")
+
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode())
+                return [model.get("name", "") for model in data.get("models", [])]
+        except Exception:
+            # Network error, JSON decode error, or other error - return empty list
+            return []
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "OllamaConfig":
         """Create OllamaConfig from dictionary, stripping ollama/ or ollama_chat/ prefix if present."""
@@ -601,6 +627,34 @@ class LMStudioConfig(ProviderConfig):
             default_model=default_model,
         )
 
+    def _get_available_models(self) -> List[str]:
+        """
+        Get list of available model IDs from LM Studio's /models endpoint.
+        
+        Returns:
+            List of model IDs (empty list if query fails or no models available)
+        """
+        if not self.api_base:
+            return []
+        
+        try:
+            import json
+            import urllib.error
+            import urllib.request
+
+            # Query LM Studio's /models endpoint (OpenAI-compatible)
+            models_url = f"{self.api_base.rstrip('/')}/models"
+            req = urllib.request.Request(
+                models_url, headers={"Content-Type": "application/json"}, method="GET"
+            )
+
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode())
+                return [model.get("id") for model in data.get("data", [])]
+        except Exception:
+            # Network error, JSON decode error, or other error - return empty list
+            return []
+
     def _validate_model(self) -> Tuple[bool, Optional[str]]:
         """
         Validate the model by querying LM Studio's /models endpoint directly.
@@ -618,45 +672,22 @@ class LMStudioConfig(ProviderConfig):
             # Can't validate without API base
             return True, None
 
-        try:
-            import json
-            import urllib.error
-            import urllib.request
+        available_models = self._get_available_models()
 
-            # Query LM Studio's /models endpoint (OpenAI-compatible)
-            models_url = f"{self.api_base.rstrip('/')}/models"
-            req = urllib.request.Request(
-                models_url, headers={"Content-Type": "application/json"}, method="GET"
-            )
-
-            with urllib.request.urlopen(req, timeout=5) as response:
-                data = json.loads(response.read().decode())
-                available_models = [model.get("id") for model in data.get("data", [])]
-
-                if self.default_model in available_models:
-                    return True, None
-                else:
-                    if available_models:
-                        available_str = ", ".join(available_models[:5]) + (
-                            "..." if len(available_models) > 5 else ""
-                        )
-                        issue = (
-                            f"Model '{self.default_model}' not found in LM Studio. "
-                            f"Available models: {available_str}"
-                        )
-                    else:
-                        issue = "No models found in LM Studio"
-                    return False, issue
-
-        except urllib.error.URLError:
-            # Network error - assume model might be valid but we can't check
+        if self.default_model in available_models:
             return True, None
-        except json.JSONDecodeError:
-            # Invalid response - assume model might be valid
-            return True, None
-        except Exception:
-            # Unknown error - assume valid
-            return True, None
+        else:
+            if available_models:
+                available_str = ", ".join(available_models[:5]) + (
+                    "..." if len(available_models) > 5 else ""
+                )
+                issue = (
+                    f"Model '{self.default_model}' not found in LM Studio. "
+                    f"Available models: {available_str}"
+                )
+            else:
+                issue = "No models found in LM Studio"
+            return False, issue
 
 
 def get_provider_class(name: str) -> Type[ProviderConfig]:
