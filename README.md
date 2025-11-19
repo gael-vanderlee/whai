@@ -205,7 +205,9 @@ I'll show the quick ways to exit Vim and what each one does.
 ## Installation
 
 ### Option 1: uv (Recommended)
+You can install uv [here](https://docs.astral.sh/uv/getting-started/installation/)
 
+Then:
 ```zsh
 uv tool install whai
 ```
