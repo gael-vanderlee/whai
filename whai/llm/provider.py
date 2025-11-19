@@ -70,7 +70,7 @@ class LLMProvider:
                 "Run 'whai --interactive-config' to set up a provider."
             )
         
-        self.default_provider = provider_name
+        self.configured_provider = provider_name
         # Resolve model: CLI override > provider-level default > built-in fallback
         # If model is None, use provider's default model
         model_to_use = model if model is not None else provider_cfg.default_model
@@ -93,7 +93,7 @@ class LLMProvider:
         self._configure_api_keys()
         logger.debug(
             "LLMProvider initialized: provider=%s model=%s temp=%s api_base=%s api_key=%s",
-            self.default_provider,
+            self.configured_provider,
             self.model,
             self.temperature if self.temperature is not None else "default",
             self.api_base or "default",
@@ -112,21 +112,21 @@ class LLMProvider:
         # Only set API keys for the provider we're actually using
         # This prevents conflicts when multiple providers are configured
         
-        provider_cfg = self.config.llm.get_provider(self.default_provider)
+        provider_cfg = self.config.llm.get_provider(self.configured_provider)
         
-        if self.default_provider == "openai":
+        if self.configured_provider == "openai":
             if provider_cfg and provider_cfg.api_key:
                 os.environ["OPENAI_API_KEY"] = provider_cfg.api_key
         
-        elif self.default_provider == "anthropic":
+        elif self.configured_provider == "anthropic":
             if provider_cfg and provider_cfg.api_key:
                 os.environ["ANTHROPIC_API_KEY"] = provider_cfg.api_key
         
-        elif self.default_provider == "gemini":
+        elif self.configured_provider == "gemini":
             if provider_cfg and provider_cfg.api_key:
                 os.environ["GEMINI_API_KEY"] = provider_cfg.api_key
         
-        elif self.default_provider == "azure_openai":
+        elif self.configured_provider == "azure_openai":
             if provider_cfg:
                 if provider_cfg.api_key:
                     os.environ["AZURE_API_KEY"] = provider_cfg.api_key
@@ -135,11 +135,11 @@ class LLMProvider:
                 if provider_cfg.api_version:
                     os.environ["AZURE_API_VERSION"] = provider_cfg.api_version
         
-        elif self.default_provider == "ollama":
+        elif self.configured_provider == "ollama":
             if provider_cfg and provider_cfg.api_base:
                 os.environ["OLLAMA_API_BASE"] = provider_cfg.api_base
         
-        elif self.default_provider == "lm_studio":
+        elif self.configured_provider == "lm_studio":
             # LM Studio uses lm_studio/ prefix with official LiteLLM support
             # Set LM_STUDIO_API_BASE for the endpoint
             if provider_cfg and provider_cfg.api_base:
@@ -198,7 +198,7 @@ class LLMProvider:
                 completion_kwargs["api_base"] = self.api_base
 
             # Add API key if configured (for LM Studio, Ollama - passed directly to completion)
-            if self.api_key and self.default_provider in ("lm_studio", "ollama"):
+            if self.api_key and self.configured_provider in ("lm_studio", "ollama"):
                 completion_kwargs["api_key"] = self.api_key
 
             # Only include temperature if explicitly set AND model supports it
@@ -372,13 +372,13 @@ class LLMProvider:
                     or "AuthenticationError" in name
                 ):
                     return (
-                        f"Authentication failed. Check your API key for provider '{self.default_provider}'. "
+                        f"Authentication failed. Check your API key for provider '{self.configured_provider}'. "
                         "Run 'whai --interactive-config' to update your configuration."
                     )
                 # Check for "LLM Provider NOT provided" error - this happens when model name format is wrong
                 if "llm provider not provided" in text.lower() or "provider not provided" in text.lower():
                     return (
-                        f"Model '{self.model}' is not recognized for provider '{self.default_provider}'. "
+                        f"Model '{self.model}' is not recognized for provider '{self.configured_provider}'. "
                         "The model name may be invalid or incorrectly formatted. "
                         "Choose a valid model with --model or run 'whai --interactive-config' to pick one."
                     )
@@ -392,7 +392,7 @@ class LLMProvider:
                     )
                 ):
                     return (
-                        f"Model '{self.model}' is invalid or unavailable for provider '{self.default_provider}'. "
+                        f"Model '{self.model}' is invalid or unavailable for provider '{self.configured_provider}'. "
                         "Choose a valid model with --model or run 'whai --interactive-config' to pick one."
                     )
                 if (
@@ -400,12 +400,12 @@ class LLMProvider:
                     or "permission" in text.lower()
                 ):
                     return (
-                        f"Permission denied for model '{self.model}' with provider '{self.default_provider}'. "
+                        f"Permission denied for model '{self.model}' with provider '{self.configured_provider}'. "
                         "Verify access for your account or pick another model via 'whai --interactive-config'."
                     )
                 if isinstance(exc, RateLimitError) or "rate limit" in text.lower():
                     return (
-                        f"Rate limit reached for provider '{self.default_provider}'. "
+                        f"Rate limit reached for provider '{self.configured_provider}'. "
                         "Try again later or switch model/provider."
                     )
                 if isinstance(
@@ -415,11 +415,11 @@ class LLMProvider:
                     for k in ["timeout", "temporarily unavailable", "connection"]
                 ):
                     return (
-                        f"Network or service error connecting to provider '{self.default_provider}'. "
+                        f"Network or service error connecting to provider '{self.configured_provider}'. "
                         "Check your connection or try again."
                     )
                 # Default fallback
-                return f"LLM API error with provider '{self.default_provider}' and model '{self.model}': {_sanitize(text)}"
+                return f"LLM API error with provider '{self.configured_provider}' and model '{self.model}': {_sanitize(text)}"
 
             friendly = _friendly_message(e)
             raise RuntimeError(friendly)
