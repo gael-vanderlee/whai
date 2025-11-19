@@ -40,7 +40,7 @@ python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "-v"
 markers = [
-    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "integration: marks tests as integration tests (run with 'pytest tests/integration' or 'pytest -m integration')",
     "performance: marks tests as performance benchmarks (run with '-m performance')",
 ]
 
