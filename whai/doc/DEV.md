@@ -90,6 +90,11 @@ uv run pytest --cov=whai --cov-report=term-missing
 uv run pytest -m performance
 ```
 
+Less quick: integration tests (will use API tokens and require you to be running ollama and lmstudio)
+```bash
+uv run pytest -m integration
+```
+
 ### Testing across multiple Python versions (recommended)
 
 Use `nox` to test against Python 3.8, 3.9, 3.10, 3.11, 3.12, and 3.13:
@@ -154,6 +159,7 @@ uv version --bump patch
 ```bash
 # macOS/Linux - Read version from pyproject.toml
 ver=$(uv run --no-project -- python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+$ver
 git commit -am "Bump version to v$ver"
 git tag "v$ver"
 ```
@@ -161,6 +167,7 @@ git tag "v$ver"
 ```powershell
 # Windows PowerShell - Read version from pyproject.toml
 $ver = (uv run --no-project -- python -c "import tomllib,sys;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])").Trim()
+$ver
 git commit -am "Bump version to v$ver"
 git tag "v$ver"
 ```

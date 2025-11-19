@@ -561,7 +561,7 @@ def main(
         )
 
         # Display loaded configuration
-        ui.console.print(Text(f"Model: {llm_provider.model} | Provider: {llm_provider.default_provider} | Role: {role}", style="blue"))
+        ui.console.print(Text(f"Model: {llm_provider.model} | Provider: {llm_provider.configured_provider} | Role: {role}", style="blue"))
 
         # 5. Truncate context if needed (before building messages)
         if context_str:

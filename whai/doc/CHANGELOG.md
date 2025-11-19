@@ -9,6 +9,9 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-19] [test] [llm]: add comprehensive environment variable configuration tests; verify only active provider's env vars are set; add end-to-end integration tests for LM Studio and Ollama with user config support; fix Ollama test to handle model names with colons/tags
+[2025-11-19] [fix] [cli]: fix property name from default_provider to configured_provider in status display
+
 ## 0.8.4
 
 [2025-11-19] [fix] [lm_studio]: fix authentication error when using LM Studio without OpenAI configured; switch from openai/ prefix to official lm_studio/ prefix with LM_STUDIO_API_BASE and LM_STUDIO_API_KEY environment variables; update _configure_api_keys() to only set environment variables for active provider; maintain backward compatibility with existing openai/ prefix configs
