@@ -8,6 +8,7 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-19] [fix] [config]: fix LM Studio validation warning by using GET /models instead of HEAD /v1/; API base validation now queries proper OpenAI-compatible endpoint, eliminating "Unexpected endpoint or method" errors in LM Studio console
 [2025-11-14] [test] [performance]: optimize test suite by preventing slow litellm imports; add shared mock_litellm_module fixture to avoid SSL certificate loading overhead; reduce timeout test durations; improve test suite speed by ~45%
 [2025-11-14] [feature] [execution]: support timeout=0 for infinite timeout; allow users to disable command timeouts by setting --timeout 0
 

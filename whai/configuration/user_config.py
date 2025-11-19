@@ -248,7 +248,10 @@ class ProviderConfig:
                 import urllib.error
                 import urllib.request
 
-                req = urllib.request.Request(self.api_base, method="HEAD")
+                # Use /models endpoint instead of HEAD request to base URL
+                # This is the proper OpenAI-compatible endpoint that all local providers support
+                models_url = f"{self.api_base.rstrip('/')}/models"
+                req = urllib.request.Request(models_url, method="GET")
                 urllib.request.urlopen(req, timeout=5)
                 details["api_base_reachable"] = True
                 on_progress("Validating API base connectivity", True)
