@@ -38,10 +38,16 @@ whai = "whai.cli.main:app"
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
-addopts = "-v"
+addopts = "-v -m \"not api\""
 markers = [
     "integration: marks tests as integration tests (run with 'pytest tests/integration' or 'pytest -m integration')",
     "performance: marks tests as performance benchmarks (run with '-m performance')",
+    "api: marks tests that make real API calls (skipped by default, run with 'pytest -m api')",
+]
+filterwarnings = [
+    "ignore:There is no current event loop:DeprecationWarning",
+    "ignore:Pydantic serializer warnings:UserWarning",
+    "ignore:Use 'content=<...>' to upload raw bytes/text content:DeprecationWarning",
 ]
 
 [[tool.uv.index]]
