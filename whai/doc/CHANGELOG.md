@@ -9,6 +9,7 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-19] [test] [llm]: add VRAM management helpers for integration tests; automatically unload Ollama and LM Studio models after tests to free GPU memory; add _get_available_models() methods to provider configs; refactor integration tests to reuse project code instead of duplicating HTTP request logic; update test configuration to exclude integration tests by default and filter third-party warnings
 [2025-11-19] [test] [llm]: add comprehensive environment variable configuration tests; verify only active provider's env vars are set; add end-to-end integration tests for LM Studio and Ollama with user config support; fix Ollama test to handle model names with colons/tags
 [2025-11-19] [fix] [cli]: fix property name from default_provider to configured_provider in status display
 
