@@ -90,9 +90,9 @@ uv run pytest --cov=whai --cov-report=term-missing
 uv run pytest -m performance
 ```
 
-Less quick: integration tests (will use API tokens and require you to be running ollama and lmstudio)
+Less quick: API tests (will use API tokens and require you to be running ollama and lmstudio)
 ```bash
-uv run pytest -m integration
+uv run pytest -m api
 ```
 
 ### Testing across multiple Python versions (recommended)
@@ -148,6 +148,11 @@ Set up GitHub repository secrets (one-time setup):
    - The release workflow uses `whai.doc.release_notes` to build GitHub notes, which sorts entries by category importance (Feature → Security → Fix → Change → Docs → Chore → Test) and removes the leading date in the published list. (`uv run whai/doc/release_notes.py --version X.Y.Z` to run it)
 
 2. Bump the version:
+
+First run all tests with API calls (make sure ollama and lmstudio are running)
+```bash
+uv run pytest -m ""
+```
 
 ```bash
 # Options: major | minor | patch | stable | alpha | beta | rc | post | dev
