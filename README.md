@@ -16,6 +16,7 @@ https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 - [Quick Examples](#quick-examples)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Supported Providers](#supported-providers)
 - [Key Features](#key-features)
 - [FAQ](#faq)
 - [Contributing](#contributing)
@@ -311,6 +312,21 @@ That's it! `whai` will:
 > whai "what's the biggest file?"
 > ```
 
+## Supported Providers
+
+`whai` supports the following LLM providers:
+
+- **OpenAI** - GPT models (e.g., `gpt-5-mini`, `gpt-4`, `gpt-4-turbo`)
+- **Anthropic** - Claude models (e.g., `claude-3-5-sonnet-20241022`, `claude-3-opus`)
+- **Google Gemini** - Gemini models (e.g., `gemini-2.5-flash`, `gemini-2.5-pro`)
+- **Azure OpenAI** - Azure-hosted OpenAI models
+- **Ollama** - Local models via Ollama (requires local Ollama instance)
+- **LM Studio** - Local models via LM Studio (requires LM Studio server running)
+
+Each provider must be configured in your `~/.config/whai/config.toml` file. You can configure multiple providers and switch between them using roles or the `--provider` flag.
+
+> **Note:** `whai` uses [LiteLLM](https://github.com/BerriAI/litellm) for multi-provider support. Additional providers from [LiteLLM's supported providers list](https://docs.litellm.ai/docs/providers) can be added upon request.
+
 ## Key Features
 
 ### Roles
@@ -363,14 +379,7 @@ Describe context, behaviors, tone, and constraints here.
 
 #### Available Providers:
 
-You can specify any of the following providers in the `provider` field:
-
-- `openai` - OpenAI models (e.g., `gpt-5-mini`, `gpt-4`)
-- `anthropic` - Anthropic Claude models (e.g., `claude-3-5-sonnet-20241022`)
-- `gemini` - Google Gemini models (e.g., `gemini-2.5-flash`)
-- `azure_openai` - Azure OpenAI service
-- `ollama` - Local Ollama models (requires local Ollama instance)
-- `lm_studio` - LM Studio local models (requires LM Studio server running)
+You can specify any provider in the `provider` field. See the [Supported Providers](#supported-providers) section for the list of available providers.
 
 The provider must be configured in your `~/.config/whai/config.toml` file before it can be used. If no `provider` is specified in the role, `whai` uses the default provider from your configuration.
 
@@ -390,7 +399,7 @@ For output context without tmux, use `whai shell` to launch an interactive shell
 ```zsh
 whai shell
 ```
-
+ 
 This command:
 - Opens your normal shell (bash, zsh, fish, or PowerShell) with identical behavior
 - Records all commands and outputs to a session log
