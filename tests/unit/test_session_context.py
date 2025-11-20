@@ -14,7 +14,11 @@ from pathlib import Path
 import pytest
 
 from whai.core.session_logger import SessionLogger
-from whai.context.session_reader import read_session_context
+from whai.context.session_reader import (
+    read_session_context,
+    _extract_command_from_line,
+    _merge_transcript_and_whai_log,
+)
 
 
 @pytest.fixture
@@ -168,6 +172,99 @@ def test_context_capture_with_commands_only_no_tool_calls(simulated_whai_shell):
     assert "explaining something to the user" in context
     assert "spans multiple lines" in context
     assert "doesn't execute any commands" in context
+
+
+def test_extract_command_from_line_ignores_paths():
+    """Test that _extract_command_from_line ignores 'whai' in file paths."""
+    # Should extract actual whai commands
+    assert _extract_command_from_line("[whai] E:\\Projects\\whai> whai hello -vv") == "whai hello -vv"
+    assert _extract_command_from_line("PS>whai tell me a story") == "whai tell me a story"
+    assert _extract_command_from_line("$ whai --help") == "whai --help"
+    
+    # Should NOT extract whai from paths
+    path_line = "Host Application: C:\\Program Files\\PowerShell\\7\\pwsh.dll -NoLogo -Command Start-Transcript -Path 'C:\\Users\\User\\AppData\\Roaming\\whai\\sessions\\session.log'"
+    assert _extract_command_from_line(path_line) is None
+    
+    # Should NOT extract from prompt-only lines
+    assert _extract_command_from_line("[whai] E:\\Projects\\whai>") is None
+    assert _extract_command_from_line("[whai] /home/user/whai>") is None
+    
+    # Should handle edge cases
+    assert _extract_command_from_line("whai") == "whai"  # Just whai with no args
+    assert _extract_command_from_line("PS>whai") == "whai"  # Just whai in PowerShell prompt
+    assert _extract_command_from_line("[whai] E:\\Projects> whai") == "whai"  # Just whai after custom prompt
+    assert _extract_command_from_line("$ whai") == "whai"  # Just whai in bash prompt
+    assert _extract_command_from_line("  whai  hello  ") == "whai  hello"  # Extra whitespace
+
+
+def test_merge_ignores_false_whai_matches():
+    """Test that merge doesn't get confused by 'whai' in paths or prompts."""
+    transcript = """PowerShell transcript start
+Start time: 20251120204926
+Username: PANTHER\\Gael Van der Lee
+Host Application: C:\\Program Files\\PowerShell\\7\\pwsh.dll -NoLogo -NoExit -Command Start-Transcript -Path 'C:\\Users\\Gael\\AppData\\Roaming\\whai\\sessions\\session_20251120_204926.log'
+**********************
+[whai] E:\\Projects\\Personal\\Programming\\whai>
+PS>ls
+
+    Directory: E:\\Projects\\Personal\\Programming\\whai
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----          13/11/2025    14:44                __pycache__
+
+[whai] E:\\Projects\\Personal\\Programming\\whai>
+PS>whai tell me a short story
+"""
+
+    whai_log = """
+$ whai tell me a short story
+Once upon a time, in a quiet corner of a digital forest, there lived a tiny CLI assistant named Whai.
+
+The end.
+"""
+
+    result = _merge_transcript_and_whai_log(transcript, whai_log)
+    
+    # The story should come after the "whai tell me a short story" command
+    # NOT after ls output or in any other random place
+    lines = result.splitlines()
+    
+    # Find the story
+    story_line_idx = None
+    for i, line in enumerate(lines):
+        if "Once upon a time" in line:
+            story_line_idx = i
+            break
+    
+    assert story_line_idx is not None, "Story should be in merged output"
+    
+    # Find the whai command
+    cmd_line_idx = None
+    for i, line in enumerate(lines):
+        if "whai tell me a short story" in line:
+            cmd_line_idx = i
+            break
+    
+    assert cmd_line_idx is not None, "Command should be in merged output"
+    
+    # Story should come after the command
+    assert story_line_idx > cmd_line_idx, f"Story (line {story_line_idx}) should come after command (line {cmd_line_idx})"
+    
+    # Find ls command and its output
+    ls_idx = None
+    for i, line in enumerate(lines):
+        if "PS>ls" in line:
+            ls_idx = i
+            break
+    
+    assert ls_idx is not None, "ls command should be in output"
+    
+    # Story should NOT be inserted between ls and whai command
+    if ls_idx < cmd_line_idx:
+        # Make sure story is not in that range
+        for i in range(ls_idx + 1, cmd_line_idx):
+            assert "Once upon a time" not in lines[i], f"Story should not appear between ls and whai command (found at line {i})"
 
 
 @pytest.mark.skipif(platform.system() != "Windows", reason="SessionLogger is Windows-only")

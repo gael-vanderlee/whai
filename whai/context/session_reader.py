@@ -193,13 +193,62 @@ def _extract_command_from_line(line: str) -> Optional[str]:
     """Extract the command portion from a line, starting from the last 'whai' occurrence.
     
     Works with any prompt format by finding the last 'whai' word in the line.
+    Only extracts actual whai commands, not paths or other text containing 'whai'.
     """
     line_lower = line.lower()
-    whai_pos = line_lower.rfind("whai")
-    if whai_pos == -1:
+    
+    # Find all occurrences of 'whai' in the line
+    pos = 0
+    whai_positions = []
+    while True:
+        pos = line_lower.find("whai", pos)
+        if pos == -1:
+            break
+        whai_positions.append(pos)
+        pos += 4
+    
+    if not whai_positions:
         return None
     
-    return line[whai_pos:].strip()
+    # Check each occurrence from right to left to find an actual command
+    for whai_pos in reversed(whai_positions):
+        # Check character before 'whai' to ensure it's a word boundary
+        if whai_pos > 0:
+            prev_char = line[whai_pos - 1]
+            # If preceded by path separator, it's part of a path
+            if prev_char in ('/','\\'):
+                continue
+            # If preceded by alphanumeric or underscore, it's part of another word
+            if prev_char.isalnum() or prev_char == '_':
+                continue
+        
+        # Check character after 'whai' to ensure it's a word boundary
+        after_pos = whai_pos + 4
+        if after_pos < len(line):
+            next_char = line[after_pos]
+            # If followed by alphanumeric or underscore, it's part of another word
+            if next_char.isalnum() or next_char == '_':
+                continue
+            # If followed by path separator, it's likely part of a path
+            if next_char in ('/','\\'):
+                continue
+        
+        # Extract from this position onwards
+        extracted = line[whai_pos:].strip()
+        
+        # Additional validation: check if this looks like a command
+        # It should start with 'whai' followed by space, end of string, or valid flag
+        if not extracted.startswith('whai'):
+            continue
+        if len(extracted) > 4:
+            char_after_whai = extracted[4]
+            if char_after_whai not in (' ', '\t', '\n', '\r'):
+                continue
+        
+        # This looks like an actual whai command
+        return extracted
+    
+    return None
 
 
 def _normalize_command_for_matching(cmd: str) -> str:
