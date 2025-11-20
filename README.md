@@ -315,8 +315,8 @@ That's it! `whai` will:
 - **Anthropic** - Claude models (e.g., `claude-3-5-sonnet-20241022`, `claude-3-opus`)
 - **Google Gemini** - Gemini models (e.g., `gemini-2.5-flash`, `gemini-2.5-pro`)
 - **Azure OpenAI** - Azure-hosted OpenAI models
-- **Ollama** - Local models via Ollama (requires local Ollama instance)
-- **LM Studio** - Local models via LM Studio (requires LM Studio server running)
+- **Ollama** - Running Ollama instance
+- **LM Studio** - Local models via LM Studio
 
 Each provider must be configured in your `~/.config/whai/config.toml` file. You can configure multiple providers and switch between them using roles or the `--provider` flag.
 
