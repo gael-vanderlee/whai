@@ -14,8 +14,8 @@ from whai.shell.session import _launch_windows
     not hasattr(_launch_windows, "__name__"),
     reason="Windows-specific test"
 )
-def test_launch_windows_falls_back_when_pwsh_not_available(tmp_path):
-    """Test that _launch_windows falls back to powershell.exe when pwsh is not available."""
+def test_launch_windows_explicit_pwsh_raises_when_not_available(tmp_path):
+    """Test that explicit 'pwsh' request raises error when pwsh is not available."""
     log_path = tmp_path / "test.log"
     
     # Mock shutil.which to simulate pwsh not being available
@@ -27,22 +27,11 @@ def test_launch_windows_falls_back_when_pwsh_not_available(tmp_path):
         return None
     
     with patch("shutil.which", side_effect=mock_which):
-        with patch("subprocess.call") as mock_call:
-            mock_call.return_value = 0
-            
-            # Call with shell type "pwsh" (what detect_shell() returns)
-            exit_code = _launch_windows("pwsh", log_path)
-            
-            # Should succeed
-            assert exit_code == 0
-            
-            # Verify it called subprocess with powershell.exe (the fallback)
-            mock_call.assert_called_once()
-            call_args = mock_call.call_args[0][0]
-            
-            # First argument should be the resolved powershell.exe path
-            assert "powershell.exe" in call_args[0].lower()
-            assert call_args[0] == r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+        # Explicit "pwsh" request should raise error
+        with pytest.raises(RuntimeError) as exc_info:
+            _launch_windows("pwsh", log_path)
+        
+        assert "PowerShell 7 (pwsh) not found" in str(exc_info.value)
 
 
 @pytest.mark.skipif(
@@ -50,7 +39,7 @@ def test_launch_windows_falls_back_when_pwsh_not_available(tmp_path):
     reason="Windows-specific test"
 )
 def test_launch_windows_resolves_shell_types_to_paths(tmp_path):
-    """Test that shell type names are resolved to full executable paths."""
+    """Test that shell type names are resolved to full executable paths and respect explicit choices."""
     log_path = tmp_path / "test.log"
     
     # Mock shutil.which to return full paths
@@ -62,8 +51,8 @@ def test_launch_windows_resolves_shell_types_to_paths(tmp_path):
         return None
     
     test_cases = [
-        ("pwsh", r"C:\Program Files\PowerShell\7\pwsh.exe"),
-        ("powershell", r"C:\Program Files\PowerShell\7\pwsh.exe"),  # Still prefers pwsh if available
+        ("pwsh", r"C:\Program Files\PowerShell\7\pwsh.exe"),  # Explicit pwsh uses pwsh
+        ("powershell", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"),  # Explicit powershell uses powershell
     ]
     
     for shell_type, expected_path in test_cases:
@@ -76,6 +65,36 @@ def test_launch_windows_resolves_shell_types_to_paths(tmp_path):
                 assert exit_code == 0
                 call_args = mock_call.call_args[0][0]
                 assert call_args[0] == expected_path
+
+
+@pytest.mark.skipif(
+    not hasattr(_launch_windows, "__name__"),
+    reason="Windows-specific test"
+)
+def test_launch_windows_smart_default_fallback(tmp_path):
+    """Test that generic PowerShell request uses smart default (try pwsh first, fall back to powershell)."""
+    log_path = tmp_path / "test.log"
+    
+    # Mock shutil.which to simulate pwsh not available but powershell is
+    def mock_which(cmd):
+        if cmd == "pwsh":
+            return None  # pwsh not available
+        elif cmd == "powershell":
+            return r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+        return None
+    
+    with patch("shutil.which", side_effect=mock_which):
+        with patch("subprocess.call") as mock_call:
+            mock_call.return_value = 0
+            
+            # Generic request (not exact "pwsh" or "powershell") should use smart default
+            # This simulates what happens when shell path contains "powershell" but isn't exactly "pwsh" or "powershell"
+            exit_code = _launch_windows("PowerShell", log_path)  # Capital P triggers generic logic
+            
+            assert exit_code == 0
+            call_args = mock_call.call_args[0][0]
+            # Should fall back to powershell.exe
+            assert call_args[0] == r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 
 @pytest.mark.skipif(

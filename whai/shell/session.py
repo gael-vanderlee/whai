@@ -262,18 +262,35 @@ def _launch_windows(shell: str, log_path: Path) -> int:
         Exit code from the shell.
     """
     # Resolve shell type names to actual executable paths
-    # Prefer PowerShell 7 (pwsh) over Windows PowerShell 5 (powershell)
+    # Respect user's explicit choice, but provide smart defaults
     if shell.lower() in ("pwsh", "powershell") or "powershell" in shell.lower():
-        # Try PowerShell 7 first
-        resolved = shutil.which("pwsh")
-        if not resolved:
-            # Fall back to Windows PowerShell 5
+        if shell.lower() == "pwsh":
+            # User explicitly requested PowerShell 7
+            resolved = shutil.which("pwsh")
+            if not resolved:
+                raise RuntimeError(
+                    "PowerShell 7 (pwsh) not found in PATH. "
+                    "Please install PowerShell 7 or use --shell powershell"
+                )
+        elif shell.lower() == "powershell":
+            # User explicitly requested Windows PowerShell 5.1
             resolved = shutil.which("powershell")
-        if not resolved:
-            raise RuntimeError(
-                "Neither PowerShell 7 (pwsh) nor Windows PowerShell (powershell) found in PATH. "
-                "Please install PowerShell or specify --shell cmd"
-            )
+            if not resolved:
+                raise RuntimeError(
+                    "Windows PowerShell (powershell) not found in PATH. "
+                    "Please install Windows PowerShell or use --shell pwsh"
+                )
+        else:
+            # Generic "powershell" request - use smart default
+            # Try PowerShell 7 first (better), fall back to 5.1
+            resolved = shutil.which("pwsh")
+            if not resolved:
+                resolved = shutil.which("powershell")
+            if not resolved:
+                raise RuntimeError(
+                    "Neither PowerShell 7 (pwsh) nor Windows PowerShell (powershell) found in PATH. "
+                    "Please install PowerShell or specify --shell cmd"
+                )
         shell = resolved
         logger.info("Resolved shell to: %s", shell)
     
