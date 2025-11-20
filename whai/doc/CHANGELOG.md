@@ -9,6 +9,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-20] [fix] [context]: fix context merge issue where 'whai' in file paths was incorrectly extracted as command; _extract_command_from_line now validates word boundaries to only extract actual whai commands, preventing whai output from being inserted at wrong locations in merged context
+[2025-11-20] [fix] [shell]: PowerShell transcript output capture in interactive mode now reliably captures all command output by using proper pipeline passthrough instead of Write-Host
 [2025-11-20] [fix] [shell]: fix Windows shell resolution when PowerShell 7 not in PATH; detect_shell() now returns actual available shell types (pwsh/powershell/cmd) and _launch_windows() properly falls back from pwsh to powershell; fixes [WinError 2] when pwsh.exe not found
 [2025-11-20] [change] [shell]: enhance shell detection to return actual shell types; detect_shell() now checks which PowerShell version is available and returns pwsh, powershell, or cmd based on what's installed; simplifies execution logic
 [2025-11-20] [fix] [cli]: add verbose flag support to shell command; shell command now accepts -v/-vv flags to enable INFO/DEBUG logging levels for debugging shell session startup and recording
