@@ -2,6 +2,7 @@
 
 import os
 import shlex
+import shutil
 import subprocess
 from typing import Tuple
 
@@ -43,10 +44,22 @@ def execute_command(
             # On Windows, killing the parent (cmd.exe) doesn't properly terminate child processes
             # (PowerShell), causing timeouts to fail. Invoking the shell directly avoids this issue.
             shell_type = detect_shell()
-            if shell_type == "pwsh":
-                # PowerShell: pass command directly, PowerShell handles quoting
+            if shell_type == "pwsh" or shell_type == "powershell":
+                # PowerShell: detect_shell() already determined which version is available
+                # Resolve to actual executable path
+                shell_exe = shutil.which(shell_type) or shutil.which("powershell") or "powershell.exe"
                 result = subprocess.run(
-                    ["powershell.exe", "-Command", command],
+                    [shell_exe, "-Command", command],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=timeout_for_subprocess,
+                )
+            elif shell_type == "cmd":
+                # CMD: use /c with the command
+                result = subprocess.run(
+                    ["cmd.exe", "/c", command],
                     capture_output=True,
                     text=True,
                     encoding="utf-8",
@@ -54,7 +67,7 @@ def execute_command(
                     timeout=timeout_for_subprocess,
                 )
             else:
-                # cmd.exe: use /c with the command
+                # Unknown Windows shell, try cmd as fallback
                 result = subprocess.run(
                     ["cmd.exe", "/c", command],
                     capture_output=True,

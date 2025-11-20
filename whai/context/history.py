@@ -244,6 +244,7 @@ _SHELL_HANDLERS: Dict[str, ShellContextHandler] = {
     "bash": BashHandler(shell_name="bash"),
     "zsh": ZshHandler(shell_name="zsh"),
     "pwsh": PowerShellHandler(shell_name="pwsh"),
+    "powershell": PowerShellHandler(shell_name="powershell"),
     "cmd": CMDHandler(shell_name="cmd"),
 }
 

@@ -7,10 +7,10 @@ from typing import Literal
 
 from whai.utils.perf_logger import PerformanceLogger, _format_ms
 
-ShellType = Literal["bash", "zsh", "fish", "pwsh"]
+ShellType = Literal["bash", "zsh", "fish", "pwsh", "powershell", "cmd"]
 
 # List of supported shells
-SUPPORTED_SHELLS = ["bash", "zsh", "fish", "pwsh"]
+SUPPORTED_SHELLS = ["bash", "zsh", "fish", "pwsh", "powershell", "cmd"]
 
 
 def detect_shell() -> ShellType:
@@ -18,10 +18,23 @@ def detect_shell() -> ShellType:
     Detect the current shell type.
 
     Returns:
-        One of: "bash", "zsh", "fish", or "pwsh"
+        One of: "bash", "zsh", "fish", "pwsh", "powershell", or "cmd"
+        
+    Shell types:
+        - "pwsh": PowerShell 7+ (modern, cross-platform)
+        - "powershell": Windows PowerShell 5.x (legacy, Windows-only)
+        - "cmd": Windows Command Prompt
+        - "bash", "zsh", "fish": Unix shells
     """
     # Check if in PowerShell (PSModulePath is PowerShell-specific)
     if os.environ.get("PSModulePath"):
+        # Determine which PowerShell version is available
+        import shutil
+        if shutil.which("pwsh"):
+            return "pwsh"
+        elif shutil.which("powershell"):
+            return "powershell"
+        # If neither found, return pwsh as fallback (will be handled at launch)
         return "pwsh"
 
     # Check SHELL environment variable (Unix-like systems)
@@ -36,9 +49,17 @@ def detect_shell() -> ShellType:
         elif "bash" in shell_name:
             return "bash"
 
-    # Fallback to PowerShell on Windows, bash elsewhere
+    # Fallback: detect what's available on Windows, bash elsewhere
     if sys.platform.startswith("win"):
-        return "pwsh"
+        import shutil
+        if shutil.which("pwsh"):
+            return "pwsh"
+        elif shutil.which("powershell"):
+            return "powershell"
+        elif shutil.which("cmd"):
+            return "cmd"
+        # Last resort fallback
+        return "powershell"
     else:
         return "bash"
 

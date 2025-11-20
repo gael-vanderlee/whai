@@ -261,16 +261,21 @@ def _launch_windows(shell: str, log_path: Path) -> int:
     Returns:
         Exit code from the shell.
     """
-    # Normalize shell name - prefer pwsh over powershell
-    if "powershell" in shell.lower():
-        pwsh = shutil.which("pwsh")
-        if pwsh:
-            shell = pwsh
-        else:
-            # Fall back to Windows PowerShell if pwsh not found
-            powershell = shutil.which("powershell")
-            if powershell:
-                shell = powershell
+    # Resolve shell type names to actual executable paths
+    # Prefer PowerShell 7 (pwsh) over Windows PowerShell 5 (powershell)
+    if shell.lower() in ("pwsh", "powershell") or "powershell" in shell.lower():
+        # Try PowerShell 7 first
+        resolved = shutil.which("pwsh")
+        if not resolved:
+            # Fall back to Windows PowerShell 5
+            resolved = shutil.which("powershell")
+        if not resolved:
+            raise RuntimeError(
+                "Neither PowerShell 7 (pwsh) nor Windows PowerShell (powershell) found in PATH. "
+                "Please install PowerShell or specify --shell cmd"
+            )
+        shell = resolved
+        logger.info("Resolved shell to: %s", shell)
     
     if "pwsh" in shell.lower() or "powershell" in shell.lower():
         # Use PowerShell transcript for recording
