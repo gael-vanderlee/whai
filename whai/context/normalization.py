@@ -78,32 +78,103 @@ def normalize_unix_log(text: str) -> str:
 
 
 def normalize_powershell_transcript(text: str) -> str:
-    """Normalize PowerShell transcript while preserving useful metadata."""
+    """
+    Normalize PowerShell transcript while preserving useful metadata.
+    
+    This function handles both PowerShell 5.1 and PowerShell 7+ transcript formats,
+    which use different numbers of asterisk blocks. It identifies metadata by content
+    rather than structure, making it robust to future PowerShell versions.
+    """
     lines = text.splitlines()
     cleaned: list[str] = []
-    in_metadata_block = False
+    
+    # State tracking
+    in_asterisk_block = False
+    in_initial_metadata = False
+    seen_initial_metadata = False
+    current_block_is_metadata = False
     metadata: dict[str, str] = {}
-
+    
+    # Metadata indicators - these lines only appear in metadata blocks
+    METADATA_INDICATORS = {
+        "PowerShell transcript start",
+        "Windows PowerShell transcript start",
+        "Start time:",
+        "Username:",
+        "RunAs User:",
+        "Configuration Name:",
+        "Machine:",
+        "Host Application:",
+        "Process ID:",
+        "PSVersion:",
+        "PSEdition:",
+        "PSCompatibleVersions:",
+        "BuildVersion:",
+        "CLRVersion:",
+        "WSManStackVersion:",
+        "PSRemotingProtocolVersion:",
+        "SerializationVersion:",
+        "OS:",
+    }
+    
+    # End indicators - these mark the end of transcript
+    END_INDICATORS = {
+        "PowerShell transcript end",
+        "Windows PowerShell transcript end",
+        "End time:",
+    }
+    
     i = 0
     while i < len(lines):
         line = lines[i]
-
+        
+        # Handle asterisk lines
         if line.strip().startswith("**********************"):
-            if not in_metadata_block:
-                in_metadata_block = True
+            if not in_asterisk_block:
+                # Opening asterisk - look ahead to determine block type
+                in_asterisk_block = True
+                
+                # Check if next block is metadata by looking at content
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1]
+                    is_metadata = any(indicator in next_line for indicator in METADATA_INDICATORS)
+                    is_end = any(indicator in next_line for indicator in END_INDICATORS)
+                    
+                    if is_metadata and not seen_initial_metadata:
+                        # This is the initial metadata block
+                        in_initial_metadata = True
+                        current_block_is_metadata = True
+                    elif is_end:
+                        # This is the end block - skip it
+                        current_block_is_metadata = True
+                    else:
+                        # This is content - preserve it
+                        current_block_is_metadata = False
+                
+                i += 1
+                continue
             else:
-                if metadata:
-                    cleaned.append("--- PowerShell Session ---")
-                    for key, value in metadata.items():
-                        cleaned.append(f"{key}: {value}")
-                    cleaned.append("---")
-                    metadata = {}
-                in_metadata_block = False
-            i += 1
-            continue
-
-        if in_metadata_block:
-            if line.startswith("PowerShell transcript start"):
+                # Closing asterisk
+                if in_initial_metadata:
+                    # End of initial metadata - output it
+                    if metadata:
+                        cleaned.append("--- PowerShell Session ---")
+                        for key, value in metadata.items():
+                            cleaned.append(f"{key}: {value}")
+                        cleaned.append("---")
+                        metadata = {}
+                    in_initial_metadata = False
+                    seen_initial_metadata = True
+                
+                in_asterisk_block = False
+                current_block_is_metadata = False
+                i += 1
+                continue
+        
+        # Handle content based on current state
+        if in_initial_metadata:
+            # Extract metadata
+            if line.startswith("PowerShell transcript start") or line.startswith("Windows PowerShell transcript start"):
                 metadata["Session"] = "PowerShell transcript"
             elif line.startswith("Start time:"):
                 metadata["Start time"] = line.replace("Start time:", "").strip()
@@ -119,25 +190,34 @@ def normalize_powershell_transcript(text: str) -> str:
                 metadata["PSVersion"] = line.replace("PSVersion:", "").strip()
             i += 1
             continue
-
+        
+        # Skip content that's marked as metadata (like end blocks)
+        if in_asterisk_block and current_block_is_metadata:
+            i += 1
+            continue
+        
+        # Handle command timestamps
         if line.startswith("Command start time:"):
             timestamp = line.replace("Command start time:", "").strip()
             cleaned.append(f"[Command timestamp: {timestamp}]")
             i += 1
             continue
-
+        
+        # Skip PowerShell continuation lines
         if line.startswith(">> "):
             i += 1
             continue
-
+        
+        # Keep everything else (actual content)
         cleaned.append(line)
         i += 1
-
-    if in_metadata_block and metadata:
+    
+    # Handle case where we ended in metadata block
+    if in_initial_metadata and metadata:
         cleaned.append("--- PowerShell Session ---")
         for key, value in metadata.items():
             cleaned.append(f"{key}: {value}")
         cleaned.append("---")
-
+    
     return "\n".join(cleaned).strip()
 
