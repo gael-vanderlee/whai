@@ -256,6 +256,13 @@ def shell_command(
         "-l",
         help="Path to session log file. Defaults to timestamped file in cache.",
     ),
+    verbose: int = typer.Option(
+        0,
+        "--verbose",
+        "-v",
+        count=True,
+        help="Increase verbosity (for debugging purposes): -v for INFO, -vv for DEBUG",
+    ),
 ):
     """
     Launch an interactive shell with session recording.
@@ -269,7 +276,47 @@ def shell_command(
         whai shell
         whai shell --shell zsh
         whai shell --log ~/my-session.log
+        whai shell -vv
     """
+    # Handle verbose flag - check both the parameter and parent context
+    # This handles both "whai shell -vv" (parsed by shell command) and "whai -vv shell" (parsed by main)
+    # Ensure verbose is an integer (Typer count=True should give us an int)
+    verbose_count = int(verbose) if isinstance(verbose, (int, str)) else 0
+    total_verbose_count = verbose_count
+    
+    try:
+        ctx = typer.get_current_context()
+        if ctx.parent and hasattr(ctx.parent, "params"):
+            parent_verbose = ctx.parent.params.get("verbose", 0)
+            total_verbose_count += int(parent_verbose) if isinstance(parent_verbose, (int, str)) else 0
+    except Exception:
+        # If context access fails, fall back to sys.argv parsing
+        pass
+    
+    # Fallback: check sys.argv for verbose flags if not found elsewhere
+    if total_verbose_count == 0:
+        for arg in sys.argv:
+            if arg.startswith("-") and len(arg) > 1 and all(c == "v" for c in arg[1:]):
+                total_verbose_count = len(arg) - 1
+                break
+    
+    # Configure logging based on verbose count
+    if total_verbose_count == 0:
+        effective_log_level = None  # Use default
+    elif total_verbose_count == 1:
+        effective_log_level = "INFO"
+    else:  # 2 or more
+        effective_log_level = "DEBUG"
+    
+    configure_logging(effective_log_level)
+    
+    logger.info(
+        "Shell command invoked: shell=%s log_path=%s verbose=%s",
+        shell,
+        log_path,
+        total_verbose_count,
+    )
+    
     # Prevent launching a nested whai shell session
     if os.environ.get("WHAI_SESSION_ACTIVE") == "1":
         ui.error("whai shell is already active in this terminal. Type 'exit' to leave the current session.")
@@ -277,7 +324,7 @@ def shell_command(
 
     # Show helpful tip about exiting
     ui.console.print(
-        "\n[dim]Shell session starting with deep context recording enabled.[/dim]"
+        "\n[dim]Shell session starting with context recording.[/dim]"
     )
     ui.console.print(
         "[dim]Tip: Type 'exit' to exit the shell and return to your previous terminal.[/dim]\n"
