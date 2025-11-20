@@ -155,6 +155,7 @@ uv run pytest -m ""
 
 ```bash
 # Options: major | minor | patch | stable | alpha | beta | rc | post | dev
+# Make sure you don't have a running shell
 uv version --bump patch
 ```
 

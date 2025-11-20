@@ -9,6 +9,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+## v0.8.6
+
 [2025-11-20] [fix] [context]: make PowerShell transcript normalization robust across all PowerShell versions by identifying metadata blocks by content instead of counting asterisks; fixes output capture issues with PowerShell 5.1
 [2025-11-20] [fix] [shell]: respect user's explicit shell choice; --shell powershell now uses powershell.exe instead of auto-upgrading to pwsh; --shell pwsh explicitly requires pwsh; generic shell requests use smart default
 
