@@ -292,7 +292,7 @@ def _launch_windows(shell: str, log_path: Path) -> int:
             f"function prompt {{ '[whai] ' + (Get-Location).Path + '> ' }}; "
             f"$ErrorActionPreference = 'Continue'; "
             f"$PSDefaultParameterValues['*:ErrorAction'] = 'Continue'; "
-            f"function Out-Default {{ $input | ForEach-Object {{ if ($_ -is [System.Management.Automation.ErrorRecord]) {{ Write-Host $_; $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'; $_ | Out-String | Out-File -Append '{whai_log_path_escaped}' -Encoding utf8 }} else {{ Write-Host $_ }} }} }}"
+            f"function Out-Default {{ $input | ForEach-Object {{ if ($_ -is [System.Management.Automation.ErrorRecord]) {{ $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'; $_ | Out-String | Out-File -Append '{whai_log_path_escaped}' -Encoding utf8 }}; $_ }} | Microsoft.PowerShell.Core\\Out-Default }}"
         )
         
         # Launch PowerShell with transcript running
