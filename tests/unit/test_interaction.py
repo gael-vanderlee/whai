@@ -47,9 +47,10 @@ def test_execute_command_windows_powershell():
 
         assert "test output" in stdout
         assert code == 0
-        # Verify PowerShell was used
+        # Verify PowerShell was used (either pwsh or powershell)
         call_args = mock_run.call_args[0][0]
-        assert "powershell.exe" in call_args
+        first_arg_lower = call_args[0].lower()
+        assert "pwsh" in first_arg_lower or "powershell" in first_arg_lower
 
 
 def test_execute_command_windows_cmd():
