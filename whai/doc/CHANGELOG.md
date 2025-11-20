@@ -9,6 +9,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-20] [fix] [shell]: fix Windows shell resolution when PowerShell 7 not in PATH; detect_shell() now returns actual available shell types (pwsh/powershell/cmd) and _launch_windows() properly falls back from pwsh to powershell; fixes [WinError 2] when pwsh.exe not found
+[2025-11-20] [change] [shell]: enhance shell detection to return actual shell types; detect_shell() now checks which PowerShell version is available and returns pwsh, powershell, or cmd based on what's installed; simplifies execution logic
 [2025-11-20] [fix] [cli]: add verbose flag support to shell command; shell command now accepts -v/-vv flags to enable INFO/DEBUG logging levels for debugging shell session startup and recording
 [2025-11-19] [test] [config]: add api test marker to skip real API calls by default; mark API tests with @pytest.mark.api; configure pytest to exclude api tests in default runs
 [2025-11-19] [fix] [test]: fix test_send_message_real_api skipping when run with other tests; check config file first before environment to avoid pollution from test API keys
