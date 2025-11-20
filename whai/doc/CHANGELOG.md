@@ -9,6 +9,7 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-20] [fix] [cli]: add verbose flag support to shell command; shell command now accepts -v/-vv flags to enable INFO/DEBUG logging levels for debugging shell session startup and recording
 [2025-11-19] [test] [config]: add api test marker to skip real API calls by default; mark API tests with @pytest.mark.api; configure pytest to exclude api tests in default runs
 [2025-11-19] [fix] [test]: fix test_send_message_real_api skipping when run with other tests; check config file first before environment to avoid pollution from test API keys
 [2025-11-19] [test] [llm]: add VRAM management helpers for integration tests; automatically unload Ollama and LM Studio models after tests to free GPU memory; add _get_available_models() methods to provider configs; refactor integration tests to reuse project code instead of duplicating HTTP request logic; update test configuration to exclude integration tests by default and filter third-party warnings
