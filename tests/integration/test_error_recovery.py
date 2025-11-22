@@ -27,8 +27,13 @@ def test_config(tmp_path, monkeypatch):
 
 def test_command_timeout_shows_clear_message():
     """Test that command timeout raises RuntimeError with clear message."""
-    with pytest.raises(RuntimeError, match="timed out"):
-        execute_command("sleep 100", timeout=1)
+    timeout_seconds = 0.1
+    with pytest.raises(RuntimeError) as exc_info:
+        execute_command("sleep 100", timeout=timeout_seconds)
+    
+    error_message = str(exc_info.value)
+    assert "timed out" in error_message.lower()
+    assert str(timeout_seconds) in error_message
 
 
 def test_malformed_tool_call_json_recovers_gracefully(mock_litellm_module):
@@ -60,7 +65,7 @@ def test_malformed_tool_call_json_recovers_gracefully(mock_litellm_module):
         assert "error" in output.lower() or "invalid" in output.lower() or len(output) > 0
 
 
-def test_network_failure_shows_retry_message():
+def test_network_failure_shows_retry_message(mock_litellm_module):
     """Test that network failures are handled gracefully with error messages."""
     # Mock litellm to raise connection error
     def raise_connection_error(**kwargs):
@@ -123,7 +128,7 @@ def test_very_large_command_output_truncated():
         assert len(stdout) > 0
 
 
-def test_llm_error_response_handled_gracefully():
+def test_llm_error_response_handled_gracefully(mock_litellm_module):
     """Test that LLM API errors (like rate limits) are handled gracefully."""
     # Mock API to return rate limit error
     def raise_rate_limit(**kwargs):

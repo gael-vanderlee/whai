@@ -28,12 +28,13 @@ def test_config(tmp_path, monkeypatch):
 
 def test_command_timeout_raises_clear_error():
     """Test that command timeout raises RuntimeError with clear message."""
+    timeout_seconds = 0.1
     with pytest.raises(RuntimeError) as exc_info:
-        execute_command("sleep 100", timeout=1)
+        execute_command("sleep 100", timeout=timeout_seconds)
     
     error_message = str(exc_info.value)
     assert "timed out" in error_message.lower()
-    assert "1" in error_message  # Timeout value should be mentioned
+    assert str(timeout_seconds) in error_message  # Timeout value should be mentioned
 
 
 def test_timeout_error_shown_to_user_via_cli(mock_litellm_module):
@@ -86,13 +87,13 @@ def test_timeout_with_different_values():
     
     if platform.system() == "Windows":
         test_cases = [
-            (0.1, "Start-Sleep -Seconds 1"),
-            (0.2, "Start-Sleep -Seconds 2"),
+            (0.05, "Start-Sleep -Seconds 1"),
+            (0.1, "Start-Sleep -Seconds 2"),
         ]
     else:
         test_cases = [
-            (0.1, "sleep 1"),
-            (0.2, "sleep 2"),
+            (0.05, "sleep 1"),
+            (0.1, "sleep 2"),
         ]
     
     for timeout, command in test_cases:

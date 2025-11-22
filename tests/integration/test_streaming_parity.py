@@ -21,6 +21,12 @@ def test_messages():
     ]
 
 
+@pytest.fixture(autouse=True)
+def _mock_litellm(mock_litellm_module):
+    """Ensure litellm is mocked for all tests in this module to avoid slow imports."""
+    return mock_litellm_module
+
+
 def test_streaming_and_non_streaming_text_content_matches(test_messages):
     """Test that stream=True and stream=False produce equivalent text content."""
     config = create_test_config(
