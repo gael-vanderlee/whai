@@ -9,6 +9,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-22] [test] [performance]: optimize test suite by reducing test data sizes and timeout durations; reduce slowest test from 7.25s to 2.48s (~66% faster); overall test suite ~35% faster
+
 ## v0.8.6
 
 [2025-11-20] [fix] [context]: make PowerShell transcript normalization robust across all PowerShell versions by identifying metadata blocks by content instead of counting asterisks; fixes output capture issues with PowerShell 5.1
