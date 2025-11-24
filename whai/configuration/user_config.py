@@ -175,7 +175,11 @@ class ProviderConfig:
         on_progress("Validating fields", True)
         checks_performed.append("Field validation")
 
-        # API key validation (if applicable)
+        # Normalize optional API key: treat whitespace-only as missing
+        if self.api_key and isinstance(self.api_key, str) and not self.api_key.strip():
+            self.api_key = None
+
+        # API key validation (if applicable and non-empty)
         if self.api_key:
             on_progress("Validating API key", None)
             checks_performed.append("API key format")
@@ -233,7 +237,7 @@ class ProviderConfig:
             else:
                 on_progress("Validating model", True)
 
-        # API base validation (for local providers)
+        # API base validation (for providers with an API base)
         if self.api_base:
             on_progress("Validating API base connectivity", None)
             checks_performed.append("API base configuration")
@@ -243,9 +247,13 @@ class ProviderConfig:
                 import urllib.error
                 import urllib.request
 
-                # Use /models endpoint instead of HEAD request to base URL
-                # This is the proper OpenAI-compatible endpoint that all local providers support
-                models_url = f"{self.api_base.rstrip('/')}/models"
+                # Provider-specific connectivity endpoint:
+                # - Ollama exposes model tags via /api/tags (returns 404 on /models)
+                # - LM Studio and other OpenAI-compatible providers expose /models
+                if self.provider_name == "ollama":
+                    models_url = f"{self.api_base.rstrip('/')}/api/tags"
+                else:
+                    models_url = f"{self.api_base.rstrip('/')}/models"
                 req = urllib.request.Request(models_url, method="GET")
                 urllib.request.urlopen(req, timeout=5)
                 details["api_base_reachable"] = True
