@@ -9,7 +9,14 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
-[2025-11-22] [test] [performance]: optimize test suite by reducing test data sizes and timeout durations; reduce slowest test from 7.25s to 2.48s (~66% faster); overall test suite ~35% faster
+
+## v0.8.7
+
+[2025-11-25] [feature] [ci]: add pull request checks workflow to run lint, unit, integration, and security suites on every PR
+[2025-11-25] [fix] [lint]: remove unused imports and variables flagged by Ruff to keep codebase clean
+[2025-11-25] [fix] [cli]: fixed ollama model validation endpoint (Thanks @arsaboo)
+[2025-11-25] [fix] [context]: Reworded prompt to avoid model confusion (Thanks @arsaboo)
+[2025-11-22] [test] [performance]: optimize test suite by reducing test data sizes and timeout durations; reduce slowest test from 7.25s to 2.48s; overall test suite ~35% faster
 
 ## v0.8.6
 
