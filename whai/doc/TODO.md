@@ -42,6 +42,9 @@ Features:
 - [x] Retroactively tag previous versions
 - [x] Add provider to role settings
 - [x] Put role settings info in README
+- [ ] MCP support
+- [ ] Replace cursor text
+- [ ] Change command formatting to allow for copy paste
 
 Issues:
 - [x] Timeout issue
