@@ -454,6 +454,8 @@ Contributions are welcome! If you'd like to contribute to `whai`, please:
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
 
+Every Pull Request triggers the `Pull Request CI` workflow, which runs the full `nox` test matrix across Python 3.10–3.14 plus `ruff` linting. Keep your local `uv run pytest` runs green to avoid CI surprises.
+
 For detailed development setup and guidelines, see [DEV.md](whai/doc/DEV.md).
 
 ## Acknowledgments
