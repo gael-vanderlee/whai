@@ -1,7 +1,6 @@
 """Command execution for whai."""
 
 import os
-import shlex
 import shutil
 import subprocess
 from typing import Tuple

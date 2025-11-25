@@ -5,7 +5,6 @@ import os
 import re
 import subprocess
 import sys
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 import typer
@@ -40,7 +39,6 @@ from whai.ui import (
     success,
     warn,
 )
-from whai.utils import detect_shell
 
 logger = get_logger(__name__)
 

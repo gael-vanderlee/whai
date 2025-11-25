@@ -6,7 +6,7 @@ import re
 from typing import Any, Dict, Generator, List, Optional, Union
 
 from whai.configuration.user_config import WhaiConfig
-from whai.constants import DEFAULT_PROVIDER, GPT5_MODEL_PREFIX, get_default_model_for_provider
+from whai.constants import GPT5_MODEL_PREFIX
 from whai.llm.streaming import handle_complete_response, handle_streaming_response
 from whai.logging_setup import get_logger
 from whai.utils import PerformanceLogger
@@ -283,7 +283,6 @@ class LLMProvider:
 
             from litellm import completion  # type: ignore
 
-            t_import_end = _t.perf_counter()
             # Update last_section_time to track import duration, then log using perf logger
             self.perf_logger.last_section_time = t_import_start
             self.perf_logger.log_section("LiteLLM import")
@@ -298,14 +297,12 @@ class LLMProvider:
 
                 def _perf_wrapped_stream():
                     first = True
-                    t_first = None
                     text_len = 0
                     tool_calls = 0
                     try:
                         for chunk in underlying:
                             if first:
                                 first = False
-                                t_first = _t.perf_counter()
                                 # Update last_section_time to track time to first chunk, then log using perf logger
                                 self.perf_logger.last_section_time = t_start
                                 self.perf_logger.log_section("LLM API first chunk")
@@ -316,7 +313,6 @@ class LLMProvider:
                                 tool_calls += 1
                             yield chunk
                     finally:
-                        t_end = _t.perf_counter()
                         # Update last_section_time to track stream duration, then log using perf logger
                         self.perf_logger.last_section_time = t_start
                         self.perf_logger.log_section(
@@ -327,7 +323,6 @@ class LLMProvider:
                 return _perf_wrapped_stream()
             else:
                 result = handle_complete_response(response)
-                t_end = _t.perf_counter()
                 self.perf_logger.last_section_time = t_start
                 self.perf_logger.log_section("LLM API call (non-stream)")
                 return result

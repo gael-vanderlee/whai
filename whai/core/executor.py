@@ -1,7 +1,6 @@
 """Conversation loop execution for whai."""
 
 import json
-import time
 from typing import List, Optional
 
 from whai import ui
@@ -43,9 +42,6 @@ def run_conversation_loop(
         
         try:
             # Send to LLM with streaming; show spinner until first chunk arrives
-            import time
-
-            start_spinner = time.perf_counter()
             with ui.spinner("Thinking"):
                 response_stream = llm_provider.send_message(messages, stream=True)
                 response_chunks = []
@@ -53,7 +49,6 @@ def run_conversation_loop(
                 for chunk in response_stream:
                     first_chunk = chunk
                     break
-            elapsed_spinner = time.perf_counter() - start_spinner
             loop_perf.log_section("LLM API call (streaming)")
 
             # Print first chunk and continue streaming

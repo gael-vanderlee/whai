@@ -3,7 +3,6 @@
 import contextlib
 import os
 import sys
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
@@ -94,12 +93,8 @@ class ProviderConfig:
 
     def __post_init__(self) -> None:
         """Validate configuration values."""
-        t0 = time.perf_counter()
         self._validate_api_base()
         self._validate_required_fields()
-        elapsed_ms = (time.perf_counter() - t0) * 1000
-        # Use comma formatting for readability
-        from whai.utils import _format_ms
 
     def _validate_api_base(self) -> None:
         """Validate URL format for api_base if provided."""

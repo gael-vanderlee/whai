@@ -2,7 +2,6 @@
 
 import os
 import sys
-import time
 from importlib.metadata import version
 from pathlib import Path
 from typing import List, Optional

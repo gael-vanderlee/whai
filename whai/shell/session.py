@@ -10,7 +10,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-import time
 
 from whai.configuration.user_config import get_config_dir
 from whai.logging_setup import get_logger

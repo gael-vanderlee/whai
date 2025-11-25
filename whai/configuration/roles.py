@@ -15,7 +15,6 @@ from whai.constants import (
     DEFAULT_ROLE_FILENAME,
     DEFAULT_ROLE_NAME,
     ENV_WHAI_ROLE,
-    get_default_model_for_provider,
 )
 from whai.logging_setup import get_logger
 from whai.ui import warn

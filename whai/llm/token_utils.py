@@ -38,8 +38,6 @@ def truncate_text_with_tokens(text: str, max_tokens: int) -> Tuple[str, bool]:
     if not text:
         return text, False
 
-    t0 = time.perf_counter()
-
     try:
         # Estimate token count using simple character ratio
         token_count = _estimate_tokens(text)

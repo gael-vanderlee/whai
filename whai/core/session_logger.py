@@ -6,7 +6,6 @@ in subsequent commands.
 """
 
 import os
-import sys
 from pathlib import Path
 from typing import Optional
 
