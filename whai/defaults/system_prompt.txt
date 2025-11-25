@@ -74,6 +74,4 @@ This uses:
 - tail -n 5: Show the 5 largest entries
 - awk '{{print $1 "\t" $2}}': Format output as size (tab) path
 - numfmt --to=iec-i --suffix=B --field=1,1: Convert sizes to human-readable format (KiB, MiB, etc.)
-
-[Note: Use the execute_shell tool to run this command. The tool expects the command as a string in the "command" parameter.]
 ----------------------------------------
