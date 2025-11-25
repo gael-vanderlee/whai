@@ -69,16 +69,6 @@ source .venv/bin/activate
 .venv\Scripts\activate.bat
 ```
 
-### Run scripts/CLI via uv
-```bash
-# Run whai
-uv run whai "your question"
-
-# Run a module/script
-uv run python -m whai "your question"
-uv run python path/to/script.py
-```
-
 ## Tests
 
 ### Quick test run (current Python version)
@@ -130,23 +120,19 @@ nox -l
 
 The project uses GitHub Actions to automatically test, build, publish, and release new versions when you push a version tag.
 
-#### Prerequisites
-
-Set up GitHub repository secrets (one-time setup):
-1. Go to your GitHub repository settings
-2. Navigate to Secrets and variables → Actions
-3. Add two secrets:
-   - `TEST_PYPI_TOKEN` - Your TestPyPI API token ([get it here](https://test.pypi.org/manage/account/token/))
-   - `PYPI_TOKEN` - Your PyPI API token ([get it here](https://pypi.org/manage/account/token/))
-
 #### Release Process
 
-1. Ensure `CHANGELOG.md` is up-to-date with all changes:
-   - Before releasing, add a version header: `## vX.Y.Z` (where X.Y.Z is your new version)
-   - Add an empty line after all entries for this version (before the next version header)
-   - The release workflow uses `whai.doc.release_notes` to build GitHub notes, which sorts entries by category importance (Feature → Security → Fix → Change → Docs → Chore → Test) and removes the leading date in the published list. (`uv run whai/doc/release_notes.py --version X.Y.Z` to run it)
+1. Pick a new version: 
+   - Breaking changes: bump major. Changes in flags, commands, output format.
+   - New feature: bump minor. Backwards compatible features like new providers, new flags, commands.
+   - Bug fix: patch. Fixng a crash, performance optimization.
 
-2. Bump the version:
+2. Ensure `CHANGELOG.md` is up-to-date with all changes:
+   - Before releasing, add a version header: `## vX.Y.Z`
+   - Add an empty line after all entries for this version (before the next version header)
+   - The release workflow uses `whai.doc.release_notes` to build GitHub notes, which sorts entries by category importance (Feature → Security → Fix → Change → Docs → Chore → Test) and removes the leading date in the published list. (`uv run whai/doc/release_notes.py --version X.Y.Z` to test it)
+
+3. Bump the version:
 
 First run all tests with API calls (make sure ollama and lmstudio are running)
 ```bash
@@ -159,7 +145,7 @@ uv run pytest -m ""
 uv version --bump patch
 ```
 
-3. Commit and tag the new version:
+4. Commit and tag the new version:
 
 ```bash
 # macOS/Linux - Read version from pyproject.toml
@@ -177,7 +163,7 @@ git commit -am "Bump version to v$ver"
 git tag "v$ver"
 ```
 
-4. Push the commit and tag:
+5. Push the commit and tag:
 
 ```bash
 # macOS/Linux
