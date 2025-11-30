@@ -260,9 +260,14 @@ def _launch_windows(shell: str, log_path: Path) -> int:
     Returns:
         Exit code from the shell.
     """
+    # Check if shell is already a full path (absolute path)
+    # On Windows, this could be C:\path\to\exe or contain path separators
+    is_full_path = os.path.isabs(shell) or "\\" in shell or "/" in shell
+    
     # Resolve shell type names to actual executable paths
     # Respect user's explicit choice, but provide smart defaults
-    if shell.lower() in ("pwsh", "powershell") or "powershell" in shell.lower():
+    # If a full path is provided, use it directly without resolution
+    if not is_full_path and (shell.lower() in ("pwsh", "powershell") or "powershell" in shell.lower()):
         if shell.lower() == "pwsh":
             # User explicitly requested PowerShell 7
             resolved = shutil.which("pwsh")
@@ -292,6 +297,8 @@ def _launch_windows(shell: str, log_path: Path) -> int:
                 )
         shell = resolved
         logger.info("Resolved shell to: %s", shell)
+    elif is_full_path:
+        logger.info("Using provided full path: %s", shell)
     
     if "pwsh" in shell.lower() or "powershell" in shell.lower():
         # Use PowerShell transcript for recording
