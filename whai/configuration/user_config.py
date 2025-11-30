@@ -404,6 +404,47 @@ class AnthropicConfig(ProviderConfig):
 
 
 @dataclass
+class MistralConfig(ProviderConfig):
+    """Configuration for Mistral provider."""
+
+    provider_name: str = "mistral"
+
+    def __post_init__(self) -> None:
+        """Strip mistral/ prefix from model name if present."""
+        super().__post_init__()
+        if self.default_model:
+            self.default_model = self._strip_provider_prefix(self.default_model, "mistral/")
+
+    def _validate_required_fields(self) -> None:
+        """Validate Mistral-specific requirements."""
+        self._validate_non_empty_field("api_key", self.api_key)
+        self._validate_non_empty_field("default_model", self.default_model)
+
+    def _get_litellm_model_name(self) -> str:
+        """Get model name with mistral/ prefix."""
+        model = self.default_model or "default"
+        return f"mistral/{model}"
+
+    def sanitize_model_name(self, model: str) -> str:
+        """Strip mistral/ prefix if present, then add it back for LiteLLM."""
+        base_model = self._strip_provider_prefix(model, "mistral/")
+        return f"mistral/{base_model}"
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "MistralConfig":
+        """Create MistralConfig from dictionary, stripping mistral/ prefix if present."""
+        default_model = data.get("default_model")
+        if default_model and default_model.startswith("mistral/"):
+            default_model = default_model[len("mistral/") :]
+        return cls(
+            api_key=data.get("api_key"),
+            api_base=data.get("api_base"),
+            api_version=data.get("api_version"),
+            default_model=default_model,
+        )
+
+
+@dataclass
 class GeminiConfig(ProviderConfig):
     """Configuration for Gemini provider."""
 
@@ -713,6 +754,7 @@ def get_provider_class(name: str) -> Type[ProviderConfig]:
         "azure_openai": AzureOpenAIConfig,
         "ollama": OllamaConfig,
         "lm_studio": LMStudioConfig,
+        "mistral": MistralConfig,
     }
 
     if name not in provider_classes:

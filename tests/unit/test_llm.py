@@ -143,6 +143,54 @@ def test_send_message_real_api():
     assert "test successful" in result["content"].lower()
 
 
+@pytest.mark.integration
+@pytest.mark.api
+def test_send_message_mistral_real_api():
+    """
+    Integration test with real Mistral API.
+
+    Requires a valid Mistral API key in the config file or environment.
+    Checks config file first to avoid environment pollution from other tests.
+    """
+    import os
+
+    from whai.configuration import user_config as whai_config
+
+    # Determine API key from whai config first (env might be polluted by other tests)
+    api_key = None
+    try:
+        loaded = whai_config.load_config()
+        mistral_cfg = loaded.llm.get_provider("mistral")
+        api_key = mistral_cfg.api_key if mistral_cfg else None
+    except Exception:
+        pass
+    
+    # Fall back to environment if config doesn't have it
+    if not api_key:
+        api_key = os.environ.get("MISTRAL_API_KEY")
+
+    # Skip if no API key from env or config, or if it's a dummy/test key
+    # Note: "test-key" is returned by test mode when config doesn't exist
+    if not api_key or api_key in ("test-key-123", "test-key", "test-mistral-key", "your-api-key-here"):
+        pytest.skip("No valid Mistral API key in environment or whai config")
+
+    config = create_test_config(
+        default_provider="mistral",
+        default_model="mistral-small-latest",
+        api_key=api_key,
+    )
+
+    provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": 'Say "Mistral test successful" and nothing else.'},
+    ]
+
+    result = provider.send_message(messages, stream=False, tools=[])
+
+    assert "mistral test successful" in result["content"].lower()
+
+
 # ============================================================================
 # Environment Variable Configuration Tests
 # ============================================================================
@@ -222,6 +270,24 @@ def test_configure_api_keys_gemini_sets_gemini_key():
     # Other provider keys should not be set
     assert "OPENAI_API_KEY" not in os.environ
     assert "LM_STUDIO_API_BASE" not in os.environ
+
+
+def test_configure_api_keys_mistral_sets_mistral_key():
+    """Test that Mistral provider sets MISTRAL_API_KEY environment variable."""
+    _clear_provider_env_vars()
+
+    config = create_test_config(
+        default_provider="mistral",
+        default_model="mistral-small-latest",
+        api_key="test-mistral-key",
+    )
+
+    provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
+
+    assert os.environ.get("MISTRAL_API_KEY") == "test-mistral-key"
+    # Other provider keys should not be set
+    assert "OPENAI_API_KEY" not in os.environ
+    assert "ANTHROPIC_API_KEY" not in os.environ
 
 
 def test_configure_api_keys_azure_sets_azure_vars():

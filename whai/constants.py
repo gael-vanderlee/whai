@@ -20,6 +20,7 @@ DEFAULT_MODEL_GEMINI = "gemini-2.5-flash"
 DEFAULT_MODEL_AZURE_OPENAI = "gpt-4"
 DEFAULT_MODEL_OLLAMA = "mistral"
 DEFAULT_MODEL_LM_STUDIO = "llama-3-8b-instruct"
+DEFAULT_MODEL_MISTRAL = "mistral-small-latest"
 
 # Model prefixes for special handling
 GPT5_MODEL_PREFIX = "gpt-5"
@@ -63,6 +64,10 @@ PROVIDER_DEFAULTS = {
             "api_base": DEFAULT_LM_STUDIO_API_BASE,
             "default_model": DEFAULT_MODEL_LM_STUDIO,
         },
+    },
+    "mistral": {
+        "fields": ["api_key", "default_model"],
+        "defaults": {"default_model": DEFAULT_MODEL_MISTRAL},
     },
 }
 

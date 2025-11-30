@@ -432,6 +432,48 @@ def test_save_config(tmp_path, monkeypatch):
     assert anthropic_cfg.api_key == "sk-test-123"
 
 
+def test_save_and_load_mistral_config(tmp_path, monkeypatch):
+    """Test saving and loading Mistral configuration."""
+    # Use a temporary directory as the config directory
+    monkeypatch.setattr(config, "get_config_dir", lambda: tmp_path)
+
+    # Create a config with Mistral
+    from whai.configuration.user_config import (
+        LLMConfig,
+        MistralConfig,
+        RolesConfig,
+        WhaiConfig,
+    )
+
+    test_config = WhaiConfig(
+        llm=LLMConfig(
+            default_provider="mistral",
+            providers={
+                "mistral": MistralConfig(
+                    api_key="test-mistral-key-123",
+                    default_model="mistral-small-latest",
+                ),
+            },
+        ),
+        roles=RolesConfig(default_role="default"),
+    )
+
+    # Save it
+    config.save_config(test_config)
+
+    # Verify file was created
+    config_file = tmp_path / "config.toml"
+    assert config_file.exists()
+
+    # Load it back and verify
+    loaded = config.load_config()
+    assert loaded.llm.default_provider == "mistral"
+    mistral_cfg = loaded.llm.get_provider("mistral")
+    assert mistral_cfg is not None
+    assert mistral_cfg.api_key == "test-mistral-key-123"
+    assert mistral_cfg.default_model == "mistral-small-latest"
+
+
 def test_summarize_config(capsys):
     """Test config summarization."""
     from whai.configuration.user_config import (

@@ -10,6 +10,7 @@ from whai.configuration.user_config import (
     AnthropicConfig,
     GeminiConfig,
     LLMConfig,
+    MistralConfig,
     OpenAIConfig,
     RolesConfig,
     WhaiConfig,
@@ -78,6 +79,11 @@ def create_test_config(
         )
     elif default_provider == "gemini":
         provider_configs["gemini"] = GeminiConfig(
+            api_key=api_key,
+            default_model=default_model,
+        )
+    elif default_provider == "mistral":
+        provider_configs["mistral"] = MistralConfig(
             api_key=api_key,
             default_model=default_model,
         )

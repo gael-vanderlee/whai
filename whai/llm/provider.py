@@ -126,6 +126,10 @@ class LLMProvider:
             if provider_cfg and provider_cfg.api_key:
                 os.environ["GEMINI_API_KEY"] = provider_cfg.api_key
         
+        elif self.configured_provider == "mistral":
+            if provider_cfg and provider_cfg.api_key:
+                os.environ["MISTRAL_API_KEY"] = provider_cfg.api_key
+        
         elif self.configured_provider == "azure_openai":
             if provider_cfg:
                 if provider_cfg.api_key:

@@ -314,6 +314,7 @@ That's it! `whai` will:
 - **OpenAI** - GPT models (e.g., `gpt-5-mini`, `gpt-4`, `gpt-4-turbo`)
 - **Anthropic** - Claude models (e.g., `claude-3-5-sonnet-20241022`, `claude-3-opus`)
 - **Google Gemini** - Gemini models (e.g., `gemini-2.5-flash`, `gemini-2.5-pro`)
+- **Mistral AI** - Mistral models (e.g., `mistral-small-latest`, `mistral-medium-latest`, `mistral-large-latest`)
 - **Azure OpenAI** - Azure-hosted OpenAI models
 - **Ollama** - Running Ollama instance
 - **LM Studio** - Local models via LM Studio
