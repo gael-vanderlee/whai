@@ -11,6 +11,10 @@
 - `configuration/config_wizard.py` - Interactive setup wizard
 - `llm/provider.py` - LLM wrapper (LiteLLM), API calls, streaming
 - `llm/streaming.py` - Stream response parsing (text chunks, tool calls)
+- `mcp/config.py` - MCP server configuration (dataclass-based, JSON)
+- `mcp/client.py` - MCP client for connecting to individual servers
+- `mcp/manager.py` - MCP manager for multiple servers, tool aggregation
+- `mcp/executor.py` - MCP tool call handling for executor integration
 - `context/capture.py` - Context capture coordinator (tmux → session → history)
 - `context/tmux.py` - Tmux scrollback capture
 - `context/history.py` - Shell history parsing
@@ -26,7 +30,13 @@
 2. `main()` loads config (`configuration/user_config.py`), resolves role, captures context (`context/capture.py`)
 3. Initializes LLM provider (`llm/provider.py`), builds messages with system prompt + role + context
 4. Calls `core/executor.py:run_conversation_loop()`
-5. Loop: LLM responds → extracts tool calls → `interaction/approval.py` for approval → `interaction/execution.py` executes → results fed back → repeat until done
+5. Loop: LLM responds → extracts tool calls → routes to `execute_shell` (with approval) or MCP tools → `interaction/execution.py` executes shell commands, `mcp/executor.py` handles MCP tools → results fed back → repeat until done
+
+**MCP Integration**:
+- MCP manager initialized at start of conversation loop (if `mcp.json` exists)
+- MCP tools discovered and combined with `execute_shell` tool in LLM provider
+- Tool calls prefixed with `mcp_` are routed to MCP manager
+- MCP connections cleaned up at end of conversation loop
 
 ## uv venv
 

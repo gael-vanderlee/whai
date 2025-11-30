@@ -131,3 +131,63 @@ def mock_litellm_module():
     mock_litellm.exceptions = MagicMock()
     with patch.dict("sys.modules", {"litellm": mock_litellm}):
         yield mock_litellm
+
+
+@pytest.fixture
+def mcp_server_time(tmp_path, monkeypatch):
+    """
+    Fixture that spins up a real temporary MCP time server for testing.
+    
+    Uses uvx to run mcp-server-time ephemerally. The server process is started
+    and cleaned up automatically.
+    """
+    import subprocess
+    import shutil
+    
+    # Check if uvx is available
+    uvx_path = shutil.which("uvx")
+    if not uvx_path:
+        pytest.skip("uvx not available, cannot run MCP server tests")
+    
+    # Check if mcp-server-time can be run
+    try:
+        result = subprocess.run(
+            [uvx_path, "mcp-server-time", "--help"],
+            capture_output=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            pytest.skip("mcp-server-time not available via uvx")
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pytest.skip("Cannot run mcp-server-time")
+    
+    # Create MCP config for the test server
+    config_dir = tmp_path / "whai"
+    config_dir.mkdir(parents=True)
+    config_file = config_dir / "mcp.json"
+    
+    config_data = {
+        "mcpServers": {
+            "time-server": {
+                "command": uvx_path,
+                "args": ["mcp-server-time"],
+                "env": {}
+            }
+        }
+    }
+    
+    import json
+    config_file.write_text(json.dumps(config_data))
+    
+    # Mock get_config_dir to return our test config directory
+    def mock_get_config_dir():
+        return config_dir
+    
+    monkeypatch.setattr("whai.mcp.config.get_config_dir", mock_get_config_dir)
+    
+    yield {
+        "server_name": "time-server",
+        "command": uvx_path,
+        "args": ["mcp-server-time"],
+        "env": {},
+    }

@@ -19,6 +19,7 @@ dependencies = [
     "tomli-w>=1.0.0",
     "tomli>=2.0.0; python_version < '3.11'",
     "rich>=13.7.0",
+    "mcp>=1.22.0",
 ]
 
 [tool.hatch.build.targets.wheel]

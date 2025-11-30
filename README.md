@@ -323,6 +323,42 @@ Each provider must be configured in your `~/.config/whai/config.toml` file. You 
 
 > **Note:** `whai` uses [LiteLLM](https://github.com/BerriAI/litellm) for multi-provider support. Additional providers from [LiteLLM's supported providers list](https://docs.litellm.ai/docs/providers) can be added upon request.
 
+## MCP (Model Context Protocol) Support
+
+`whai` supports connecting to local MCP servers to extend functionality with additional tools. MCP servers can provide tools for file operations, database queries, API integrations, and more.
+
+### Setting Up MCP Servers
+
+1. Create `~/.config/whai/mcp.json` with your MCP server configuration:
+
+```json
+{
+  "mcpServers": {
+    "server-name": {
+      "command": "command-to-run",
+      "args": ["arg1", "arg2"],
+      "env": {"KEY": "value"}
+    }
+  }
+}
+```
+
+2. Example configuration for the time server:
+
+```json
+{
+  "mcpServers": {
+    "time-server": {
+      "command": "uvx",
+      "args": ["mcp-server-time"],
+      "env": {}
+    }
+  }
+}
+```
+
+MCP support is opt-in: if `mcp.json` doesn't exist, MCP is disabled. Tools from MCP servers are automatically discovered and made available to the LLM alongside the built-in `execute_shell` tool.
+
 ## Key Features
 
 ### Roles

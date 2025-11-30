@@ -89,6 +89,9 @@ class LLMProvider:
         # do not support it and should omit it entirely by default.
         self.temperature = temperature
 
+        # MCP manager (lazy initialization)
+        self._mcp_manager = None
+
         # Set API keys for LiteLLM
         self._configure_api_keys()
         logger.debug(
@@ -186,6 +189,11 @@ class LLMProvider:
         # Default to using the execute_shell tool
         if tools is None:
             tools = [EXECUTE_SHELL_TOOL]
+
+        # Add MCP tools if available
+        mcp_tools = self._get_mcp_tools()
+        if mcp_tools:
+            tools = tools + mcp_tools
 
         try:
             # Only pass tools parameter if tools list is not empty
@@ -422,3 +430,23 @@ class LLMProvider:
 
             friendly = _friendly_message(e)
             raise RuntimeError(friendly)
+
+    def _get_mcp_tools(self) -> List[Dict[str, Any]]:
+        """
+        Get MCP tools if MCP is enabled.
+
+        Returns:
+            List of MCP tool definitions in OpenAI function format, or empty list if MCP not enabled.
+        """
+        if self._mcp_manager is None:
+            from whai.mcp.manager import MCPManager
+            self._mcp_manager = MCPManager()
+
+        if not self._mcp_manager.is_enabled():
+            return []
+
+        import asyncio
+        mcp_tools = asyncio.run(self._mcp_manager.get_all_tools())
+        if mcp_tools:
+            logger.debug("Including %d MCP tools in LLM request", len(mcp_tools))
+        return mcp_tools
