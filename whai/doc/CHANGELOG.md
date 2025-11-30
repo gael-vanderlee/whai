@@ -9,6 +9,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-11-30] [feature] [llm]: add Mistral AI provider support with model name prefix handling and API key configuration
+[2025-11-30] [test] [llm]: add integration test for Mistral AI real API calls
 
 ## v0.8.7
 
