@@ -263,3 +263,91 @@ def test_streaming_response_format_consistency(test_messages):
             assert "content" in chunk
             assert isinstance(chunk["content"], str)
 
+
+def test_streaming_extracts_mcp_tool_calls_without_command_field(test_messages):
+    """
+    Test that streaming handler correctly extracts MCP tool calls that don't have a "command" field.
+    
+    This test would have caught the bug where the streaming handler only emitted tool calls
+    with a "command" field (execute_shell), missing MCP tools with different parameter structures.
+    """
+    import json
+    
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-4",
+        api_key="test-key",
+    )
+    
+    # Mock MCP tool call (no "command" field - has "timezone" instead)
+    mock_mcp_tool = MagicMock()
+    mock_mcp_tool.id = "call_mcp_123"
+    mock_mcp_tool.function = MagicMock()
+    mock_mcp_tool.function.name = "mcp_time-server_get_current_time"
+    mock_mcp_tool.function.arguments = json.dumps({"timezone": "Europe/Paris"})
+    
+    # Mock streaming response with MCP tool call
+    mock_chunks = [
+        MagicMock(
+            choices=[MagicMock(delta=MagicMock(content=None, tool_calls=[mock_mcp_tool]))]
+        ),
+    ]
+    
+    provider = LLMProvider(config, perf_logger=create_test_perf_logger())
+    
+    # Test streaming
+    with patch("litellm.completion", return_value=iter(mock_chunks)):
+        result_stream = list(provider.send_message(test_messages, stream=True, tools=[]))
+    
+    # Extract tool calls from streaming
+    stream_tool_calls = [chunk for chunk in result_stream if chunk.get("type") == "tool_call"]
+    
+    # Should extract the MCP tool call even though it doesn't have a "command" field
+    assert len(stream_tool_calls) == 1, "MCP tool call should be extracted from stream"
+    assert stream_tool_calls[0]["name"] == "mcp_time-server_get_current_time"
+    assert stream_tool_calls[0]["arguments"] == {"timezone": "Europe/Paris"}
+    assert "command" not in stream_tool_calls[0]["arguments"], "MCP tools don't have command field"
+
+
+def test_streaming_extracts_tool_calls_with_empty_arguments(test_messages):
+    """
+    Test that streaming handler correctly extracts tool calls with empty arguments {}.
+    
+    Some tools may legitimately have no arguments, and the handler should still emit them.
+    """
+    import json
+    
+    config = create_test_config(
+        default_provider="openai",
+        default_model="gpt-4",
+        api_key="test-key",
+    )
+    
+    # Mock tool call with empty arguments
+    mock_tool = MagicMock()
+    mock_tool.id = "call_empty_123"
+    mock_tool.function = MagicMock()
+    mock_tool.function.name = "mcp_some-server_no_args_tool"
+    mock_tool.function.arguments = json.dumps({})  # Empty dict
+    
+    # Mock streaming response
+    mock_chunks = [
+        MagicMock(
+            choices=[MagicMock(delta=MagicMock(content=None, tool_calls=[mock_tool]))]
+        ),
+    ]
+    
+    provider = LLMProvider(config, perf_logger=create_test_perf_logger())
+    
+    # Test streaming
+    with patch("litellm.completion", return_value=iter(mock_chunks)):
+        result_stream = list(provider.send_message(test_messages, stream=True, tools=[]))
+    
+    # Extract tool calls from streaming
+    stream_tool_calls = [chunk for chunk in result_stream if chunk.get("type") == "tool_call"]
+    
+    # Should extract tool call even with empty arguments
+    assert len(stream_tool_calls) == 1, "Tool call with empty arguments should be extracted"
+    assert stream_tool_calls[0]["name"] == "mcp_some-server_no_args_tool"
+    assert stream_tool_calls[0]["arguments"] == {}
+

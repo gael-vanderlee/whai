@@ -88,6 +88,65 @@ class TestMCPServerConfig:
         assert config.command == "echo"
         assert config.args is None
         assert config.env is None
+        assert config.name is None
+        assert config.requires_approval is True
+
+    def test_name_field(self):
+        """Test name field for pretty display."""
+        config = MCPServerConfig(command="echo", name="Echo Server")
+        assert config.name == "Echo Server"
+        
+        # Default should be None
+        config2 = MCPServerConfig(command="echo")
+        assert config2.name is None
+
+    def test_requires_approval_field(self):
+        """Test requires_approval field."""
+        config = MCPServerConfig(command="echo", requires_approval=False)
+        assert config.requires_approval is False
+        
+        # Default should be True
+        config2 = MCPServerConfig(command="echo")
+        assert config2.requires_approval is True
+
+    def test_to_dict_with_new_fields(self):
+        """Test serialization includes new fields when set."""
+        config = MCPServerConfig(
+            command="echo",
+            name="Echo Server",
+            requires_approval=False,
+        )
+        result = config.to_dict()
+        assert result == {
+            "command": "echo",
+            "name": "Echo Server",
+            "requires_approval": False,
+        }
+
+    def test_to_dict_omits_defaults(self):
+        """Test serialization omits default values."""
+        config = MCPServerConfig(command="echo")
+        result = config.to_dict()
+        assert "name" not in result
+        assert "requires_approval" not in result
+
+    def test_from_dict_with_new_fields(self):
+        """Test deserialization with new fields."""
+        data = {
+            "command": "echo",
+            "name": "Echo Server",
+            "requires_approval": False,
+        }
+        config = MCPServerConfig.from_dict(data)
+        assert config.name == "Echo Server"
+        assert config.requires_approval is False
+
+    def test_from_dict_without_new_fields(self):
+        """Test deserialization without new fields uses defaults."""
+        data = {"command": "echo"}
+        config = MCPServerConfig.from_dict(data)
+        assert config.name is None
+        assert config.requires_approval is True
 
 
 class TestMCPConfig:

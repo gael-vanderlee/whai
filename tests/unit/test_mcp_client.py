@@ -31,7 +31,10 @@ class TestMCPClient:
             env=mcp_server_time["env"],
         )
         await client.connect()
-        assert client._connected
+        try:
+            assert client._connected
+        finally:
+            await client.close()
 
     async def test_list_tools(self, mcp_server_time):
         """Test discovering tools from real MCP server."""
@@ -42,11 +45,14 @@ class TestMCPClient:
             env=mcp_server_time["env"],
         )
         await client.connect()
-        tools = await client.list_tools()
-        assert len(tools) > 0
-        assert all(tool["type"] == "function" for tool in tools)
-        assert all("function" in tool for tool in tools)
-        assert all(tool["function"]["name"].startswith("mcp_") for tool in tools)
+        try:
+            tools = await client.list_tools()
+            assert len(tools) > 0
+            assert all(tool["type"] == "function" for tool in tools)
+            assert all("function" in tool for tool in tools)
+            assert all(tool["function"]["name"].startswith("mcp_") for tool in tools)
+        finally:
+            await client.close()
 
     async def test_call_tool(self, mcp_server_time):
         """Test calling a tool on real MCP server."""
@@ -57,15 +63,18 @@ class TestMCPClient:
             env=mcp_server_time["env"],
         )
         await client.connect()
-        tools = await client.list_tools()
-        assert len(tools) > 0
+        try:
+            tools = await client.list_tools()
+            assert len(tools) > 0
 
-        # Find a tool that doesn't require arguments (or use appropriate args)
-        tool_name = tools[0]["function"]["name"]
-        # Some tools require arguments, so we test with empty dict and handle validation errors
-        result = await client.call_tool(tool_name, {})
-        assert isinstance(result, dict)
-        assert "content" in result or "isError" in result
+            # Find a tool that doesn't require arguments (or use appropriate args)
+            tool_name = tools[0]["function"]["name"]
+            # Some tools require arguments, so we test with empty dict and handle validation errors
+            result = await client.call_tool(tool_name, {})
+            assert isinstance(result, dict)
+            assert "content" in result or "isError" in result
+        finally:
+            await client.close()
 
     async def test_call_tool_with_prefix(self, mcp_server_time):
         """Test calling tool with mcp_ prefix."""
@@ -76,13 +85,16 @@ class TestMCPClient:
             env=mcp_server_time["env"],
         )
         await client.connect()
-        tools = await client.list_tools()
-        assert len(tools) > 0
+        try:
+            tools = await client.list_tools()
+            assert len(tools) > 0
 
-        tool_name = tools[0]["function"]["name"]
-        result = await client.call_tool(tool_name, {})
-        assert isinstance(result, dict)
-        assert "content" in result or "isError" in result
+            tool_name = tools[0]["function"]["name"]
+            result = await client.call_tool(tool_name, {})
+            assert isinstance(result, dict)
+            assert "content" in result or "isError" in result
+        finally:
+            await client.close()
 
     async def test_invalid_tool_name(self, mcp_server_time):
         """Test calling invalid tool name raises error."""
@@ -93,14 +105,16 @@ class TestMCPClient:
             env=mcp_server_time["env"],
         )
         await client.connect()
-
-        # MCP server may return error result instead of raising, so check for error in result
-        result = await client.call_tool("invalid_tool_name", {})
-        assert isinstance(result, dict)
-        # Result should indicate an error (either isError flag or error in content)
-        assert result.get("isError", False) or any(
-            "error" in str(item).lower() for item in result.get("content", [])
-        )
+        try:
+            # MCP server may return error result instead of raising, so check for error in result
+            result = await client.call_tool("invalid_tool_name", {})
+            assert isinstance(result, dict)
+            # Result should indicate an error (either isError flag or error in content)
+            assert result.get("isError", False) or any(
+                "error" in str(item).lower() for item in result.get("content", [])
+            )
+        finally:
+            await client.close()
 
     async def test_close_connection(self, mcp_server_time):
         """Test closing connection."""

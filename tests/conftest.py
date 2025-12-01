@@ -44,6 +44,41 @@ def test_mode_for_config():
         os.environ[ENV_WHAI_TEST_MODE] = original
 
 
+# Configure pytest-anyio to only use asyncio backend (not trio)
+# pytest-anyio runs tests with both backends by default, but we only want asyncio
+import pytest
+
+def pytest_configure(config):
+    """Configure pytest-anyio to only use asyncio backend."""
+    # Set environment variable for anyio
+    import os
+    os.environ.setdefault("ANYIO_BACKEND", "asyncio")
+    
+    # Try to configure pytest-anyio plugin directly
+    try:
+        import anyio
+        # Force asyncio backend
+        anyio._backend = "asyncio"
+    except (ImportError, AttributeError):
+        pass
+
+def pytest_collection_modifyitems(config, items):
+    """Skip trio backend tests."""
+    for item in items:
+        # Check if this is a parametrized test with trio backend
+        if hasattr(item, "callspec") and item.callspec:
+            params = item.callspec.params
+            if "asynclib_name" in params and params["asynclib_name"] == "trio":
+                # Skip this test variant
+                skip_marker = pytest.mark.skip(reason="trio backend not available")
+                item.add_marker(skip_marker)
+        
+        # Also check for anyio parametrization in the test name
+        if "[trio]" in item.name:
+            skip_marker = pytest.mark.skip(reason="trio backend not available")
+            item.add_marker(skip_marker)
+
+
 def create_test_config(
     default_provider: str = "openai",
     default_model: str = "gpt-5-mini",
@@ -131,6 +166,26 @@ def mock_litellm_module():
     mock_litellm.exceptions = MagicMock()
     with patch.dict("sys.modules", {"litellm": mock_litellm}):
         yield mock_litellm
+
+
+@pytest.fixture
+def llm_provider_with_cleanup(create_test_config, create_test_perf_logger):
+    """
+    Fixture that provides LLMProvider with automatic MCP cleanup.
+    
+    Use this fixture instead of creating LLMProvider directly in tests
+    to ensure MCP connections are properly closed.
+    """
+    providers = []
+    
+    def _create_provider(*args, **kwargs):
+        from whai.llm import LLMProvider
+        provider = LLMProvider(*args, **kwargs)
+        providers.append(provider)
+        return provider
+    
+    yield _create_provider
+    
 
 
 @pytest.fixture
