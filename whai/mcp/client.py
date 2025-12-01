@@ -3,13 +3,14 @@
 import asyncio
 from typing import Any, Dict, List, Optional
 
-from whai.logging_setup import get_logger
-
-logger = get_logger(__name__)
-
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
 from mcp.types import Tool
+
+from whai.logging_setup import get_logger
+from whai.utils import PerformanceLogger
+
+logger = get_logger(__name__)
 
 class MCPClient:
     """Client for connecting to MCP servers and discovering tools."""
@@ -40,11 +41,16 @@ class MCPClient:
         self._write_stream = None
         self._tools: Optional[List[Tool]] = None
         self._connected = False
+        self._closed = False
+        self._entry_task: Optional[asyncio.Task] = None
 
     async def connect(self) -> None:
         """Connect to the MCP server."""
         if self._connected:
             return
+
+        perf = PerformanceLogger(f"MCP Connection ({self.server_name})")
+        perf.start()
 
         try:
             from mcp import StdioServerParameters
@@ -57,14 +63,22 @@ class MCPClient:
 
             self._stdio_context = stdio_client(server_params)
             self._read_stream, self._write_stream = await self._stdio_context.__aenter__()
+            perf.log_section("Stdio context setup", level="debug")
 
             self._session = ClientSession(self._read_stream, self._write_stream)
             await self._session.__aenter__()
+            # Track the task where contexts were entered for proper cleanup
+            try:
+                self._entry_task = asyncio.current_task()
+            except RuntimeError:
+                self._entry_task = None
+            perf.log_section("Session creation", level="debug")
 
             await self._session.initialize()
+            perf.log_section("Session initialization", level="debug")
 
             self._connected = True
-            logger.info("Connected to MCP server: %s", self.server_name)
+            perf.log_complete(level="debug")
 
         except Exception as e:
             logger.exception("Failed to connect to MCP server %s: %s", self.server_name, e)
@@ -81,9 +95,13 @@ class MCPClient:
         if not self._connected or self._session is None:
             await self.connect()
 
+        perf = PerformanceLogger(f"MCP List Tools ({self.server_name})")
+        perf.start()
+
         try:
             tools_result = await self._session.list_tools()
             self._tools = tools_result.tools
+            perf.log_section("MCP API call", level="debug")
 
             openai_tools = []
             for tool in self._tools:
@@ -100,6 +118,8 @@ class MCPClient:
                 }
                 openai_tools.append(openai_tool)
 
+            perf.log_section("Tool conversion", extra_info={"tools": len(openai_tools)}, level="debug")
+            perf.log_complete(extra_info={"tools": len(openai_tools)}, level="debug")
             logger.debug(
                 "Discovered %d tools from MCP server %s",
                 len(openai_tools),
@@ -132,8 +152,13 @@ class MCPClient:
         if tool_name.startswith(f"mcp_{self.server_name}_"):
             actual_tool_name = tool_name[len(f"mcp_{self.server_name}_"):]
 
+        perf = PerformanceLogger(f"MCP Tool Call ({self.server_name}/{actual_tool_name})")
+        perf.start()
+
         try:
             result = await self._session.call_tool(actual_tool_name, arguments)
+            perf.log_section("MCP API call", level="debug")
+            
             # Convert MCP result object to dict if needed
             if hasattr(result, "content"):
                 content_list = []
@@ -144,13 +169,19 @@ class MCPClient:
                         content_list.append({"type": item.type, "text": item.text})
                     else:
                         content_list.append({"type": "text", "text": str(item)})
+                perf.log_section("Result conversion", level="debug")
+                perf.log_complete(extra_info={"is_error": getattr(result, "isError", False)}, level="debug")
                 return {
                     "content": content_list,
                     "isError": getattr(result, "isError", False),
                 }
             elif isinstance(result, dict):
+                perf.log_section("Result conversion", level="debug")
+                perf.log_complete(level="debug")
                 return result
             else:
+                perf.log_section("Result conversion", level="debug")
+                perf.log_complete(level="debug")
                 return {"content": [{"type": "text", "text": str(result)}]}
         except Exception as e:
             logger.exception(
@@ -192,20 +223,49 @@ class MCPClient:
 
     async def close(self) -> None:
         """Close the MCP connection."""
+        # Skip if already closed
+        if self._closed:
+            return
+
+        # Check if we're in the same task where contexts were entered
+        # If not, contexts are already cancelled by run_until_complete() and we should skip cleanup
+        try:
+            current_task = asyncio.current_task()
+            if self._entry_task is not None and current_task is not self._entry_task:
+                # Different task - contexts were cancelled when previous run_until_complete() completed
+                # Just mark as closed, let OS clean up the subprocess
+                self._closed = True
+                self._connected = False
+                self._session = None
+                self._read_stream = None
+                self._write_stream = None
+                return
+        except RuntimeError:
+            # No current task - contexts are already cancelled
+            self._closed = True
+            self._connected = False
+            self._session = None
+            self._read_stream = None
+            self._write_stream = None
+            return
+
+        # Only attempt to exit contexts if we're still connected
+        if not self._connected:
+            self._closed = True
+            return
+
+        # Close session if it exists
         if self._session is not None:
-            try:
-                await self._session.__aexit__(None, None, None)
-            except Exception as e:
-                logger.warning("Error closing MCP session: %s", e)
+            await self._session.__aexit__(None, None, None)
+            self._session = None
 
+        # Close stdio context if it exists
         if hasattr(self, "_stdio_context"):
-            try:
-                await self._stdio_context.__aexit__(None, None, None)
-            except Exception as e:
-                logger.warning("Error closing stdio context: %s", e)
+            await self._stdio_context.__aexit__(None, None, None)
 
+        self._closed = True
         self._connected = False
-        self._session = None
         self._read_stream = None
         self._write_stream = None
+        self._entry_task = None
 

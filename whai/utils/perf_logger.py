@@ -1,11 +1,24 @@
 """Performance logging utility for tracking execution time and elapsed time since start."""
 
+import logging
 import time
 from typing import Optional
 
 from whai.logging_setup import get_logger
 
 logger = get_logger(__name__)
+
+
+def _get_log_level(level_name: str) -> int:
+    """Convert level name to logging level constant."""
+    level_map = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
+    }
+    return level_map.get(level_name.lower(), logging.INFO)
 
 
 def _format_ms(ms: float) -> str:
@@ -86,6 +99,13 @@ class PerformanceLogger:
         if self.start_time is None:
             raise RuntimeError("PerformanceLogger.start() must be called before log_section()")
         
+        # Check if this log level is enabled before doing anything
+        log_level = _get_log_level(level)
+        if not logger.isEnabledFor(log_level):
+            # Do nothing if logging is disabled - no timing, no state updates, nothing
+            return
+        
+        # Only do work if logging is enabled
         now = time.perf_counter()
         elapsed_ms = (now - self.last_section_time) * 1000
         total_ms = (now - self.start_time) * 1000
@@ -104,22 +124,31 @@ class PerformanceLogger:
         log_func = getattr(logger, level, logger.info)
         log_func(msg, extra={"category": "perf"})
     
-    def log_complete(self, extra_info: Optional[dict] = None) -> None:
+    def log_complete(self, extra_info: Optional[dict] = None, level: str = "info") -> None:
         """
         Log completion of the entire stage.
         
         Args:
             extra_info: Optional dict of additional info to include in log
+            level: Log level ("info", "debug", etc.)
         """
         if self.start_time is None:
             raise RuntimeError("PerformanceLogger.start() must be called before log_complete()")
         
+        # Check if this log level is enabled before doing expensive operations
+        log_level = _get_log_level(level)
+        if not logger.isEnabledFor(log_level):
+            # Skip formatting if log won't be displayed
+            return
+        
         total_ms = (time.perf_counter() - self.start_time) * 1000
         
-        msg = f"[{self.stage_name}] Complete: {_format_ms(total_ms)} ms"
+        msg = f"[{self.stage_name}] Complete: (total: {_format_ms(total_ms)} ms)"
         if extra_info:
             extra_str = ", ".join(f"{k}={v}" for k, v in extra_info.items())
             msg = f"{msg} ({extra_str})"
         
-        logger.info(msg, extra={"category": "perf"})
+        # Log with appropriate level
+        log_func = getattr(logger, level, logger.info)
+        log_func(msg, extra={"category": "perf"})
 
