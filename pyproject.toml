@@ -49,6 +49,12 @@ filterwarnings = [
     "ignore:There is no current event loop:DeprecationWarning",
     "ignore:Pydantic serializer warnings:UserWarning",
     "ignore:Use 'content=<...>' to upload raw bytes/text content:DeprecationWarning",
+    # Pydantic deprecation warnings from litellm (third-party library we can't fix)
+    "ignore::pydantic.PydanticDeprecatedSince20",
+    "ignore::pydantic.PydanticDeprecatedSince211",
+    "ignore:The `dict` method is deprecated.*:pydantic.PydanticDeprecatedSince20",
+    "ignore:Accessing the 'model_fields' attribute.*:pydantic.PydanticDeprecatedSince211",
+    "ignore:Accessing the 'model_computed_fields' attribute.*:pydantic.PydanticDeprecatedSince211",
 ]
 
 [[tool.uv.index]]
@@ -64,4 +70,5 @@ dev = [
     "pytest-cov>=5.0.0",
     "pytest-mock>=3.14.1",
     "ruff>=0.14.3",
+    "nest-asyncio>=1.6.0",
 ]
