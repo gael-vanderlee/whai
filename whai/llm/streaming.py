@@ -115,9 +115,9 @@ def handle_streaming_response(response) -> Generator[Dict[str, Any], None, None]
                     # Still incomplete, wait for more chunks
                     continue
 
-                # Only emit once we have a non-empty command and a name
+                # Only emit once we have valid parsed arguments and a name
                 stored_name = partial_tool_calls[call_id]["name"]
-                if isinstance(parsed, dict) and parsed.get("command") and stored_name:
+                if isinstance(parsed, dict) and stored_name:
                     yield {
                         "type": "tool_call",
                         "id": call_id,
