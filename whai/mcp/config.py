@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from whai.configuration.user_config import get_config_dir
 from whai.logging_setup import get_logger
+from whai.utils import PerformanceLogger
 
 logger = get_logger(__name__)
 
@@ -20,6 +21,8 @@ class MCPServerConfig:
     command: str
     args: Optional[List[str]] = None
     env: Optional[Dict[str, str]] = None
+    name: Optional[str] = None
+    requires_approval: bool = True
 
     def __post_init__(self) -> None:
         """Validate configuration values."""
@@ -37,6 +40,10 @@ class MCPServerConfig:
             result["args"] = self.args
         if self.env is not None:
             result["env"] = self.env
+        if self.name is not None:
+            result["name"] = self.name
+        if not self.requires_approval:
+            result["requires_approval"] = False
         return result
 
     @classmethod
@@ -46,6 +53,8 @@ class MCPServerConfig:
             command=data["command"],
             args=data.get("args"),
             env=data.get("env"),
+            name=data.get("name"),
+            requires_approval=data.get("requires_approval", True),
         )
 
 
@@ -110,14 +119,19 @@ def load_mcp_config() -> Optional[MCPConfig]:
     Raises:
         ValueError: If the JSON file exists but is invalid.
     """
+    perf = PerformanceLogger("MCP Config")
+    perf.start()
+    
     config_path = get_mcp_config_path()
 
     if not config_path.exists():
         logger.debug("MCP config file not found at %s (MCP support is opt-in)", config_path)
+        perf.log_section("Config file check (not found)")
         return None
 
     try:
         config = MCPConfig.from_file(config_path)
+        perf.log_section("Config file loading", extra_info={"servers": len(config.mcp_servers)})
         logger.info("Loaded MCP config with %d server(s)", len(config.mcp_servers))
         return config
     except json.JSONDecodeError as e:

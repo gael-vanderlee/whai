@@ -1,9 +1,11 @@
 """Basic output functions for whai UI."""
 
+import json
 import os
 import sys
+from typing import Any, Dict, Optional
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
@@ -108,6 +110,79 @@ def print_command(cmd: str) -> None:
         syn = Syntax(cmd, "bash", theme=UI_THEME, word_wrap=True)
         console.print(
             Panel(syn, title="Proposed command", border_style=UI_BORDER_COLOR_COMMAND)
+        )
+
+
+def print_tool(
+    tool_name: str,
+    tool_args: Dict[str, Any],
+    display_name: Optional[str] = None,
+    description: Optional[str] = None,
+) -> None:
+    """
+    Print a proposed MCP tool call in a highlighted panel.
+
+    Args:
+        tool_name: Full tool name (e.g., "mcp_time-server_get_current_time").
+        tool_args: Tool arguments dictionary.
+        display_name: Optional pretty name (e.g., "time-server/get_current_time").
+        description: Optional tool description.
+    """
+    # Parse display name if not provided
+    if not display_name:
+        if tool_name.startswith("mcp_") and "_" in tool_name[4:]:
+            parts = tool_name.split("_", 2)
+            if len(parts) >= 3:
+                display_name = f"{parts[1]}/{parts[2]}"
+            else:
+                display_name = tool_name
+        else:
+            display_name = tool_name
+
+    if PLAIN_MODE:
+        console.print("Proposed MCP tool call:")
+        console.print(f"  Tool: {display_name}")
+        if description:
+            console.print(f"  Description: {description}")
+        if tool_args:
+            console.print("  Arguments:")
+            args_json = json.dumps(tool_args, indent=2, ensure_ascii=False)
+            for line in args_json.split("\n"):
+                console.print(f"    {line}")
+        else:
+            console.print("  Arguments: (none)")
+    else:
+        # Build content with Rich formatting
+        content_parts = []
+
+        # Tool name (bold, colored)
+        content_parts.append(Text("Tool: ", style="dim"))
+        content_parts.append(Text(display_name, style="bold cyan"))
+        content_parts.append(Text("\n"))
+
+        # Description (if available)
+        if description:
+            content_parts.append(Text(f"Description: {description}\n", style="dim"))
+
+        # Arguments section
+        if tool_args:
+            # Format arguments as pretty JSON
+            args_json = json.dumps(tool_args, indent=2, ensure_ascii=False)
+            content_parts.append(Text("Arguments:\n", style="dim"))
+            # Use Syntax highlighting for JSON
+            syn = Syntax(args_json, "json", theme=UI_THEME, word_wrap=True)
+            # Combine text and syntax
+            content = Group(Text().join(content_parts), syn)
+        else:
+            content_parts.append(Text("Arguments: (none)", style="dim"))
+            content = Text().join(content_parts)
+
+        console.print(
+            Panel(
+                content,
+                title="Proposed MCP tool call",
+                border_style=UI_BORDER_COLOR_COMMAND,
+            )
         )
 
 
