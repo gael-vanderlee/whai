@@ -9,6 +9,13 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2025-12-01] [fix] [mcp]: add graceful error handling for MCP server initialization and tool listing failures with user-friendly messages
+[2025-12-01] [feature] [mcp]: add performance logging to MCP initialization and tool discovery operations
+[2025-12-01] [change] [mcp]: improve event loop management to reuse persistent loop for MCP connections and prevent connection state issues
+[2025-12-01] [feature] [mcp]: add configurable approval workflow for MCP tool calls with per-server requires_approval setting
+[2025-12-01] [fix] [mcp]: fix MCP tool call extraction in streaming responses to handle tools without command field
+[2025-12-01] [docs] [mcp]: update system prompt with MCP tool call example
+
 ## v0.9.0
 
 [2025-11-30] [feature] [llm]: add Mistral AI provider support with model name prefix handling and API key configuration
