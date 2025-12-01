@@ -1,12 +1,14 @@
 """Conversation loop execution for whai."""
 
+import asyncio
 import json
+import sys
 from typing import List, Optional
 
 from whai import ui
 from whai.constants import TOOL_OUTPUT_MAX_TOKENS
 from whai.core.session_logger import SessionLogger
-from whai.interaction import approval_loop, execute_command
+from whai.interaction import approval_loop, approve_tool, execute_command
 from whai.llm import LLMProvider
 from whai.llm.token_utils import truncate_text_with_tokens
 from whai.logging_setup import get_logger
@@ -35,14 +37,42 @@ def run_conversation_loop(
         session_logger.log_command(command_string)
     
     # Initialize MCP manager if enabled
-    mcp_manager = None
+    # Try to reuse the provider's MCP manager if it exists, otherwise create a new one
     from whai.mcp.manager import MCPManager
     from whai.mcp.executor import handle_mcp_tool_call_sync
     
-    mcp_manager = MCPManager()
+    mcp_manager = None
+    mcp_loop = None
+    
+    # Create a persistent event loop for MCP operations to keep connections alive
+    if hasattr(llm_provider, "_mcp_manager") and llm_provider._mcp_manager is not None:
+        mcp_manager = llm_provider._mcp_manager
+        logger.debug("Reusing LLM provider's MCP manager instance")
+    else:
+        mcp_manager = MCPManager()
+        # Store on provider so _get_mcp_tools() can reuse it
+        llm_provider._mcp_manager = mcp_manager
+    
     if mcp_manager.is_enabled():
-        import asyncio
-        asyncio.run(mcp_manager.initialize())
+        # Create a persistent event loop for MCP operations to keep connections alive
+        # We use a separate loop to avoid interfering with any existing event loop
+        mcp_loop = asyncio.new_event_loop()
+        try:
+            if not mcp_manager._initialized:
+                errors = mcp_loop.run_until_complete(mcp_manager.initialize())
+                
+                if errors:
+                    ui.error("MCP server initialization failed:")
+                    for server_name, error_msg in errors:
+                        ui.error(error_msg)
+                    ui.error("\nPlease fix the errors in your mcp.json configuration and try again.")
+                    mcp_loop.close()
+                    sys.exit(1)
+        except Exception as e:
+            logger.exception("Failed to initialize MCP manager: %s", e)
+            mcp_loop.close()
+            mcp_loop = None
+            mcp_manager = None
     
     loop_iteration = 0
     try:
@@ -54,7 +84,19 @@ def run_conversation_loop(
             try:
                 # Send to LLM with streaming; show spinner until first chunk arrives
                 with ui.spinner("Thinking"):
-                    response_stream = llm_provider.send_message(messages, stream=True)
+                    try:
+                        # Pass the persistent MCP event loop to send_message so it can
+                        # use the same loop for MCP tool discovery, avoiding duplicate initialization
+                        response_stream = llm_provider.send_message(messages, stream=True, mcp_loop=mcp_loop)
+                    except RuntimeError as e:
+                        # Check if it's an MCP error (from get_all_tools)
+                        error_msg = str(e)
+                        if "MCP server" in error_msg or "mcp.json" in error_msg.lower():
+                            ui.error("MCP error:")
+                            ui.error(error_msg)
+                            ui.error("\nPlease fix the errors in your mcp.json configuration and try again.")
+                            sys.exit(1)
+                        raise
                     response_chunks = []
                     first_chunk = None
                     for chunk in response_stream:
@@ -197,15 +239,74 @@ def run_conversation_loop(
                                 )
                     elif tool_call["name"].startswith("mcp_") and mcp_manager:
                         # Handle MCP tool call
-                        try:
-                            result = handle_mcp_tool_call_sync(tool_call, mcp_manager)
-                            tool_results.append(result)
-                        except Exception as e:
-                            logger.exception("Error handling MCP tool call: %s", e)
+                        tool_name = tool_call["name"]
+                        tool_args = tool_call.get("arguments", {})
+                        
+                        # Parse server name from tool name (mcp_<server>_<tool>)
+                        parts = tool_name.split("_", 2)
+                        if len(parts) >= 3:
+                            server_name = parts[1]
+                            server_config = mcp_manager.get_server_config(server_name)
+                            
+                            # Check if approval is required (default to True for safety)
+                            requires_approval = (
+                                server_config.requires_approval if server_config else True
+                            )
+                            
+                            # Get tool description from cached tool definitions
+                            tool_description = mcp_manager.get_tool_description(tool_name)
+                            
+                            if requires_approval:
+                                # Compute display name only when approval is needed
+                                display_name = (
+                                    server_config.name if server_config and server_config.name else server_name
+                                )
+                                # Get user approval with description
+                                approved = approve_tool(
+                                    tool_name, tool_args, display_name=display_name, description=tool_description
+                                )
+                                loop_perf.log_section("Tool approval")
+                                
+                                if not approved:
+                                    # User rejected
+                                    tool_results.append(
+                                        {
+                                            "tool_call_id": tool_call["id"],
+                                            "output": "Tool call rejected by user.",
+                                        }
+                                    )
+                                    continue
+                            
+                            # Execute the tool call
+                            try:
+                                result = handle_mcp_tool_call_sync(tool_call, mcp_manager, mcp_loop)
+                                
+                                # Display the output (pretty formatted, like shell commands)
+                                output_text = result.get("output", "")
+                                if output_text:
+                                    ui.console.print()
+                                    # Format MCP output similar to shell command output
+                                    # print_output expects (stdout, stderr, returncode)
+                                    # For MCP tools, we treat output as stdout with no errors
+                                    ui.print_output(output_text, "", 0)
+                                    ui.console.print()
+                                
+                                tool_results.append(result)
+                            except Exception as e:
+                                logger.exception("Error handling MCP tool call: %s", e)
+                                tool_results.append(
+                                    {
+                                        "tool_call_id": tool_call["id"],
+                                        "output": f"MCP tool call error: {str(e)}",
+                                    }
+                                )
+                        else:
+                            # Invalid tool name format
+                            logger.warning("Invalid MCP tool name format: %s", tool_name)
                             tool_results.append(
                                 {
                                     "tool_call_id": tool_call["id"],
-                                    "output": f"MCP tool call error: {str(e)}",
+                                    "output": f"Invalid MCP tool name format: {tool_name}",
                                 }
                             )
 
@@ -301,9 +402,19 @@ def run_conversation_loop(
                     break
     finally:
         # Clean up MCP connections
-        if mcp_manager:
+        # Only close if we created our own manager (not if we reused the provider's)
+        if mcp_manager and not (hasattr(llm_provider, "_mcp_manager") and llm_provider._mcp_manager is mcp_manager):
             try:
-                import asyncio
-                asyncio.run(mcp_manager.close_all())
-            except Exception:
-                pass
+                if mcp_loop and not mcp_loop.is_closed():
+                    # Use the persistent loop to close connections in the same context
+                    # This ensures AnyIO cancel scopes are exited in the same task they were entered
+                    mcp_loop.run_until_complete(mcp_manager.close_all())
+                else:
+                    # Loop is closed - connections are effectively dead anyway
+                    # Skip cleanup to avoid AnyIO cancel scope errors from different task context
+                    logger.debug("MCP loop is closed, skipping cleanup (connections already dead)")
+            except Exception as e:
+                logger.debug("Error during MCP cleanup: %s", e)
+            finally:
+                if mcp_loop and not mcp_loop.is_closed():
+                    mcp_loop.close()

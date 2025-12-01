@@ -1,5 +1,6 @@
 """LLM provider wrapper using LiteLLM."""
 
+import asyncio
 import json
 import os
 import re
@@ -165,6 +166,7 @@ class LLMProvider:
         tools: List[Dict[str, Any]] = None,
         stream: bool = True,
         tool_choice: Any = None,
+        mcp_loop: Optional[asyncio.AbstractEventLoop] = None,
     ) -> Union[Generator[Dict[str, Any], None, None], Dict[str, Any]]:
         """
         Send a message to the LLM and get a response.
@@ -176,6 +178,8 @@ class LLMProvider:
             stream: Whether to stream the response (default True).
             tool_choice: Optional tool selection directive (e.g., 'auto', 'none', or
                 a function spec). Passed through to the underlying provider when set.
+            mcp_loop: Optional event loop for MCP operations. If provided, MCP tool
+                     discovery will use this loop instead of creating a new one.
 
         Returns:
             If stream=True: Generator yielding response chunks.
@@ -191,7 +195,7 @@ class LLMProvider:
             tools = [EXECUTE_SHELL_TOOL]
 
         # Add MCP tools if available
-        mcp_tools = self._get_mcp_tools()
+        mcp_tools = self._get_mcp_tools(mcp_loop=mcp_loop)
         if mcp_tools:
             tools = tools + mcp_tools
 
@@ -431,12 +435,20 @@ class LLMProvider:
             friendly = _friendly_message(e)
             raise RuntimeError(friendly)
 
-    def _get_mcp_tools(self) -> List[Dict[str, Any]]:
+    def _get_mcp_tools(self, mcp_loop: Optional[asyncio.AbstractEventLoop] = None) -> List[Dict[str, Any]]:
         """
         Get MCP tools if MCP is enabled.
 
+        Args:
+            mcp_loop: Optional event loop to use for MCP operations. If provided,
+                     uses this loop instead of creating a new one. This is important
+                     for maintaining connection state across event loops.
+
         Returns:
             List of MCP tool definitions in OpenAI function format, or empty list if MCP not enabled.
+        
+        Raises:
+            RuntimeError: If MCP server initialization or tool listing fails.
         """
         if self._mcp_manager is None:
             from whai.mcp.manager import MCPManager
@@ -445,8 +457,19 @@ class LLMProvider:
         if not self._mcp_manager.is_enabled():
             return []
 
-        import asyncio
-        mcp_tools = asyncio.run(self._mcp_manager.get_all_tools())
+        # Only get MCP tools if we have a persistent event loop
+        # Without a loop, we can't maintain connections, so skip MCP tools
+        # This prevents expensive initialization in tests that don't need MCP
+        if mcp_loop is None or mcp_loop.is_closed():
+            logger.debug(
+                "Skipping MCP tools: no persistent event loop available. "
+                "MCP tools require a persistent loop to maintain connections."
+            )
+            return []
+
+        # Use the provided persistent loop to get tools
+        mcp_tools = mcp_loop.run_until_complete(self._mcp_manager.get_all_tools())
+        
         if mcp_tools:
             logger.debug("Including %d MCP tools in LLM request", len(mcp_tools))
         return mcp_tools
