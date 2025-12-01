@@ -337,7 +337,9 @@ Each provider must be configured in your `~/.config/whai/config.toml` file. You 
     "server-name": {
       "command": "command-to-run",
       "args": ["arg1", "arg2"],
-      "env": {"KEY": "value"}
+      "env": {"KEY": "value"},
+      "name": "Display Name (optional)",
+      "requires_approval": true
     }
   }
 }
@@ -351,13 +353,24 @@ Each provider must be configured in your `~/.config/whai/config.toml` file. You 
     "time-server": {
       "command": "uvx",
       "args": ["mcp-server-time"],
-      "env": {}
+      "env": {},
+      "name": "Time Server",
+      "requires_approval": false
     }
   }
 }
 ```
 
+**Configuration fields:**
+- `command` (required): Command to run the MCP server
+- `args` (optional): Arguments to pass to the command
+- `env` (optional): Environment variables for the server
+- `name` (optional): Display name shown in tool approval prompts
+- `requires_approval` (optional, default: `true`): Whether to prompt for approval before executing tools from this server
+
 MCP support is opt-in: if `mcp.json` doesn't exist, MCP is disabled. Tools from MCP servers are automatically discovered and made available to the LLM alongside the built-in `execute_shell` tool.
+
+If a server fails to start (e.g., missing script file or invalid command), `whai` will display clear error messages and exit gracefully, helping you fix configuration issues.
 
 ## Key Features
 
