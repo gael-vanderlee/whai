@@ -16,6 +16,7 @@ from whai.ui.output import (
     info,
     print_command,
     print_output,
+    print_tool,
     success,
     warn,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "info",
     "print_command",
     "print_output",
+    "print_tool",
     "success",
     "failure",
     "celebration",
