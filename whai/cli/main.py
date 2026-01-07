@@ -12,6 +12,7 @@ from rich.text import Text
 from whai import ui
 from whai.cli.flags import extract_inline_overrides
 from whai.cli.role import role_app
+from whai.cli.target import is_in_tmux, pane_exists, parse_target_from_query, capture_target_context, send_command_to_target
 from whai.configuration import (
     InvalidRoleMetadataError,
     MissingConfigError,
@@ -126,13 +127,39 @@ def _reconstruct_invocation_command() -> Optional[str]:
 def _setup_context_capture(
     no_context: bool, 
     exclude_command: Optional[str],
-    startup_perf: PerformanceLogger
+    startup_perf: PerformanceLogger,
+    target_pane: Optional[str] = None
 ) -> tuple[str, bool]:
-    """Setup and capture terminal context (tmux/session/history)."""
+    """Setup and capture terminal context (tmux/session/history).
+    
+    Args:
+        no_context: If True, skip context capture entirely.
+        exclude_command: Command pattern to exclude from context.
+        startup_perf: Performance logger.
+        target_pane: If set, capture context from this tmux pane instead of current.
+    """
     if no_context:
         startup_perf.log_section("Context capture", extra_info={"skipped": True})
         return "", False
     
+    # If targeting a remote pane, capture from that pane
+    if target_pane is not None:
+        context_str = capture_target_context(target_pane)
+        startup_perf.log_section(
+            "Context capture",
+            extra_info={
+                "deep": True,
+                "has_content": bool(context_str),
+                "target_pane": target_pane,
+            },
+        )
+        if context_str:
+            return context_str, True
+        else:
+            ui.warn(f"Could not capture context from pane {target_pane}")
+            return "", True
+    
+    # Normal context capture (current pane/session/history)
     context_str, is_deep_context = get_context(exclude_command=exclude_command)
     startup_perf.log_section(
         "Context capture",
@@ -466,6 +493,23 @@ def main(
             DEFAULT_QUERY
         ]
 
+    # Parse @<pane> target syntax from query
+    target_pane, query = parse_target_from_query(query)
+    
+    # Validate target pane if specified
+    if target_pane is not None:
+        if not is_in_tmux():
+            ui.error("Target feature requires tmux. Start a tmux session first.")
+            ui.info("Quick start: run 'tmux' to start a session, then 'Ctrl+b %' to split panes.")
+            raise typer.Exit(1)
+        
+        if not pane_exists(target_pane):
+            ui.error(f"Pane '{target_pane}' does not exist.")
+            ui.info("Press Ctrl+b q to see available pane numbers.")
+            raise typer.Exit(1)
+        
+        ui.info(f"Targeting pane {target_pane}")
+
     # Workaround for Click/Typer parsing with variadic arguments:
     # If users place options after the free-form query, those tokens land in `query`.
     # Extract supported inline options from `query` and apply them.
@@ -598,7 +642,7 @@ def main(
             logger.debug("No command arguments to exclude from context")
         
         context_str, is_deep_context = _setup_context_capture(
-            no_context, command_to_exclude, startup_perf
+            no_context, command_to_exclude, startup_perf, target_pane=target_pane
         )
 
         # 4. Initialize LLM provider
@@ -635,7 +679,7 @@ def main(
         command_string = _reconstruct_invocation_command()
 
         # 8. Main conversation loop
-        run_conversation_loop(llm_provider, messages, timeout, command_string=command_string)
+        run_conversation_loop(llm_provider, messages, timeout, command_string=command_string, target_pane=target_pane)
 
     except typer.Exit:
         raise
