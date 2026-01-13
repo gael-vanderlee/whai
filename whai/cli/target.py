@@ -92,7 +92,7 @@ def get_last_line(pane_id: str) -> Optional[str]:
         )
         
         if result.returncode == 0:
-            lines = [l for l in result.stdout.split('\n') if l.strip()]
+            lines = [line for line in result.stdout.split('\n') if line.strip()]
             return lines[-1] if lines else None
         return None
     except Exception:
@@ -127,9 +127,6 @@ def wait_for_command_completion(
     
     # Wait a moment for command to start
     time.sleep(0.3)
-    
-    # Get initial state (small capture just to track changes)
-    initial_capture = capture_target_context(pane_id, scrollback_lines=20)
     
     while (time.time() - start_time) < timeout:
         time.sleep(poll_interval)

@@ -30,7 +30,7 @@ def run_conversation_loop(
     """
     # Import target functions if we have a target pane
     if target_pane is not None:
-        from whai.cli.target import send_command_and_wait, capture_target_context
+        from whai.cli.target import send_command_and_wait  # noqa: F401
     
     # Initialize session logger for context capture in whai shell
     session_logger = SessionLogger(console=ui.console)

@@ -12,7 +12,7 @@ from rich.text import Text
 from whai import ui
 from whai.cli.flags import extract_inline_overrides
 from whai.cli.role import role_app
-from whai.cli.target import is_in_tmux, pane_exists, parse_target_from_query, capture_target_context, send_command_to_target
+from whai.cli.target import is_in_tmux, pane_exists, parse_target_from_query, capture_target_context
 from whai.configuration import (
     InvalidRoleMetadataError,
     MissingConfigError,
