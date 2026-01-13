@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 
 def run_conversation_loop(
-    llm_provider: LLMProvider, messages: List[dict], timeout: int, command_string: Optional[str] = None
+    llm_provider: LLMProvider, messages: List[dict], timeout: int, command_string: Optional[str] = None, target_pane: Optional[str] = None
 ) -> None:
     """
     Run the main conversation loop with the LLM.
@@ -26,7 +26,12 @@ def run_conversation_loop(
         messages: Initial conversation messages.
         timeout: Command timeout in seconds.
         command_string: Optional full command string for logging (e.g., "whai -vv 'query'").
+        target_pane: Optional tmux pane to execute commands in (for remote pane targeting).
     """
+    # Import target functions if we have a target pane
+    if target_pane is not None:
+        from whai.cli.target import send_command_and_wait  # noqa: F401
+    
     # Initialize session logger for context capture in whai shell
     session_logger = SessionLogger(console=ui.console)
     
@@ -111,50 +116,96 @@ def run_conversation_loop(
                         # Log command to session for context
                         session_logger.log_command(approved_command)
                         
-                        with ui.spinner("Executing command..."):
-                            stdout, stderr, returncode = execute_command(
-                                approved_command, timeout=timeout
+                        # If targeting a remote pane, use tmux send-keys
+                        if target_pane is not None:
+                            with ui.spinner(f"Executing in pane {target_pane} (waiting for completion)..."):
+                                send_success, completed, new_context = send_command_and_wait(
+                                    target_pane, approved_command, timeout=timeout
+                                )
+                            
+                            if send_success:
+                                if completed:
+                                    ui.success(f"Command completed in pane {target_pane}")
+                                else:
+                                    ui.warn(f"Command sent to pane {target_pane} (timed out waiting for completion)")
+                                
+                                result = f"Command executed in pane {target_pane}: {approved_command}\n"
+                                result += f"Completed: {'yes' if completed else 'no (timeout)'}\n"
+                                if new_context:
+                                    result += f"\nRecent pane output:\n{new_context[-2000:]}"  # Last 2000 chars
+                                
+                                tool_results.append(
+                                    {"tool_call_id": tool_call["id"], "output": result}
+                                )
+                                
+                                # Show brief output
+                                ui.console.print()
+                                if new_context:
+                                    # Show last few lines
+                                    lines = new_context.strip().split('\n')[-15:]
+                                    ui.console.print("[dim]Recent output from target pane:[/dim]")
+                                    for line in lines:
+                                        ui.console.print(f"  {line}")
+                                ui.console.print()
+                            else:
+                                ui.error(f"Failed to send command to pane {target_pane}")
+                                tool_results.append(
+                                    {
+                                        "tool_call_id": tool_call["id"],
+                                        "output": f"Failed to send command to pane {target_pane}",
+                                    }
+                                )
+                            
+                            loop_perf.log_section(
+                                "Command execution (target pane)",
+                                extra_info={"command": approved_command, "target_pane": target_pane, "success": send_success, "completed": completed if send_success else False},
                             )
-                        loop_perf.log_section(
-                            "Command execution",
-                            extra_info={"command": approved_command, "exit_code": returncode},
-                        )
-                        
-                        # Log command output to session for context
-                        session_logger.log_command_output(stdout, stderr, returncode)
+                        else:
+                            # Normal local execution
+                            with ui.spinner("Executing command..."):
+                                stdout, stderr, returncode = execute_command(
+                                    approved_command, timeout=timeout
+                                )
+                            loop_perf.log_section(
+                                "Command execution",
+                                extra_info={"command": approved_command, "exit_code": returncode},
+                            )
+                            
+                            # Log command output to session for context
+                            session_logger.log_command_output(stdout, stderr, returncode)
 
-                        # Format the result for LLM (plain text)
-                        result = f"Command: {approved_command}\n"
-                        result += f"Exit code: {returncode}\n"
-                        if stdout:
-                            result += f"\nOutput:\n{stdout}"
-                        if stderr:
-                            result += f"\nErrors:\n{stderr}"
-                        if not stdout and not stderr:
-                            result += "\nOutput: (empty - command produced no output)"
+                            # Format the result for LLM (plain text)
+                            result = f"Command: {approved_command}\n"
+                            result += f"Exit code: {returncode}\n"
+                            if stdout:
+                                result += f"\nOutput:\n{stdout}"
+                            if stderr:
+                                result += f"\nErrors:\n{stderr}"
+                            if not stdout and not stderr:
+                                result += "\nOutput: (empty - command produced no output)"
 
-                        # Truncate tool output if needed to respect token limits
-                        truncated_result, was_truncated = truncate_text_with_tokens(
-                            result, TOOL_OUTPUT_MAX_TOKENS
-                        )
-                        loop_perf.log_section(
-                            "Tool output truncation",
-                            extra_info={"truncated": was_truncated},
-                        )
-                        if was_truncated:
-                            ui.warn(
-                                f"Command output for '{approved_command}' was truncated to fit token limits. "
-                                "Recent output has been preserved."
+                            # Truncate tool output if needed to respect token limits
+                            truncated_result, was_truncated = truncate_text_with_tokens(
+                                result, TOOL_OUTPUT_MAX_TOKENS
+                            )
+                            loop_perf.log_section(
+                                "Tool output truncation",
+                                extra_info={"truncated": was_truncated},
+                            )
+                            if was_truncated:
+                                ui.warn(
+                                    f"Command output for '{approved_command}' was truncated to fit token limits. "
+                                    "Recent output has been preserved."
+                                )
+
+                            tool_results.append(
+                                {"tool_call_id": tool_call["id"], "output": truncated_result}
                             )
 
-                        tool_results.append(
-                            {"tool_call_id": tool_call["id"], "output": truncated_result}
-                        )
-
-                        # Display the output (pretty formatted)
-                        ui.console.print()
-                        ui.print_output(stdout, stderr, returncode)
-                        ui.console.print()
+                            # Display the output (pretty formatted)
+                            ui.console.print()
+                            ui.print_output(stdout, stderr, returncode)
+                            ui.console.print()
 
                     except Exception as e:
                         error_text = str(e)
