@@ -9,6 +9,11 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2026-02-25] [feature] [cli]: tmux pane selection via --target/-T and WHAI_TARGET
+[2026-02-25] [docs] [readme]: document target pane in Context Awareness; remove TARGET_FEATURE.md
+[2026-02-25] [docs] [dev]: add cli/target.py to code structure
+[2026-02-25] [test] [cli]: add unit and e2e tests for target pane feature
+
 ## v0.9.0
 
 [2025-11-30] [feature] [llm]: add Mistral AI provider support with model name prefix handling and API key configuration
