@@ -9,6 +9,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+## v0.10.0
+
 [2026-02-25] [fix] [cli]: parse -T inline when placed after query (was sent to LLM)
 [2026-02-25] [feature] [cli]: tmux pane selection via --target/-T and WHAI_TARGET
 [2026-02-25] [docs] [readme]: document target pane in Context Awareness; remove TARGET_FEATURE.md
