@@ -188,17 +188,17 @@ def send_command_to_target(pane_id: str, command: str) -> bool:
 
 
 def send_command_and_wait(
-    pane_id: str, 
-    command: str, 
-    timeout: int = TARGET_COMMAND_WAIT_TIMEOUT
+    pane_id: str,
+    command: str,
+    timeout: int = TARGET_COMMAND_WAIT_TIMEOUT,
 ) -> Tuple[bool, bool, str]:
     """Send a command and wait for it to complete.
-    
+
     Args:
         pane_id: Target pane ID
         command: Command to execute
         timeout: Max seconds to wait for completion
-        
+
     Returns:
         Tuple of (send_success, completed, output)
         - send_success: True if command was sent
@@ -207,28 +207,6 @@ def send_command_and_wait(
     """
     if not send_command_to_target(pane_id, command):
         return False, False, ""
-    
+
     completed, output = wait_for_command_completion(pane_id, timeout=timeout)
     return True, completed, output
-
-
-def parse_target_from_query(query_parts: list) -> Tuple[Optional[str], list]:
-    """Parse @<pane> target from query parts.
-    
-    Args:
-        query_parts: List of query tokens
-        
-    Returns:
-        Tuple of (target_pane_id or None, remaining query parts)
-    """
-    if not query_parts:
-        return None, query_parts
-    
-    first = query_parts[0]
-    
-    # Check for @<pane> syntax
-    if first.startswith("@") and len(first) > 1:
-        target = first[1:]  # Remove @ prefix
-        return target, query_parts[1:]
-    
-    return None, query_parts
