@@ -12,6 +12,7 @@ from rich.text import Text
 from whai import ui
 from whai.cli.flags import extract_inline_overrides
 from whai.cli.role import role_app
+from whai.cli.target import capture_target_context, is_in_tmux, pane_exists
 from whai.configuration import (
     InvalidRoleMetadataError,
     MissingConfigError,
@@ -27,6 +28,7 @@ from whai.constants import (
     CONTEXT_MAX_TOKENS,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_QUERY,
+    ENV_WHAI_TARGET,
 )
 from whai.context import get_context
 from whai.core.executor import run_conversation_loop
@@ -126,13 +128,39 @@ def _reconstruct_invocation_command() -> Optional[str]:
 def _setup_context_capture(
     no_context: bool, 
     exclude_command: Optional[str],
-    startup_perf: PerformanceLogger
+    startup_perf: PerformanceLogger,
+    target_pane: Optional[str] = None
 ) -> tuple[str, bool]:
-    """Setup and capture terminal context (tmux/session/history)."""
+    """Setup and capture terminal context (tmux/session/history).
+    
+    Args:
+        no_context: If True, skip context capture entirely.
+        exclude_command: Command pattern to exclude from context.
+        startup_perf: Performance logger.
+        target_pane: If set, capture context from this tmux pane instead of current.
+    """
     if no_context:
         startup_perf.log_section("Context capture", extra_info={"skipped": True})
         return "", False
     
+    # If targeting a remote pane, capture from that pane
+    if target_pane is not None:
+        context_str = capture_target_context(target_pane)
+        startup_perf.log_section(
+            "Context capture",
+            extra_info={
+                "deep": True,
+                "has_content": bool(context_str),
+                "target_pane": target_pane,
+            },
+        )
+        if context_str:
+            return context_str, True
+        else:
+            ui.warn(f"Could not capture context from pane {target_pane}")
+            return "", True
+    
+    # Normal context capture (current pane/session/history)
     context_str, is_deep_context = get_context(exclude_command=exclude_command)
     startup_perf.log_section(
         "Context capture",
@@ -364,6 +392,12 @@ def main(
     provider: Optional[str] = typer.Option(
         None, "--provider", "-p", help="Override the LLM provider"
     ),
+    target: Optional[str] = typer.Option(
+        None,
+        "--target",
+        "-T",
+        help="Tmux pane for context and command execution (e.g., 1 or %5). Requires tmux.",
+    ),
     temperature: Optional[float] = typer.Option(
         None, "--temperature", "-t", help="Override temperature"
     ),
@@ -478,6 +512,7 @@ def main(
             temperature=temperature,
             timeout=timeout,
             provider=provider,
+            target=target,
         )
         role = overrides["role"]
         no_context = overrides["no_context"]
@@ -485,6 +520,29 @@ def main(
         temperature = overrides["temperature"]
         timeout = overrides["timeout"]
         provider = overrides["provider"]
+        target_pane = overrides["target"]
+
+    # If no explicit target from CLI or query, fall back to environment variable
+    if "target_pane" not in locals():
+        target_pane: Optional[str] = None
+    if target_pane is None:
+        env_target = (os.environ.get(ENV_WHAI_TARGET) or "").strip()
+        if env_target:
+            target_pane = env_target
+
+    # Validate target pane if specified
+    if target_pane is not None:
+        if not is_in_tmux():
+            ui.error("Target feature requires tmux. Start a tmux session first.")
+            ui.info("Quick start: run 'tmux' to start a session, then 'Ctrl+b %' to split panes.")
+            raise typer.Exit(1)
+
+        if not pane_exists(target_pane):
+            ui.error(f"Pane '{target_pane}' does not exist.")
+            ui.info("Press Ctrl+b q to see available pane numbers.")
+            raise typer.Exit(1)
+
+        ui.info(f"Targeting pane {target_pane}")
 
     # Set default timeout if not provided (before validation)
     if timeout is None:
@@ -531,6 +589,8 @@ def main(
         final_detected_flags.append("--temperature")
     if timeout is not None and timeout != DEFAULT_COMMAND_TIMEOUT:
         final_detected_flags.append("--timeout")
+    if target_pane is not None:
+        final_detected_flags.append("--target")
 
     logger.info(
         "CLI arguments parsed: query=%s role=%s verbose=%s flags=%s",
@@ -598,7 +658,7 @@ def main(
             logger.debug("No command arguments to exclude from context")
         
         context_str, is_deep_context = _setup_context_capture(
-            no_context, command_to_exclude, startup_perf
+            no_context, command_to_exclude, startup_perf, target_pane=target_pane
         )
 
         # 4. Initialize LLM provider
@@ -635,7 +695,7 @@ def main(
         command_string = _reconstruct_invocation_command()
 
         # 8. Main conversation loop
-        run_conversation_loop(llm_provider, messages, timeout, command_string=command_string)
+        run_conversation_loop(llm_provider, messages, timeout, command_string=command_string, target_pane=target_pane)
 
     except typer.Exit:
         raise

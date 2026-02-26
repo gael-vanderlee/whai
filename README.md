@@ -389,6 +389,16 @@ The default role is defined in the config.
 - Recorded shell sessions: Full commands + output when using `whai shell`
 - Shell history (fallback): Recent commands only when not in tmux
 
+#### Targeting another pane (tmux)
+
+In a tmux session with multiple panes, you can run `whai` in one pane and have it use context from, and run approved commands in, another pane (e.g. one pane SSH'd to a server). Use `--target` or `-T` with the pane number (see pane numbers with `Ctrl+b q`):
+
+```zsh
+whai -T 1 "check disk space"
+```
+
+Set `WHAI_TARGET=1` in your environment to use a default target pane so you can omit the flag.
+
 #### Recorded Shell Sessions
 
 For output context without tmux, use `whai shell` to launch an interactive shell with session recording:

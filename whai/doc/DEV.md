@@ -13,6 +13,7 @@
 - `llm/streaming.py` - Stream response parsing (text chunks, tool calls)
 - `context/capture.py` - Context capture coordinator (tmux → session → history)
 - `context/tmux.py` - Tmux scrollback capture
+- `cli/target.py` - Tmux target pane capture and command execution
 - `context/history.py` - Shell history parsing
 - `context/session_reader.py` - Recorded session log reading
 - `interaction/approval.py` - Command approval loop (approve/reject/modify)

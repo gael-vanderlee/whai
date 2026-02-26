@@ -16,6 +16,7 @@ def extract_inline_overrides(
     temperature: Optional[float],
     timeout: int,
     provider: Optional[str],
+    target: Optional[str] = None,
 ) -> Tuple[List[str], Dict]:
     """Extract supported inline flags from free-form tokens.
 
@@ -31,6 +32,7 @@ def extract_inline_overrides(
     o_temperature = temperature
     o_timeout = timeout
     o_provider = provider
+    o_target = target
     o_verbose_count: int = 0
 
     while i < len(tokens):
@@ -94,6 +96,14 @@ def extract_inline_overrides(
             o_provider = tokens[i + 1]
             i += 2
             continue
+        # --target/-T <str> (for remote pane targeting)
+        if token in ("--target", "-T"):
+            if i + 1 >= len(tokens):
+                ui.error("--target requires a value (pane number or id)")
+                raise typer.Exit(2)
+            o_target = tokens[i + 1]
+            i += 2
+            continue
 
         # -v or -vv (count-based verbosity)
         # Match exactly -v, -vv, -vvv, etc. (only 'v' characters after the dash)
@@ -128,5 +138,6 @@ def extract_inline_overrides(
         if o_timeout is not None
         else None,  # Preserve 0 for validation
         "provider": o_provider,
+        "target": o_target,
         "verbose_count": o_verbose_count,
     }
