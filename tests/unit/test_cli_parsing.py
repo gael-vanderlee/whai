@@ -365,6 +365,29 @@ def test_target_short_flag_parsing(mock_llm_capture_messages):
         assert len(captured_calls) > 0
 
 
+def test_target_short_flag_inline_after_query(mock_llm_capture_messages):
+    """Test: whai test -T 0 -vv — -T after query must be parsed, not sent to LLM."""
+    mock_completion, captured_calls = mock_llm_capture_messages
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.cli.main.is_in_tmux", return_value=True),
+        patch("whai.cli.main.pane_exists", return_value=True),
+    ):
+        result = runner.invoke(app, ["test", "-T", "0", "-vv", "--no-context"])
+
+        assert result.exit_code == 0
+        assert len(captured_calls) > 0
+        user_content = captured_calls[0].get("messages", [])[-1].get("content", "")
+        if "USER QUERY:" in user_content:
+            query_part = user_content.split("USER QUERY:")[-1].strip()
+        else:
+            query_part = user_content.strip()
+        assert "test" in query_part
+        assert "-T" not in query_part, "Inline -T must be parsed as flag, not sent to LLM"
+
+
 def test_query_with_special_characters(mock_llm_capture_messages):
     """Test: whai explain this: git commit -m "message" --no-context"""
     mock_completion, captured_calls = mock_llm_capture_messages

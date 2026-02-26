@@ -96,10 +96,10 @@ def extract_inline_overrides(
             o_provider = tokens[i + 1]
             i += 2
             continue
-        # --target <str> (for remote pane targeting)
-        if token == "--target":
+        # --target/-T <str> (for remote pane targeting)
+        if token in ("--target", "-T"):
             if i + 1 >= len(tokens):
-                ui.error("--target requires a value (registered target name)")
+                ui.error("--target requires a value (pane number or id)")
                 raise typer.Exit(2)
             o_target = tokens[i + 1]
             i += 2
