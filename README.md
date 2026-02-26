@@ -1,4 +1,4 @@
-# Whai - A Terminal assistant for developers who want control
+# Whai - The developer's Terminal Assistant
 
 [![PyPI version](https://badge.fury.io/py/whai.svg)](https://badge.fury.io/py/whai)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -258,6 +258,7 @@ api_key = "sk-proj-your-key-here"
 default_model = "gpt-5-mini"
 ```
 
+Make sure to use a model that is capable of calling tools. Most frontier models have this functionality. For local models, you can look at the LMStudio models tagged for tool use [here](https://lmstudio.ai/models?filter=tools).
 Get API keys from:
 - [OpenAI Platform](https://platform.openai.com/api-keys)
 - [Anthropic Console](https://console.anthropic.com/)
