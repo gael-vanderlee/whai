@@ -329,6 +329,42 @@ def test_timeout_zero_inline_flag():
                 assert call_kwargs.get("timeout") == 0
 
 
+def test_target_flag_parsing(mock_llm_capture_messages):
+    """Test: whai --target 1 debug this issue"""
+    mock_completion, captured_calls = mock_llm_capture_messages
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.cli.main.is_in_tmux", return_value=True),
+        patch("whai.cli.main.pane_exists", return_value=True),
+    ):
+        result = runner.invoke(app, ["--target", "1", "debug", "this", "issue"])
+
+        assert result.exit_code == 0
+
+        # Verify LLM was called
+        assert len(captured_calls) > 0
+
+
+def test_target_short_flag_parsing(mock_llm_capture_messages):
+    """Test: whai -T 2 debug this issue"""
+    mock_completion, captured_calls = mock_llm_capture_messages
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.cli.main.is_in_tmux", return_value=True),
+        patch("whai.cli.main.pane_exists", return_value=True),
+    ):
+        result = runner.invoke(app, ["-T", "2", "debug", "this", "issue"])
+
+        assert result.exit_code == 0
+
+        # Verify LLM was called
+        assert len(captured_calls) > 0
+
+
 def test_query_with_special_characters(mock_llm_capture_messages):
     """Test: whai explain this: git commit -m "message" --no-context"""
     mock_completion, captured_calls = mock_llm_capture_messages
@@ -581,3 +617,23 @@ def test_multiple_unrecognized_flags_warning(mock_llm_capture_messages):
         user_content = user_messages[0]["content"]
         assert "--unknown-flag" in user_content
         assert "--another-unknown" in user_content
+
+
+def test_target_from_env_when_no_cli_flag(monkeypatch, mock_llm_capture_messages):
+    """Test: WHAI_TARGET env is used when no --target/-T is provided."""
+    mock_completion, captured_calls = mock_llm_capture_messages
+
+    monkeypatch.setenv("WHAI_TARGET", "3")
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.cli.main.is_in_tmux", return_value=True),
+        patch("whai.cli.main.pane_exists", return_value=True),
+    ):
+        result = runner.invoke(app, ["debug", "this", "issue"])
+
+        assert result.exit_code == 0
+
+        # Verify LLM was called so the flow completed
+        assert len(captured_calls) > 0
