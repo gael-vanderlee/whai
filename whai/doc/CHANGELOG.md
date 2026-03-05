@@ -9,6 +9,9 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2026-03-05] [feature] [mcp]: add --no-mcp CLI flag and [mcp] enabled config toggle to disable MCP per-run or persistently
+[2026-03-05] [change] [config]: self-healing config: missing top-level sections are automatically back-filled on load
+[2026-03-05] [chore] [mcp]: remove unused asyncio import in mcp/client.py
 [2026-03-05] [test] [performance]: optimize MCP test fixture with session-scoped uvx validation; suite 38% faster (17.7s → 11s)
 [2026-03-05] [test] [coverage]: add 18 behavioral tests for parse_tool_calls, handle_streaming_response, and handle_complete_response
 [2026-03-05] [fix] [test]: fix 41 failing integration tests caused by mock_litellm_module corrupting sys.modules and MCP SDK capturing Click's fake stderr

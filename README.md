@@ -372,6 +372,17 @@ Each provider must be configured in your `~/.config/whai/config.toml` file. You 
 
 MCP support is opt-in: if `mcp.json` doesn't exist, MCP is disabled. Tools from MCP servers are automatically discovered and made available to the LLM alongside the built-in `execute_shell` tool.
 
+To disable MCP for a single run, use the `--no-mcp` flag:
+```
+whai "my question" --no-mcp
+```
+
+To disable MCP persistently, change in `config.toml`:
+```toml
+[mcp]
+enabled = false
+```
+
 If a server fails to start (e.g., missing script file or invalid command), `whai` will display clear error messages and exit gracefully, helping you fix configuration issues.
 
 ## Key Features
