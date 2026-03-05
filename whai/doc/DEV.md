@@ -160,7 +160,7 @@ uv version --bump patch
 
 ```bash
 # macOS/Linux - Read version from pyproject.toml
-ver=$(uv run --no-project -- python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+ver=$(uv run --no-project --python 3.11 -- python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
 $ver
 git commit -am "Bump version to v$ver"
 git tag "v$ver"
