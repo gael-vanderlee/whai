@@ -6,11 +6,15 @@ integration paths work together. Network calls are avoided by prepending
 `tests/mocks` to `PYTHONPATH`, which provides a mock `litellm` module.
 """
 
+import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
+
+import pytest
 
 
 def _base_env(tmp_path: Path, *, toolcall: bool = False) -> Dict:
@@ -108,3 +112,47 @@ def test_cli_tool_call_and_approval(tmp_path):
     # Should show proposal text and echo result
     assert "let me run that" in merged.lower()
     assert "e2e-subprocess" in merged
+
+
+def test_cli_mcp_tool_call_e2e(tmp_path):
+    """MCP tool-call flow: LLM proposes MCP tool; executor routes to real server; result shown."""
+    uvx_path = shutil.which("uvx")
+    if not uvx_path:
+        pytest.skip("uvx not available, cannot run MCP server tests")
+
+    try:
+        result = subprocess.run(
+            [uvx_path, "mcp-server-time", "--help"],
+            capture_output=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            pytest.skip("mcp-server-time not available via uvx")
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pytest.skip("Cannot run mcp-server-time")
+
+    env = _base_env(tmp_path)
+    env["WHAI_MOCK_MCP_TOOLCALL"] = "1"
+
+    # Write mcp.json into the isolated config dir (XDG_CONFIG_HOME/whai/)
+    config_dir = tmp_path / "whai"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    mcp_config = {
+        "mcpServers": {
+            "time-server": {
+                "command": uvx_path,
+                "args": ["mcp-server-time"],
+                "env": {},
+                "requires_approval": False,
+            }
+        }
+    }
+    (config_dir / "mcp.json").write_text(json.dumps(mcp_config))
+
+    code, out, err = _run_cli(
+        ["--no-context", "what time is it"], env=env, timeout=30
+    )
+    assert code == 0
+    merged = (out or "") + (err or "")
+    assert "let me check that" in merged.lower()
+    assert "mcp-e2e-done" in merged
