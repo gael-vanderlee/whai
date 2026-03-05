@@ -9,12 +9,11 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+## v0.11.1
+
 [2026-03-05] [test] [mcp]: run MCP executor integration tests in thread with own loop to avoid unawaited coroutine warning (test-only fix)
 [2026-03-05] [test] [pytest]: filter LiteLLM asyncio.iscoroutinefunction deprecation warning
 [2026-03-05] [test] [e2e]: tmux e2e use dedicated server so test commands don't pollute user shell history
-
-## v0.11.1
-
 [2026-03-05] [fix] [test]: switch to nest-asyncio2 for MCP integration tests; fixes Python 3.14 failures (nest-asyncio unmaintained, current_task() broken on 3.14)
 [2026-03-05] [fix] [mcp]: fix MCP tool routing for server names containing underscores; resolve via known server name lookup instead of splitting on underscores
 [2026-03-05] [fix] [mcp]: fix MCP connection cleanup not running on exit; track manager ownership with a flag instead of identity comparison
