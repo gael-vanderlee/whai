@@ -280,7 +280,7 @@ class TestLoadMCPConfig:
         def mock_get_config_dir():
             return tmp_path
 
-        monkeypatch.setattr("whai.mcp.config.get_config_dir", mock_get_config_dir)
+        monkeypatch.setattr("whai.configuration.user_config.get_config_dir", mock_get_config_dir)
 
         config = load_mcp_config()
         assert config is None
@@ -290,7 +290,7 @@ class TestLoadMCPConfig:
         def mock_get_config_dir():
             return tmp_path
 
-        monkeypatch.setattr("whai.mcp.config.get_config_dir", mock_get_config_dir)
+        monkeypatch.setattr("whai.configuration.user_config.get_config_dir", mock_get_config_dir)
 
         config_file = tmp_path / "mcp.json"
         config_data = {
@@ -312,7 +312,7 @@ class TestLoadMCPConfig:
         def mock_get_config_dir():
             return tmp_path
 
-        monkeypatch.setattr("whai.mcp.config.get_config_dir", mock_get_config_dir)
+        monkeypatch.setattr("whai.configuration.user_config.get_config_dir", mock_get_config_dir)
 
         config_file = tmp_path / "mcp.json"
         config_file.write_text("{ invalid json }")

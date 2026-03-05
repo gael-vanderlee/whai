@@ -16,7 +16,7 @@ class TestMCPManager:
         def mock_get_config_dir():
             return tmp_path
 
-        monkeypatch.setattr("whai.mcp.config.get_config_dir", mock_get_config_dir)
+        monkeypatch.setattr("whai.configuration.user_config.get_config_dir", mock_get_config_dir)
 
         manager = MCPManager()
         assert not manager.is_enabled()

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from whai.configuration.user_config import get_config_dir
+from whai.configuration import user_config
 from whai.logging_setup import get_logger
 from whai.utils import PerformanceLogger
 
@@ -106,7 +106,7 @@ class MCPConfig:
 
 def get_mcp_config_path() -> Path:
     """Get the path to the MCP configuration file."""
-    return get_config_dir() / MCP_CONFIG_FILENAME
+    return user_config.get_config_dir() / MCP_CONFIG_FILENAME
 
 
 def load_mcp_config() -> Optional[MCPConfig]:

@@ -238,7 +238,7 @@ def mcp_server_time(tmp_path, monkeypatch):
     def mock_get_config_dir():
         return config_dir
     
-    monkeypatch.setattr("whai.mcp.config.get_config_dir", mock_get_config_dir)
+    monkeypatch.setattr("whai.configuration.user_config.get_config_dir", mock_get_config_dir)
     
     yield {
         "server_name": "time-server",
