@@ -13,79 +13,59 @@ from unittest.mock import patch
 
 import pytest
 
+# Socket name for a dedicated tmux server so pane shells get test env (e.g. HISTFILE=/dev/null)
+# and don't write to the user's shell history.
+_TMUX_TEST_SOCKET = "whai_test"
+
+
+def _tmux_cmd(*args, env=None, check=True):
+    """Run tmux with test socket; use env so pane shells inherit e.g. HISTFILE=/dev/null."""
+    full_env = (env or os.environ).copy()
+    full_env.setdefault("HISTFILE", "/dev/null")
+    full_env.setdefault("HISTSIZE", "0")
+    return subprocess.run(
+        ["tmux", "-L", _TMUX_TEST_SOCKET] + list(args),
+        env=full_env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=5,
+        check=check,
+    )
+
 
 @pytest.mark.skipif(not shutil.which("tmux"), reason="tmux required")
 @pytest.mark.integration
 def test_whai_in_real_tmux_captures_scrollback():
     """Test that whai running in a real tmux session captures scrollback context."""
     # This test launches a real tmux session to verify context capture
-    
     with tempfile.TemporaryDirectory() as tmpdir:
         env = os.environ.copy()
         env["WHAI_TEST_MODE"] = "1"
         env["XDG_CONFIG_HOME"] = tmpdir
-        
-        # Create a tmux session and run commands in it
+
         session_name = "whai_test_session"
-        
         try:
-            # Start tmux session in detached mode
-            subprocess.run(
-                ["tmux", "new-session", "-d", "-s", session_name],
-                check=True,
-                timeout=5,
-            )
-            
-            # Send commands to create scrollback
-            subprocess.run(
-                ["tmux", "send-keys", "-t", session_name, "echo 'test command 1'", "C-m"],
-                check=True,
-                timeout=5,
-            )
-            subprocess.run(
-                ["tmux", "send-keys", "-t", session_name, "echo 'test command 2'", "C-m"],
-                check=True,
-                timeout=5,
-            )
-            
-            # Capture the pane content to verify tmux has output
-            result = subprocess.run(
-                ["tmux", "capture-pane", "-t", session_name, "-p"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=5,
-            )
-            
-            # Verify tmux captured the commands
+            _tmux_cmd("new-session", "-d", "-s", session_name, env=env)
+            _tmux_cmd("send-keys", "-t", session_name, "echo 'test command 1'", "C-m")
+            _tmux_cmd("send-keys", "-t", session_name, "echo 'test command 2'", "C-m")
+
+            result = _tmux_cmd("capture-pane", "-t", session_name, "-p")
+            assert result.returncode == 0, result.stderr
             assert "test command" in result.stdout
-            
-            # Test that whai can read tmux context
-            # Use direct tmux capture instead of relying on TMUX env var
-            # This works regardless of env var state and socket paths
-            capture_result = subprocess.run(
-                ["tmux", "capture-pane", "-t", session_name, "-p"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=5,
-            )
-            
-            # Should successfully capture from the session
+
+            capture_result = _tmux_cmd("capture-pane", "-t", session_name, "-p")
             assert capture_result.returncode == 0, f"tmux capture-pane failed: {capture_result.stderr}"
-            context = capture_result.stdout
-            assert context is not None
-            assert "test command" in context
-            
+            assert capture_result.stdout is not None
+            assert "test command" in capture_result.stdout
         finally:
-            # Clean up tmux session
             try:
                 subprocess.run(
-                    ["tmux", "kill-session", "-t", session_name],
+                    ["tmux", "-L", _TMUX_TEST_SOCKET, "kill-session", "-t", session_name],
                     timeout=5,
                     stderr=subprocess.DEVNULL,
+                    check=False,
                 )
             except Exception:
                 pass
@@ -123,43 +103,15 @@ def test_target_pane_capture_uses_correct_pane():
     marker_1 = "WHAI_TARGET_TEST_PANE_1_MARKER"
 
     try:
-        subprocess.run(
-            ["tmux", "new-session", "-d", "-s", session_name],
-            check=True,
-            timeout=5,
-        )
-
-        subprocess.run(
-            ["tmux", "split-window", "-t", f"{session_name}:0", "-h"],
-            check=True,
-            timeout=5,
-        )
-
-        subprocess.run(
-            ["tmux", "send-keys", "-t", f"{session_name}:0.0", f"echo {marker_0}", "C-m"],
-            check=True,
-            timeout=5,
-        )
-        subprocess.run(
-            ["tmux", "send-keys", "-t", f"{session_name}:0.1", f"echo {marker_1}", "C-m"],
-            check=True,
-            timeout=5,
-        )
+        _tmux_cmd("new-session", "-d", "-s", session_name)
+        _tmux_cmd("split-window", "-t", f"{session_name}:0", "-h")
+        _tmux_cmd("send-keys", "-t", f"{session_name}:0.0", f"echo {marker_0}", "C-m")
+        _tmux_cmd("send-keys", "-t", f"{session_name}:0.1", f"echo {marker_1}", "C-m")
 
         time.sleep(0.3)
 
-        socket_result = subprocess.run(
-            ["tmux", "display-message", "-t", session_name, "-p", "#{socket_path}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        sid_result = subprocess.run(
-            ["tmux", "display-message", "-t", session_name, "-p", "#{session_id}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
+        socket_result = _tmux_cmd("display-message", "-t", session_name, "-p", "#{socket_path}")
+        sid_result = _tmux_cmd("display-message", "-t", session_name, "-p", "#{session_id}")
         assert socket_result.returncode == 0, socket_result.stderr
         assert sid_result.returncode == 0, sid_result.stderr
         socket_path = socket_result.stdout.strip()
@@ -181,9 +133,10 @@ def test_target_pane_capture_uses_correct_pane():
     finally:
         try:
             subprocess.run(
-                ["tmux", "kill-session", "-t", session_name],
+                ["tmux", "-L", _TMUX_TEST_SOCKET, "kill-session", "-t", session_name],
                 timeout=5,
                 stderr=subprocess.DEVNULL,
+                check=False,
             )
         except Exception:
             pass
