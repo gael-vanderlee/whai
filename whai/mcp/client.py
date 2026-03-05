@@ -156,10 +156,10 @@ class MCPClient:
             if hasattr(result, "content"):
                 content_list = []
                 for item in result.content:
-                    if hasattr(item, "text"):
-                        content_list.append({"type": "text", "text": item.text})
-                    elif hasattr(item, "type") and hasattr(item, "text"):
+                    if hasattr(item, "type") and hasattr(item, "text"):
                         content_list.append({"type": item.type, "text": item.text})
+                    elif hasattr(item, "text"):
+                        content_list.append({"type": "text", "text": item.text})
                     else:
                         content_list.append({"type": "text", "text": str(item)})
                 perf.log_section("Result conversion", level="debug")

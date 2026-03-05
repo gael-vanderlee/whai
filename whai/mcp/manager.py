@@ -228,8 +228,9 @@ class MCPManager:
             except Exception as e:
                 error_msg = _format_mcp_error(server_name, e, context="list_tools")
                 errors.append((server_name, error_msg))
-                # Remove failed client to prevent retry
-                self.clients.pop(server_name, None)
+                failed_client = self.clients.pop(server_name, None)
+                if failed_client:
+                    await failed_client.close()
 
         if errors:
             error_msgs = [msg for _, msg in errors]

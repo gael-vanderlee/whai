@@ -87,6 +87,7 @@ class TestMCPIntegration:
         from whai.mcp.executor import handle_mcp_tool_call_sync
         from whai.mcp.manager import MCPManager
 
+        loop = asyncio.get_event_loop()
         manager = MCPManager()
         await manager.initialize()
         try:
@@ -96,14 +97,15 @@ class TestMCPIntegration:
             tool_call = {
                 "id": "call_123",
                 "name": tools[0]["function"]["name"],
-                "arguments": {},
+                "arguments": {"timezone": "UTC"},
             }
 
-            result = handle_mcp_tool_call_sync(tool_call, manager)
+            result = handle_mcp_tool_call_sync(tool_call, manager, loop=loop)
             
             assert "tool_call_id" in result
             assert "output" in result
             assert result["tool_call_id"] == "call_123"
+            assert "error" not in result["output"].lower()
         finally:
             await manager.close_all()
 
@@ -112,6 +114,7 @@ class TestMCPIntegration:
         from whai.mcp.executor import handle_mcp_tool_call_sync
         from whai.mcp.manager import MCPManager
 
+        loop = asyncio.get_event_loop()
         manager = MCPManager()
         await manager.initialize()
 
@@ -122,7 +125,7 @@ class TestMCPIntegration:
                 "arguments": {},
             }
 
-            result = handle_mcp_tool_call_sync(tool_call, manager)
+            result = handle_mcp_tool_call_sync(tool_call, manager, loop=loop)
             
             assert "tool_call_id" in result
             assert "output" in result
