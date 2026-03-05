@@ -9,6 +9,10 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2026-03-05] [fix] [mcp]: fix MCP tool routing for server names containing underscores; resolve via known server name lookup instead of splitting on underscores
+[2026-03-05] [fix] [mcp]: fix MCP connection cleanup not running on exit; track manager ownership with a flag instead of identity comparison
+[2026-03-05] [chore] [mcp]: remove commented-out debug logging in streaming response handler
+[2026-03-05] [chore] [deps]: add anyio as explicit dev dependency (was implicit via mcp transitive dep)
 [2026-03-05] [feature] [mcp]: add --no-mcp CLI flag and [mcp] enabled config toggle to disable MCP per-run or persistently
 [2026-03-05] [change] [config]: self-healing config: missing top-level sections are automatically back-filled on load
 [2026-03-05] [chore] [mcp]: remove unused asyncio import in mcp/client.py

@@ -42,10 +42,10 @@ Features:
 - [x] Retroactively tag previous versions
 - [x] Add provider to role settings
 - [x] Put role settings info in README
-- [ ] MCP support
+- [x] MCP support
     - [x] Enable / disable flag
     - [x] Noisy test logging
-    - [ ] CLI E2E test
+    - [x] CLI E2E test
 - [ ] Replace cursor text
 - [ ] Change command formatting to allow for copy paste
 
