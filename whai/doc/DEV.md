@@ -97,11 +97,11 @@ uv run pytest -m api
 
 ### Testing across multiple Python versions (recommended)
 
-Use `nox` to test against Python 3.8, 3.9, 3.10, 3.11, 3.12, and 3.13:
+Use `nox` to test against Python 3.10, 3.11, 3.12, 3.13, and 3.14:
 First time setup:
 ```bash
 # One-time setup: Install Python versions with uv
-uv python install 3.10 3.11 3.12 3.13
+uv python install 3.10 3.11 3.12 3.13 3.14
 
 # Install nox
 uv tool install "nox[uv]"
@@ -190,7 +190,7 @@ git push origin "v$ver"
 **Important**: Use `git push origin "v$ver"` to push the specific tag, NOT `git push --tags`. The `--tags` flag pushes all tags, and if a tag already exists on the remote, GitHub won't recognize it as a new tag push event and won't trigger the workflow.
 
 That's it! GitHub Actions will automatically:
-- Run tests across Python 3.10, 3.11, 3.12, 3.13
+- Run tests across Python 3.10, 3.11, 3.12, 3.13, 3.14
 - Validate that the tag matches the version in `pyproject.toml`
 - Build the package
 - Publish to TestPyPI
@@ -242,7 +242,7 @@ Before your first real release, you can test the entire pipeline without actuall
 6. Click "Run workflow"
 
 This will:
-- Run all tests across Python 3.10, 3.11, 3.12, 3.13
+- Run all tests across Python 3.10, 3.11, 3.12, 3.13, 3.14
 - Build the package
 - Verify the built package locally (install and run smoke tests)
 - Skip all publishing steps (TestPyPI, PyPI, GitHub Release)

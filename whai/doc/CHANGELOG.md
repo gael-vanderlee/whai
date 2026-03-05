@@ -9,6 +9,8 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2026-03-05] [fix] [mcp]: fix MCP config isolation in tests by using module-level import for get_config_dir, preventing real MCP servers from starting during unrelated tests
+[2026-03-05] [docs] [general]: update README (ToC, MCP core feature) and DEV.md (Python version references to match noxfile 3.10-3.14)
 [2025-12-01] [fix] [mcp]: add graceful error handling for MCP server initialization and tool listing failures with user-friendly messages
 [2025-12-01] [feature] [mcp]: add performance logging to MCP initialization and tool discovery operations
 [2025-12-01] [change] [mcp]: improve event loop management to reuse persistent loop for MCP connections and prevent connection state issues

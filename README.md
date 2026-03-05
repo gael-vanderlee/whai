@@ -17,10 +17,10 @@ https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Supported Providers](#supported-providers)
+- [MCP (Model Context Protocol) Support](#mcp-model-context-protocol-support)
 - [Key Features](#key-features)
 - [FAQ](#faq)
 - [Contributing](#contributing)
-- [Changelog](#changelog)
 - [Acknowledgments](#acknowledgments)
 
 ## What is it
@@ -43,6 +43,7 @@ When you get stuck, need a command, or encounter an error, just call `whai` for 
     `> whai "Is this resource usage normal?"`
 
 * **Requires Approval:** Every `whai` command requires your explicit `[a]pprove` / `[r]eject` confirmation.
+* **MCP Tool Integration:** Connect local [MCP](https://modelcontextprotocol.io/) servers to extend `whai` with additional tools like file operations, database queries, or API integrations, all with the same approval workflow.
 * **Model-Agnostic:** Use models from OpenAI, Gemini, Anthropic, local Ollama models, and more.
 
 ## Quick Examples
