@@ -660,3 +660,60 @@ def test_target_from_env_when_no_cli_flag(monkeypatch, mock_llm_capture_messages
 
         # Verify LLM was called so the flow completed
         assert len(captured_calls) > 0
+
+
+def test_no_mcp_flag_skips_mcp_init(mock_llm_capture_messages):
+    """Test: whai --no-mcp test query — MCP manager should not be initialized."""
+    mock_completion, captured_calls = mock_llm_capture_messages
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.mcp.manager.MCPManager") as mock_mcp_cls,
+    ):
+        result = runner.invoke(app, ["--no-mcp", "--no-context", "test", "query"])
+
+        assert result.exit_code == 0
+        assert len(captured_calls) > 0
+        mock_mcp_cls.assert_not_called()
+
+
+def test_no_mcp_inline_flag(mock_llm_capture_messages):
+    """Test: whai test query --no-mcp — inline flag after query."""
+    mock_completion, captured_calls = mock_llm_capture_messages
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.mcp.manager.MCPManager") as mock_mcp_cls,
+    ):
+        result = runner.invoke(app, ["test", "query", "--no-mcp", "--no-context"])
+
+        assert result.exit_code == 0
+        assert len(captured_calls) > 0
+        mock_mcp_cls.assert_not_called()
+
+        # Verify --no-mcp was not passed to LLM as part of the query
+        messages = captured_calls[0].get("messages", [])
+        user_messages = [m for m in messages if m.get("role") == "user"]
+        assert len(user_messages) > 0
+        assert "--no-mcp" not in user_messages[0]["content"]
+
+
+def test_no_mcp_with_other_flags(mock_llm_capture_messages):
+    """Test: whai --no-mcp --no-context --model gpt-5 test query"""
+    mock_completion, captured_calls = mock_llm_capture_messages
+
+    with (
+        patch("litellm.completion", side_effect=mock_completion),
+        patch("whai.context.get_context", return_value=("", False)),
+        patch("whai.mcp.manager.MCPManager") as mock_mcp_cls,
+    ):
+        result = runner.invoke(app, ["--no-mcp", "--no-context", "--model", "gpt-5", "test", "query"])
+
+        assert result.exit_code == 0
+        assert len(captured_calls) > 0
+
+        call_kwargs = captured_calls[0]
+        assert call_kwargs.get("model") == "gpt-5"
+        mock_mcp_cls.assert_not_called()
