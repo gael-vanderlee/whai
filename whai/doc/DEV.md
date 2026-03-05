@@ -168,7 +168,7 @@ git tag "v$ver"
 
 ```powershell
 # Windows PowerShell - Read version from pyproject.toml
-$ver = (uv run --no-project -- python -c "import tomllib,sys;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])").Trim()
+$ver = (uv run --no-project --python 3.11 -- python -c "import tomllib,sys;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])").Trim()
 $ver
 git commit -am "Bump version to v$ver"
 git tag "v$ver"
