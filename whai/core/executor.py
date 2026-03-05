@@ -48,6 +48,7 @@ def run_conversation_loop(
     
     mcp_manager = None
     mcp_loop = None
+    owns_mcp_manager = False
     
     if mcp_enabled:
         # Try to reuse the provider's MCP manager if it exists, otherwise create a new one
@@ -57,6 +58,7 @@ def run_conversation_loop(
         else:
             mcp_manager = MCPManager()
             llm_provider._mcp_manager = mcp_manager
+            owns_mcp_manager = True
         
         if mcp_manager.is_enabled():
             mcp_loop = asyncio.new_event_loop()
@@ -289,10 +291,8 @@ def run_conversation_loop(
                         tool_name = tool_call["name"]
                         tool_args = tool_call.get("arguments", {})
                         
-                        # Parse server name from tool name (mcp_<server>_<tool>)
-                        parts = tool_name.split("_", 2)
-                        if len(parts) >= 3:
-                            server_name = parts[1]
+                        server_name = mcp_manager.resolve_server_name(tool_name)
+                        if server_name:
                             server_config = mcp_manager.get_server_config(server_name)
                             
                             # Check if approval is required (default to True for safety)
@@ -448,9 +448,8 @@ def run_conversation_loop(
                     loop_perf.log_complete(extra_info={"ended": "unexpected_error"})
                     break
     finally:
-        # Clean up MCP connections
-        # Only close if we created our own manager (not if we reused the provider's)
-        if mcp_manager and not (hasattr(llm_provider, "_mcp_manager") and llm_provider._mcp_manager is mcp_manager):
+        # Clean up MCP connections we own (skip if reusing the provider's manager)
+        if mcp_manager and owns_mcp_manager:
             try:
                 if mcp_loop and not mcp_loop.is_closed():
                     # Use the persistent loop to close connections in the same context

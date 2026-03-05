@@ -80,7 +80,7 @@ class TestMCPManager:
         manager = MCPManager()
         await manager.initialize()
         try:
-            with pytest.raises(ValueError, match="Invalid MCP tool name format"):
+            with pytest.raises(ValueError, match="Invalid MCP tool name or server not found"):
                 await manager.call_tool("invalid_name", {})
         finally:
             await manager.close_all()
@@ -90,7 +90,7 @@ class TestMCPManager:
         manager = MCPManager()
         await manager.initialize()
         try:
-            with pytest.raises(ValueError, match="MCP server.*not found"):
+            with pytest.raises(ValueError, match="Invalid MCP tool name or server not found"):
                 await manager.call_tool("mcp_nonexistent_server_tool", {})
         finally:
             await manager.close_all()

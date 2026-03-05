@@ -33,14 +33,12 @@ def handle_mcp_tool_call_sync(
     tool_id = tool_call.get("id", "")
     arguments = tool_call.get("arguments", {})
 
-    # Parse tool name to show server/tool format (mcp_<server>_<tool>)
+    # Resolve display name using the manager (handles server names with underscores)
     display_name = tool_name
-    if tool_name.startswith("mcp_") and "_" in tool_name[4:]:
-        parts = tool_name.split("_", 2)
-        if len(parts) >= 3:
-            server_name = parts[1]
-            actual_tool = parts[2]
-            display_name = f"{server_name}/{actual_tool}"
+    server_name = mcp_manager.resolve_server_name(tool_name)
+    if server_name:
+        actual_tool = tool_name[len(f"mcp_{server_name}_"):]
+        display_name = f"{server_name}/{actual_tool}"
     
     ui.info(f"🔧 Calling MCP tool: {display_name}")
 

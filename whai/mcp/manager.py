@@ -240,6 +240,30 @@ class MCPManager:
         logger.info("Total MCP tools available: %d", len(all_tools))
         return all_tools
 
+    def resolve_server_name(self, tool_name: str) -> Optional[str]:
+        """
+        Resolve the server name from a full MCP tool name.
+
+        Iterates over known server names to find which prefix matches,
+        so server names containing underscores are handled correctly.
+
+        Args:
+            tool_name: Full tool name (e.g., "mcp_my_server_tool_name").
+
+        Returns:
+            Server name if found, None otherwise.
+        """
+        if not tool_name.startswith("mcp_"):
+            return None
+
+        remainder = tool_name[4:]  # strip "mcp_"
+        all_names = list(self.clients.keys()) + list(self._server_configs.keys())
+        for name in all_names:
+            if remainder.startswith(f"{name}_"):
+                return name
+
+        return None
+
     async def call_tool(self, tool_name: str, arguments: Dict) -> Dict:
         """
         Call a tool by name (handles routing to correct MCP server).
@@ -258,14 +282,14 @@ class MCPManager:
         if not self._initialized:
             await self.initialize()
 
-        if not tool_name.startswith("mcp_"):
-            raise ValueError(f"Invalid MCP tool name format: {tool_name} (must start with 'mcp_')")
+        server_name = self.resolve_server_name(tool_name)
+        if server_name is None:
+            available = list(self.clients.keys())
+            raise ValueError(
+                f"Invalid MCP tool name or server not found: {tool_name}. "
+                f"Available servers: {available}"
+            )
 
-        parts = tool_name.split("_", 2)
-        if len(parts) < 3:
-            raise ValueError(f"Invalid MCP tool name format: {tool_name} (expected: mcp_<server>_<tool>)")
-
-        server_name = parts[1]
         if server_name not in self.clients:
             available = list(self.clients.keys())
             raise ValueError(
