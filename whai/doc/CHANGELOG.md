@@ -9,7 +9,7 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
-## v0.11.1
+## v0.11.2
 
 [2026-03-05] [test] [mcp]: run MCP executor integration tests in thread with own loop to avoid unawaited coroutine warning (test-only fix)
 [2026-03-05] [test] [pytest]: filter LiteLLM asyncio.iscoroutinefunction deprecation warning
