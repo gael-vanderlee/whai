@@ -48,6 +48,7 @@ When you get stuck, need a command, or encounter an error, just call `whai` for 
 * **Requires Approval:** Every `whai` command requires your explicit `[a]pprove` / `[r]eject` confirmation.
 * **MCP Tool Integration:** Connect local [MCP](https://modelcontextprotocol.io/) servers to extend `whai` with additional tools like file operations, database queries, or API integrations, all with the same approval workflow.
 * **Model-Agnostic:** Use models from OpenAI, Gemini, Mistral, Anthropic, local Ollama models, and more.
+* **Insert-Command Mode (Optional):** Turn natural language at your prompt into a single shell command with a keybinding that replaces your current line without auto-executing anything.
 
 ## Quick Examples
 
@@ -328,64 +329,6 @@ Each provider must be configured in your `~/.config/whai/config.toml` file. You 
 
 > **Note:** `whai` uses [LiteLLM](https://github.com/BerriAI/litellm) for multi-provider support. Additional providers from [LiteLLM's supported providers list](https://docs.litellm.ai/docs/providers) can be added upon request.
 
-## MCP (Model Context Protocol) Support
-
-`whai` supports connecting to local MCP servers to extend functionality with additional tools. MCP servers can provide tools for file operations, database queries, API integrations, and more.
-
-### Setting Up MCP Servers
-
-1. Create `~/.config/whai/mcp.json` with your MCP server configuration:
-
-```json
-{
-  "mcpServers": {
-    "server-name": {
-      "command": "command-to-run",
-      "args": ["arg1", "arg2"],
-      "env": {"KEY": "value"},
-      "name": "Display Name (optional)",
-      "requires_approval": true
-    }
-  }
-}
-```
-
-2. Example configuration for the time server:
-
-```json
-{
-  "mcpServers": {
-    "time-server": {
-      "command": "uvx",
-      "args": ["mcp-server-time"],
-      "env": {},
-      "name": "Time Server",
-      "requires_approval": false
-    }
-  }
-}
-```
-
-**Configuration fields:**
-- `command` (required): Command to run the MCP server
-- `args` (optional): Arguments to pass to the command
-- `env` (optional): Environment variables for the server
-- `name` (optional): Display name shown in tool approval prompts
-- `requires_approval` (optional, default: `true`): Whether to prompt for approval before executing tools from this server
-
-MCP support is opt-in: if `mcp.json` doesn't exist, MCP is disabled. Tools from MCP servers are automatically discovered and made available to the LLM alongside the built-in `execute_shell` tool.
-
-To disable MCP for a single run, use the `--no-mcp` flag:
-```
-whai "my question" --no-mcp
-```
-
-To disable MCP persistently, change in `config.toml`:
-```toml
-[mcp]
-enabled = false
-```
-
 ## Key Features
 
 ### Roles
@@ -451,7 +394,66 @@ The default role is defined in the config.
 - Recorded shell sessions: Full commands + output when using `whai shell`
 - Shell history (fallback): Recent commands only when not in tmux
 
-#### Targeting another pane (tmux)
+### MCP (Model Context Protocol) Support
+
+`whai` supports connecting to local MCP servers to extend functionality with additional tools. MCP servers can provide tools for file operations, database queries, API integrations, and more.
+
+#### Setting Up MCP Servers
+
+1. Create `~/.config/whai/mcp.json` with your MCP server configuration:
+
+```json
+{
+  "mcpServers": {
+    "server-name": {
+      "command": "command-to-run",
+      "args": ["arg1", "arg2"],
+      "env": {"KEY": "value"},
+      "name": "Display Name (optional)",
+      "requires_approval": true
+    }
+  }
+}
+```
+
+2. Example configuration for the time server:
+
+```json
+{
+  "mcpServers": {
+    "time-server": {
+      "command": "uvx",
+      "args": ["mcp-server-time"],
+      "env": {},
+      "name": "Time Server",
+      "requires_approval": false
+    }
+  }
+}
+```
+
+**Configuration fields:**
+- `command` (required): Command to run the MCP server
+- `args` (optional): Arguments to pass to the command
+- `env` (optional): Environment variables for the server
+- `name` (optional): Display name shown in tool approval prompts
+- `requires_approval` (optional, default: `true`): Whether to prompt for approval before executing tools from this server
+
+MCP support is opt-in: if `mcp.json` doesn't exist, MCP is disabled. Tools from MCP servers are automatically discovered and made available to the LLM alongside the built-in `execute_shell` tool.
+
+To disable MCP for a single run, use the `--no-mcp` flag:
+```
+whai "my question" --no-mcp
+```
+
+To disable MCP persistently, change in `config.toml`:
+```toml
+[mcp]
+enabled = false
+```
+
+
+### Targeting another pane (tmux)
 
 In a tmux session with multiple panes, you can run `whai` in one pane and have it use context from, and run approved commands in, another pane (e.g. one pane SSH'd to a server). Use `--target` or `-T` with the pane number (see pane numbers with `Ctrl+b q`):
 
@@ -461,7 +463,7 @@ whai -T 1 "check disk space"
 
 Set `WHAI_TARGET=1` in your environment to use a default target pane so you can omit the flag.
 
-#### Recorded Shell Sessions
+### Recorded Shell Sessions
 
 For output context without tmux, use `whai shell` to launch an interactive shell with session recording:
 
@@ -490,6 +492,20 @@ whai shell --log ~/my-session.log
 Session logs are stored temporarily during the session and are deleted when you exit the shell.
 When you run `whai` from within a recorded shell session, it automatically uses the in-session log.
 
+### 3. Insert-command keybinding
+
+`whai` can also be used as a “turn this line into a command” helper.
+
+- **Interactive keybinding (bash/zsh)**:
+  - In the interactive config wizard (`whai --interactive-config`) offers to add a `Ctrl+G` (can be changed in the snipped) keybinding snippet to your shell config file (e.g. `~/.bashrc` or `~/.zshrc`).
+
+After enabling it:
+- Type a natural-language request on the command line, e.g. `list largest folders here`.
+- Press `Ctrl+G`.
+- Your line is replaced with a real shell command proposed by `whai --command-only`.
+- You can edit the command and press Enter when you are ready to run it.
+
+
 ### Safety First
 
 - Every command requires explicit approval
@@ -502,7 +518,8 @@ When you run `whai` from within a recorded shell session, it automatically uses 
 ### How is this different from [insert app here] ?
 
 `whai` is integrated into your terminal with context awareness. It sees your command history and can execute commands.
-Most terminal assistants either require you to explicitely start a chat loop which takes you out of your usual workflow, don't allow for roles, or don't allow to mix natural language conversation and shell execution. 
+Most terminal assistants either require you to explicitely start a chat loop which takes you out of your usual workflow, don't allow for roles, or don't allow to mix natural language conversation and shell execution.
+You don't need AI to cd into a directory, you keep full agency over simple actions.
 The goal was really to replace alt-tabbing to google with a CLI command.
 
 ### Does it send my terminal history to the LLM?

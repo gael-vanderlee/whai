@@ -9,6 +9,15 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2026-03-06] [feature] [cli]: add `--command-only` mode that generates a single shell command without running it, suitable for keybindings; output contains only the command line on stdout with no Rich UI
+[2026-03-06] [feature] [prompt]: add dedicated `system_prompt_command_only` template for command-only mode, ensuring the model responds only via a single execute_shell tool call with no natural-language explanation
+[2026-03-06] [test] [cli]: add unit tests for `--command-only` CLI behavior and an API-marked end-to-end test that validates it prints a single shell command
+[2026-03-06] [feature] [wizard]: add insert-command keybinding option to interactive config wizard; detect bash/zsh, append idempotent Ctrl+G snippet to shell rc with clear explanation and sourcing reminder
+[2026-03-06] [test] [wizard]: extend config wizard tests to cover keybinding offer flows, shell detection, snippet writing, and idempotency without touching real user dotfiles or launching external apps
+[2026-03-06] [feature] [cli]: read prompt from stdin when no free-form query is provided so `whai --command-only` can be driven by shell widgets that pipe the current line
+[2026-03-06] [test] [cli]: add CLI tests for stdin-driven command-only prompts and shell-level e2e tests that exercise bash/zsh insert-command widgets with a fake `whai` binary
+[2026-03-06] [docs] [readme]: document insert-command mode, wizard keybinding setup, and clarify how it integrates with existing context and safety model
+
 ## v0.11.2
 
 [2026-03-05] [test] [mcp]: run MCP executor integration tests in thread with own loop to avoid unawaited coroutine warning (test-only fix)

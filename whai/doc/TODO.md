@@ -48,6 +48,7 @@ Features:
     - [x] CLI E2E test
 - [ ] Replace cursor text
 - [ ] Change command formatting to allow for copy paste
+- [ ] Copy to clipboard? 
 
 Issues:
 - [x] Timeout issue

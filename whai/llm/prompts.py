@@ -11,22 +11,9 @@ from whai.logging_setup import get_logger
 logger = get_logger(__name__)
 
 
-def get_base_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
-    """
-    Get the base system prompt that is prepended to all conversations.
-
-    Args:
-        is_deep_context: Whether we have deep context (tmux) or shallow (history).
-        timeout: Optional command timeout in seconds. If provided, adds timeout info to context.
-
-    Returns:
-        The base system prompt string.
-
-    Raises:
-        FileNotFoundError: If the system prompt template file doesn't exist.
-    """
-    # Build context note with system information
-    context_parts = []
+def _build_context_note(is_deep_context: bool, timeout: int | None) -> str:
+    """Build the dynamic context note shared by all system prompts."""
+    context_parts: list[str] = []
 
     # Terminal history context
     if is_deep_context:
@@ -39,7 +26,7 @@ def get_base_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
         )
 
     # System information
-    system_info = []
+    system_info: list[str] = []
 
     # Operating system
     os_name = platform.system()
@@ -67,14 +54,14 @@ def get_base_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
 
     # Current date and time
     current_datetime = datetime.now()
-    datetime_str = current_datetime.strftime('%Y-%m-%d %H:%M:%S')
+    datetime_str = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
     # Add timezone if available
-    tz_str = current_datetime.strftime('%Z')
+    tz_str = current_datetime.strftime("%Z")
     if tz_str:
         datetime_str += f" {tz_str}"
     else:
         # Fallback: use timezone offset
-        tz_offset = current_datetime.strftime('%z')
+        tz_offset = current_datetime.strftime("%z")
         if tz_offset:
             datetime_str += f" {tz_offset}"
     system_info.append(f"DateTime: {datetime_str}")
@@ -89,10 +76,11 @@ def get_base_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
     if system_info:
         context_parts.append("System: " + " | ".join(system_info))
 
-    context_note = " ".join(context_parts)
+    return " ".join(context_parts)
 
-    # Read from packaged defaults file
-    system_prompt_file = files("whai").joinpath("defaults", "system_prompt.txt")
+
+def _load_system_prompt_template(filename: str, context_note: str) -> str:
+    system_prompt_file = files("whai").joinpath("defaults", filename)
 
     if not system_prompt_file.exists():
         raise FileNotFoundError(
@@ -106,3 +94,33 @@ def get_base_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
         system_prompt_file,
     )
     return template.format(context_note=context_note)
+
+
+def get_base_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
+    """
+    Get the base system prompt that is prepended to all conversations.
+
+    Args:
+        is_deep_context: Whether we have deep context (tmux) or shallow (history).
+        timeout: Optional command timeout in seconds. If provided, adds timeout info to context.
+
+    Returns:
+        The base system prompt string.
+
+    Raises:
+        FileNotFoundError: If the system prompt template file doesn't exist.
+    """
+    context_note = _build_context_note(is_deep_context, timeout)
+    return _load_system_prompt_template("system_prompt.txt", context_note)
+
+
+def get_command_only_system_prompt(is_deep_context: bool, timeout: int = None) -> str:
+    """
+    Get the system prompt used for --command-only mode.
+
+    This prompt shares the same dynamic context note as the base prompt but has
+    behavior tailored to produce a single execute_shell tool call with no
+    natural-language explanation.
+    """
+    context_note = _build_context_note(is_deep_context, timeout)
+    return _load_system_prompt_template("system_prompt_command_only.txt", context_note)

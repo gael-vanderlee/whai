@@ -4,7 +4,7 @@ import os
 import sys
 from importlib.metadata import version
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import typer
 from rich.text import Text
@@ -32,7 +32,12 @@ from whai.constants import (
 )
 from whai.context import get_context
 from whai.core.executor import run_conversation_loop
-from whai.llm import LLMProvider, get_base_system_prompt
+from whai.llm import (
+    EXECUTE_SHELL_TOOL,
+    LLMProvider,
+    get_base_system_prompt,
+    get_command_only_system_prompt,
+)
 from whai.llm.token_utils import truncate_text_with_tokens
 from whai.logging_setup import configure_logging, get_logger
 from whai.shell import launch_shell_session
@@ -126,10 +131,11 @@ def _reconstruct_invocation_command() -> Optional[str]:
 
 
 def _setup_context_capture(
-    no_context: bool, 
+    no_context: bool,
     exclude_command: Optional[str],
     startup_perf: PerformanceLogger,
-    target_pane: Optional[str] = None
+    target_pane: Optional[str] = None,
+    suppress_ui: bool = False,
 ) -> tuple[str, bool]:
     """Setup and capture terminal context (tmux/session/history).
     
@@ -157,7 +163,8 @@ def _setup_context_capture(
         if context_str:
             return context_str, True
         else:
-            ui.warn(f"Could not capture context from pane {target_pane}")
+            if not suppress_ui:
+                ui.warn(f"Could not capture context from pane {target_pane}")
             return "", True
     
     # Normal context capture (current pane/session/history)
@@ -171,15 +178,17 @@ def _setup_context_capture(
     )
     
     if not is_deep_context and context_str:
-        ui.warn(
-            "Using shell history only (no tmux detected). History analysis will not include outputs."
-        )
+        if not suppress_ui:
+            ui.warn(
+                "Using shell history only (no tmux detected). History analysis will not include outputs."
+            )
     elif not context_str:
-        # Check if tmux is active but empty
-        if "TMUX" in os.environ:
-            ui.info("Tmux session detected but no context available yet (new session).")
-        else:
-            ui.info("No context available (no tmux, no history).")
+        if not suppress_ui:
+            # Check if tmux is active but empty
+            if "TMUX" in os.environ:
+                ui.info("Tmux session detected but no context available yet (new session).")
+            else:
+                ui.info("No context available (no tmux, no history).")
     
     return context_str, is_deep_context
 
@@ -237,10 +246,14 @@ def _build_initial_messages(
     query_str: str,
     is_deep_context: bool,
     timeout: int,
-    startup_perf: PerformanceLogger
+    startup_perf: PerformanceLogger,
+    command_only: bool = False,
 ) -> List[dict]:
     """Build initial conversation messages with system prompt and user query."""
-    base_prompt = get_base_system_prompt(is_deep_context, timeout=timeout)
+    if command_only:
+        base_prompt = get_command_only_system_prompt(is_deep_context, timeout=timeout)
+    else:
+        base_prompt = get_base_system_prompt(is_deep_context, timeout=timeout)
     role_header = f"=== ROLE INSTRUCTIONS (active role: {role_obj.name}) ==="
     system_message = "\n\n".join(
         [
@@ -267,6 +280,75 @@ def _build_initial_messages(
     
     startup_perf.log_section("Message construction", extra_info={"message_count": len(messages)})
     return messages
+
+
+def _extract_command_from_response(response: Dict[str, Any]) -> Optional[str]:
+    """Extract the first valid execute_shell command from a response dict."""
+    tool_calls = response.get("tool_calls") or []
+    if not isinstance(tool_calls, list):
+        return None
+
+    for call in tool_calls:
+        if not isinstance(call, dict):
+            continue
+        if call.get("name") != "execute_shell":
+            continue
+        arguments = call.get("arguments") or {}
+        if not isinstance(arguments, dict):
+            continue
+        command = arguments.get("command")
+        if isinstance(command, str) and command.strip():
+            return command.strip()
+    return None
+
+
+def _run_command_only(
+    llm_provider: LLMProvider,
+    messages: List[dict],
+    timeout: int,
+) -> int:
+    """Run a single non-streaming LLM call and print only the shell command.
+
+    Returns:
+        0 on success (command printed), non-zero on failure.
+    """
+    perf = PerformanceLogger("Command-only")
+    perf.start()
+    try:
+        try:
+            response = llm_provider.send_message(
+                messages,
+                tools=[EXECUTE_SHELL_TOOL],
+                stream=False,
+                tool_choice="auto",
+                mcp_loop=None,
+            )
+        except Exception as e:
+            logger.exception("Command-only LLM call failed: %s", e)
+            perf.log_section("Command-only LLM call (error)")
+            return 1
+
+        if not isinstance(response, dict):
+            logger.warning(
+                "Command-only mode received unexpected response type: %r",
+                type(response),
+            )
+            perf.log_section("Command-only LLM call (invalid response)")
+            return 2
+
+        command = _extract_command_from_response(response)
+        if not command:
+            logger.info("Command-only mode: no executable command produced")
+            perf.log_section("Command-only LLM call (no command)")
+            return 3
+
+        # Print exactly one line with the command to stdout.
+        sys.stdout.write(f"{command}\n")
+        sys.stdout.flush()
+        perf.log_section("Command-only LLM call (success)")
+        return 0
+    finally:
+        perf.log_complete()
 
 
 @app.command(name="shell")
@@ -387,6 +469,11 @@ def main(
     ),
     no_context: bool = typer.Option(False, "--no-context", help="Skip context capture"),
     no_mcp: bool = typer.Option(False, "--no-mcp", help="Disable MCP tools for this run"),
+    command_only: bool = typer.Option(
+        False,
+        "--command-only",
+        help="Generate a shell command only (no approval or execution).",
+    ),
     model: Optional[str] = typer.Option(
         None, "--model", "-m", help="Override the LLM model"
     ),
@@ -495,11 +582,19 @@ def main(
             raise typer.Exit(1)
         return
 
-    # No query provided and no subcommand - use default query
+    # No query provided and no subcommand - try stdin, then fall back to default query
     if not query:
-        query = [
-            DEFAULT_QUERY
-        ]
+        stdin_text = ""
+        try:
+            if not sys.stdin.isatty():
+                stdin_text = sys.stdin.read().strip()
+        except Exception:
+            stdin_text = ""
+
+        if stdin_text:
+            query = [stdin_text]
+        else:
+            query = [DEFAULT_QUERY]
 
     # Workaround for Click/Typer parsing with variadic arguments:
     # If users place options after the free-form query, those tokens land in `query`.
@@ -666,7 +761,11 @@ def main(
             logger.debug("No command arguments to exclude from context")
         
         context_str, is_deep_context = _setup_context_capture(
-            no_context, command_to_exclude, startup_perf, target_pane=target_pane
+            no_context,
+            command_to_exclude,
+            startup_perf,
+            target_pane=target_pane,
+            suppress_ui=command_only,
         )
 
         # 4. Initialize LLM provider
@@ -674,8 +773,14 @@ def main(
             config, role_obj, model, provider, temperature, startup_perf
         )
 
-        # Display loaded configuration
-        ui.console.print(Text(f"Model: {llm_provider.model} | Provider: {llm_provider.configured_provider} | Role: {role}", style="blue"))
+        # Display loaded configuration (skip in command-only mode to keep stdout clean)
+        if not command_only:
+            ui.console.print(
+                Text(
+                    f"Model: {llm_provider.model} | Provider: {llm_provider.configured_provider} | Role: {role}",
+                    style="blue",
+                )
+            )
 
         # 5. Truncate context if needed (before building messages)
         if context_str:
@@ -685,7 +790,8 @@ def main(
             startup_perf.log_section(
                 "Context truncation", extra_info={"truncated": was_truncated}
             )
-            if was_truncated:
+            # In command-only mode, avoid user-facing warnings on stdout; rely on logs instead.
+            if was_truncated and not command_only:
                 ui.warn(
                     "Terminal context was truncated to fit token limits. "
                     "Recent commands and output have been preserved."
@@ -695,9 +801,20 @@ def main(
 
         # 6. Build initial message
         messages = _build_initial_messages(
-            role_obj, context_str, query_str, is_deep_context, timeout, startup_perf
+            role_obj,
+            context_str,
+            query_str,
+            is_deep_context,
+            timeout,
+            startup_perf,
+            command_only=command_only,
         )
         startup_perf.log_complete()
+
+        # If command-only mode is enabled, generate a single shell command and exit.
+        if command_only:
+            exit_code = _run_command_only(llm_provider, messages, timeout)
+            raise typer.Exit(exit_code)
 
         # 7. Reconstruct command string for logging
         command_string = _reconstruct_invocation_command()

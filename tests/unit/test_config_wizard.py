@@ -28,10 +28,25 @@ runner = CliRunner()
 
 @pytest.fixture
 def config_dir(tmp_path, monkeypatch):
-    """Set up temporary config directory and disable test mode."""
+    """Set up temporary config directory and disable test mode.
+
+    Also redirect Path.home() so any shell config files created by the wizard
+    (e.g., .zshrc, .bashrc) are written under the temporary directory rather
+    than the real home directory.
+    """
     monkeypatch.setattr(
         "whai.configuration.user_config.get_config_dir", lambda: tmp_path
     )
+    # Redirect home to tmp_path so keybinding snippets are written to test-only files
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    # Prevent tests from opening real file explorers or external processes
+    import subprocess as _subprocess
+    import os as _os
+
+    monkeypatch.setattr(_subprocess, "Popen", lambda *a, **k: None)
+    if hasattr(_os, "startfile"):
+        monkeypatch.setattr(_os, "startfile", lambda *a, **k: None, raising=False)
+
     monkeypatch.delenv("WHAI_TEST_MODE", raising=False)
     return tmp_path
 
@@ -53,7 +68,7 @@ def test_wizard_quick_setup_creates_config(config_dir):
 
     # Mock input() calls from prompt_numbered_choice - returns choices as numbers
     input_call_count = [0]
-    input_responses = ["1", "1", "6"]  # Quick Setup (1), then openai (1), then Exit (6 - menu changes after providers added)
+    input_responses = ["1", "1", "7"]  # Quick Setup (1), then openai (1), then Exit (7 - menu changes after providers added)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -92,8 +107,14 @@ def test_wizard_quick_setup_creates_config(config_dir):
         ),
         patch("whai.configuration.user_config._suppress_stdout_stderr"),
         patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
+        patch(
+            "whai.configuration.config_wizard._offer_insert_command_keybinding"
+        ) as mock_offer,
     ):
         run_wizard(existing_config=False)
+
+    # First-time wizard run should offer keybinding setup once
+    mock_offer.assert_called_once()
 
     # Verify config file was created
     assert config_file.exists()
@@ -133,7 +154,7 @@ def test_wizard_add_provider_updates_config(config_dir):
 
     # Mock input() calls for prompt_numbered_choice
     input_call_count = [0]
-    input_responses = ["1", "2", "6"]  # Add or Edit Provider (1), then anthropic (2), then Exit (6)
+    input_responses = ["1", "2", "7"]  # Add or Edit Provider (1), then anthropic (2), then Exit (7)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -218,7 +239,7 @@ def test_wizard_remove_provider_updates_config(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["2", "2", "6"]  # Remove Provider (2), then anthropic (2), then Exit (6)
+    input_responses = ["2", "2", "7"]  # Remove Provider (2), then anthropic (2), then Exit (7)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -239,6 +260,96 @@ def test_wizard_remove_provider_updates_config(config_dir):
     config = load_config()
     assert "openai" in config.llm.providers
     assert "anthropic" not in config.llm.providers
+
+
+def test_wizard_menu_can_trigger_keybinding_offer(config_dir):
+    """Test that the wizard menu can trigger the insert-command keybinding offer."""
+    # Create initial config with one provider so we see the full menu
+    from whai.configuration.user_config import (
+        LLMConfig,
+        OpenAIConfig,
+        RolesConfig,
+        WhaiConfig,
+    )
+
+    initial_config = WhaiConfig(
+        llm=LLMConfig(
+            default_provider="openai",
+            providers={
+                "openai": OpenAIConfig(
+                    api_key="key1",
+                    default_model="gpt-4",
+                ),
+            },
+        ),
+        roles=RolesConfig(default_role="default"),
+    )
+    user_config.save_config(initial_config)
+
+    # Menu with providers configured has actions in this order:
+    # 1) Add or Edit Provider
+    # 2) Remove Provider
+    # 3) Set Default Provider
+    # 4) Reset Configuration
+    # 5) Configure insert-command keybinding (current shell: <shell>)
+    # 6) Open Config Folder
+    # 7) Exit
+    input_call_count = [0]
+    input_responses = ["5", "7"]  # Configure keybinding, then Exit
+
+    def mock_input(prompt_text):
+        if input_call_count[0] < len(input_responses):
+            result = input_responses[input_call_count[0]]
+            input_call_count[0] += 1
+            return result
+        return ""
+
+    with (
+        patch("builtins.input", side_effect=mock_input),
+        patch("whai.ui.formatting.input", side_effect=mock_input),
+        patch("whai.ui.output.console.print"),
+        patch(
+            "whai.configuration.config_wizard._offer_insert_command_keybinding"
+        ) as mock_offer,
+    ):
+        run_wizard(existing_config=True)
+
+    mock_offer.assert_called_once()
+
+
+def test_ensure_insert_command_snippet_appends_snippet_for_zsh(config_dir, monkeypatch):
+    """Test that _ensure_insert_command_snippet writes the keybinding snippet for zsh."""
+    from whai.configuration import config_wizard as cw
+
+    rc_path = config_dir / ".zshrc"
+    # Ensure file starts empty
+    if rc_path.exists():
+        rc_path.unlink()
+
+    cw._ensure_insert_command_snippet("zsh", rc_path)
+
+    assert rc_path.exists()
+    text = rc_path.read_text(encoding="utf-8")
+    assert "# Whai insert-command keybinding" in text
+    assert "_whai_zsh_cmd_only" in text
+
+
+def test_ensure_insert_command_snippet_is_idempotent(config_dir, monkeypatch):
+    """Test that _ensure_insert_command_snippet does not duplicate snippet and warns."""
+    from whai.configuration import config_wizard as cw
+
+    rc_path = config_dir / ".zshrc"
+    # First write
+    cw._ensure_insert_command_snippet("zsh", rc_path)
+
+    # Patch warn to observe duplicate detection
+    with patch("whai.configuration.config_wizard.warn") as mock_warn:
+        cw._ensure_insert_command_snippet("zsh", rc_path)
+
+    text = rc_path.read_text(encoding="utf-8")
+    # Marker appears only once
+    assert text.count("# Whai insert-command keybinding") == 1
+    mock_warn.assert_called_once()
 
 
 def test_wizard_remove_default_provider_clears_default(config_dir):
@@ -267,7 +378,7 @@ def test_wizard_remove_default_provider_clears_default(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["2", "1", "5"]  # Remove Provider (2), then openai (1), then Exit (5 - no providers left, menu changes)
+    input_responses = ["2", "1", "6"]  # Remove Provider (2), then openai (1), then Exit (6 - no providers left, menu changes)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -323,7 +434,7 @@ def test_wizard_set_default_provider_updates_config(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["3", "2", "6"]  # Set Default Provider (3), then anthropic (2), then Exit (6)
+    input_responses = ["3", "2", "7"]  # Set Default Provider (3), then anthropic (2), then Exit (7)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -374,7 +485,7 @@ def test_wizard_reset_creates_backup_and_resets_config(config_dir):
 
     # Mock input() calls - sequence: Reset, then provider selection after reset, then Exit
     input_call_count = [0]
-    input_responses = ["4", "1", "6"]  # Reset Configuration (4), then openai (1) after reset, then Exit (6 - menu has providers after quick setup)
+    input_responses = ["4", "1", "7"]  # Reset Configuration (4), then openai (1) after reset, then Exit (7 - menu has providers after quick setup)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -442,9 +553,9 @@ def test_wizard_exit_saves_config(config_dir):
     """Test wizard exit saves config (even if empty)."""
     config_file = config_dir / "config.toml"
 
-    # Mock input() calls - return "5" for Exit
+    # Mock input() calls - return "6" for Exit (no providers configured)
     input_call_count = [0]
-    input_responses = ["5"]  # Exit (5)
+    input_responses = ["6"]  # Exit (6)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -458,6 +569,7 @@ def test_wizard_exit_saves_config(config_dir):
         patch("builtins.input", side_effect=mock_input),
         patch("whai.ui.formatting.input", side_effect=mock_input),
         patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
+        patch("whai.configuration.config_wizard._offer_insert_command_keybinding"),
     ):
         run_wizard(existing_config=False)
 
@@ -474,7 +586,7 @@ def test_wizard_validation_failure_prevents_save(config_dir):
 
     # Mock input() calls - after validation failure and rejection, exit (no providers added, so menu still has no providers)
     input_call_count = [0]
-    input_responses = ["1", "1", "5"]  # Quick Setup (1), then openai (1), then Exit (5 - no providers added, menu unchanged)
+    input_responses = ["1", "1", "6"]  # Quick Setup (1), then openai (1), then Exit (6 - no providers added, menu unchanged)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -520,6 +632,7 @@ def test_wizard_validation_failure_prevents_save(config_dir):
         ),
         patch("whai.configuration.user_config._suppress_stdout_stderr"),
         patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
+        patch("whai.configuration.config_wizard._offer_insert_command_keybinding"),
     ):
         run_wizard(existing_config=False)
 
@@ -535,7 +648,7 @@ def test_wizard_validation_failure_proceeded_saves_config(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["1", "1", "6"]  # Quick Setup (1), then openai (1), then Exit (6 - providers added, menu changes)
+    input_responses = ["1", "1", "7"]  # Quick Setup (1), then openai (1), then Exit (7 - providers added, menu changes)
 
     def mock_input(prompt_text):
         """Mock input() calls."""
@@ -580,6 +693,7 @@ def test_wizard_validation_failure_proceeded_saves_config(config_dir):
         ),
         patch("whai.configuration.user_config._suppress_stdout_stderr"),
         patch("whai.ui.output.console.print"),  # Mock console to avoid encoding issues
+        patch("whai.configuration.config_wizard._offer_insert_command_keybinding"),
     ):
         run_wizard(existing_config=False)
 
@@ -615,7 +729,7 @@ def test_wizard_edit_existing_provider_preserves_defaults(config_dir):
 
     # Mock input() calls
     input_call_count = [0]
-    input_responses = ["1", "1", "6"]  # Add or Edit Provider (1), then openai (1), then Exit (6)
+    input_responses = ["1", "1", "7"]  # Add or Edit Provider (1), then openai (1), then Exit (7)
 
     def mock_input(prompt_text):
         """Mock input() calls."""

@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import typer
@@ -39,11 +40,128 @@ from whai.ui import (
     success,
     warn,
 )
+from whai.utils import detect_shell
 
 logger = get_logger(__name__)
 
 # Use centralized provider defaults
 PROVIDERS = PROVIDER_DEFAULTS
+
+
+
+def _detect_supported_shell() -> tuple[Optional[str], Optional[Path], list[str]]:
+    """
+    Detect current shell and corresponding rc file path for keybinding setup.
+
+    Returns:
+        (detected_shell, rc_path, supported_shells)
+    """
+    supported_shells = ["zsh", "bash"]
+
+    shell = detect_shell()
+    home = Path.home()
+
+    if shell == "zsh":
+        return "zsh", home / ".zshrc", supported_shells
+    if shell == "bash":
+        return "bash", home / ".bashrc", supported_shells
+    return None, None, supported_shells
+
+
+def _get_insert_command_snippet(shell: str) -> str:
+    """Return the insert-command keybinding snippet for the given shell."""
+    if shell == "zsh":
+        return """# Whai insert-command keybinding (Ctrl+G)
+_whai_zsh_cmd_only() {
+  if [[ -n "$BUFFER" ]]; then
+    local prev="$BUFFER"
+    BUFFER+=" ⏳"
+    zle -I; zle redisplay
+    local cmd
+    cmd=$(whai --command-only <<< "$prev") || { BUFFER="$prev"; zle end-of-line; return }
+    [[ -z "$cmd" ]] && { BUFFER="$prev"; zle end-of-line; return }
+    BUFFER="$cmd"
+    zle end-of-line
+  fi
+}
+zle -N _whai_zsh_cmd_only
+bindkey '^G' _whai_zsh_cmd_only
+
+"""
+    if shell == "bash":
+        return """# Whai insert-command keybinding (Ctrl+G)
+_whai_bash_cmd_only() {
+  if [[ -n "$READLINE_LINE" ]]; then
+    local cmd
+    cmd=$(whai --command-only <<< "$READLINE_LINE") || return
+    [[ -z "$cmd" ]] && return
+    READLINE_LINE="$cmd"
+    READLINE_POINT=${#READLINE_LINE}
+  fi
+}
+bind -x '"\\C-g": _whai_bash_cmd_only'
+
+"""
+    return ""
+
+
+def _ensure_insert_command_snippet(shell: str, rc_path: Path) -> None:
+    """Append the insert-command keybinding snippet to the rc file if not already present."""
+    snippet = _get_insert_command_snippet(shell)
+    if not snippet:
+        warn(f"Keybinding snippet is not defined for shell '{shell}'.")
+        return
+
+    marker = "# Whai insert-command keybinding"
+    if rc_path.exists():
+        try:
+            existing = rc_path.read_text(encoding="utf-8")
+        except Exception as e:
+            failure(f"Failed to read {rc_path}: {e}")
+            return
+        if marker in existing:
+            warn(f"Whai insert-command keybinding already present in {rc_path}. No changes made.")
+            return
+
+    try:
+        rc_path.parent.mkdir(parents=True, exist_ok=True)
+        with rc_path.open("a", encoding="utf-8") as f:
+            f.write("\n" + snippet)
+    except Exception as e:
+        failure(f"Failed to update {rc_path}: {e}")
+        return
+
+    success(
+        f"Added Whai insert-command keybinding for {shell} to {rc_path}.\n"
+        "Reload your shell or run 'source' on that file to activate Ctrl+G."
+    )
+
+
+def _offer_insert_command_keybinding() -> None:
+    """Offer to configure an insert-command keybinding for the detected shell."""
+    shell, rc_path, supported_shells = _detect_supported_shell()
+    if shell is None or rc_path is None:
+        supported_list = ", ".join(sorted(supported_shells))
+        warn(
+            f"Current shell is not supported. Insert-command keybinding setup is only available for: {supported_list}."
+        )
+        return
+
+    info(
+        "Optional: you can add a keybinding that turns natural language on your command line "
+        "into a shell command using 'whai --command-only' and replaces your current line."
+    )
+    info("Default keybinding: Ctrl+G. You can change it later by editing the keybinding line in your shell config file.")
+    info(
+        f"After setup, run 'source {rc_path}' or restart your shell to activate the keybinding."
+    )
+    info("Example: type 'list largest folders here', press Ctrl+G, see a real command appear.")
+
+    if typer.confirm(
+        f"Detected shell: {shell}. Add a Ctrl+G keybinding snippet to {rc_path} now?",
+        default=False,
+    ):
+        _ensure_insert_command_snippet(shell, rc_path)
 
 
 
@@ -446,12 +564,15 @@ def run_wizard(existing_config: bool = False) -> None:
 
         # Show menu
         configured_now = list(config.llm.providers.keys())
+        current_shell = detect_shell()
+
         if configured_now:
             actions = [
                 "add-or-edit",
                 "remove",
                 "default-provider",
                 "reset-config",
+                "insert-command-keybinding",
                 "open-folder",
                 "exit",
             ]
@@ -460,6 +581,7 @@ def run_wizard(existing_config: bool = False) -> None:
                 "remove": "Remove Provider",
                 "default-provider": "Set Default Provider",
                 "reset-config": "Reset Configuration",
+                "insert-command-keybinding": f"Configure insert-command keybinding ({current_shell})",
                 "open-folder": "Open Config Folder",
                 "exit": "Exit",
             }
@@ -470,6 +592,7 @@ def run_wizard(existing_config: bool = False) -> None:
                 "quick-setup",
                 "add-or-edit",
                 "reset-config",
+                "insert-command-keybinding",
                 "open-folder",
                 "exit",
             ]
@@ -477,6 +600,7 @@ def run_wizard(existing_config: bool = False) -> None:
                 "quick-setup": "Quick Setup",
                 "add-or-edit": "Add or Edit Provider",
                 "reset-config": "Reset Configuration",
+                "insert-command-keybinding": f"Configure insert-command keybinding ({current_shell})",
                 "open-folder": "Open Config Folder",
                 "exit": "Exit",
             }
@@ -503,6 +627,9 @@ def run_wizard(existing_config: bool = False) -> None:
                 save_config(config)
                 config_path = get_config_path()
                 success(f"Configuration saved to: {config_path}\n")
+                # Offer keybinding setup once for first-time interactive config
+                if not existing_config:
+                    _offer_insert_command_keybinding()
                 celebration("You can now use whai!")
                 typer.echo("")
             except Exception as e:
@@ -530,6 +657,8 @@ def run_wizard(existing_config: bool = False) -> None:
                 # After reset, start quick-setup to add a provider immediately
                 _quick_setup(config)
                 config_changed = True
+            elif action == "insert-command-keybinding":
+                _offer_insert_command_keybinding()
             elif action == "open-folder":
                 # Open config directory in system file explorer
                 cfg_dir = get_config_path().parent

@@ -55,6 +55,27 @@ def test_get_base_system_prompt_without_timeout():
     assert "seconds timeout" not in prompt
 
 
+def test_command_only_system_prompt_is_different_and_contains_execute_shell_focus():
+    """Command-only system prompt should be tailored for command-only behavior."""
+    base_prompt = llm.get_base_system_prompt(is_deep_context=True)
+    # New command-only prompt function (to be implemented) must load a different template.
+    command_only_prompt = llm.get_command_only_system_prompt(is_deep_context=True)
+
+    # Both prompts should include the context note and system info.
+    assert "System:" in command_only_prompt
+    assert "OS:" in command_only_prompt
+    assert "DateTime:" in command_only_prompt
+
+    # Command-only prompt should differ from the base prompt.
+    assert command_only_prompt != base_prompt
+
+    # It should emphasize execute_shell and command-only behavior.
+    assert "execute_shell" in command_only_prompt
+    assert "command-only" in command_only_prompt.lower() or "command only" in command_only_prompt.lower()
+    # It should not mention MCP tools, which are irrelevant in this mode.
+    assert "mcp" not in command_only_prompt.lower()
+
+
 def test_execute_shell_tool_schema():
     """Test that the execute_shell tool schema is valid."""
     tool = llm.EXECUTE_SHELL_TOOL

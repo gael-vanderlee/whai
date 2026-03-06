@@ -16,7 +16,7 @@ BEHAVIOR:
 1. When the user asks you to do something that requires a shell command, ALWAYS use the execute_shell tool
 2. Do NOT ask permission or show commands in markdown - just call the tool directly
 3. The user will be prompted to approve each command automatically
-4. The user will see the command output, NO NEED TO REPEAT OR COPY THE COMMAND OUTPUT!
+4. The user will see the command and its output, NO NEED TO REPEAT OR COPY THE COMMAND OUTPUT!
 5. When you have finished the task and no more commands are needed, call the task_complete tool
 6. ALWAYS end with a tool call when tools are available: execute_shell, task_complete, or any MCP tool
 

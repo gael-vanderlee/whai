@@ -156,3 +156,23 @@ def test_cli_mcp_tool_call_e2e(tmp_path):
     merged = (out or "") + (err or "")
     assert "let me check that" in merged.lower()
     assert "mcp-e2e-done" in merged
+
+
+@pytest.mark.api
+def test_command_only_cli_e2e(tmp_path):
+    """End-to-end: --command-only prints a single shell command and exits 0."""
+    env = _base_env(tmp_path, toolcall=True)
+    code, out, err = _run_cli(
+        ["--no-context", "--command-only", "list", "current", "directory", "contents"],
+        env=env,
+        timeout=20,
+    )
+    assert code == 0
+    # Only stdout should contain the suggested shell command line.
+    stdout = out or ""
+    lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+    assert lines, f"Expected non-empty stdout, got: {stdout!r}, stderr={err!r}"
+    # The last non-empty line is treated as the command.
+    command_line = lines[-1]
+    assert "model:" not in command_line.lower()
+    assert len(command_line) > 0
