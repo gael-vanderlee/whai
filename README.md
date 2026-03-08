@@ -1,4 +1,7 @@
-# Whai - The developer's Terminal Assistant
+# Whai - A Terminal tool to stay in the flow
+Whai is a simple way to call an LLM from terminal. It is not an agent that wipes your hard drive while you are in the kitchen.
+
+I built this to lend me a hand when I get stuck or confused when ssh'd into my NAS. The goal is to keep you in your flow and save you from an alt tab to a browser and copy pasting content to get help.
 
 [![PyPI version](https://badge.fury.io/py/whai.svg)](https://badge.fury.io/py/whai)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
