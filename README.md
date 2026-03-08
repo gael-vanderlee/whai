@@ -1,14 +1,14 @@
 # Whai - A Terminal tool to stay in the flow
-Whai is a simple way to call an LLM from terminal. It is not an agent that wipes your hard drive while you are in the kitchen.
-
-I built this to lend me a hand when I get stuck or confused when ssh'd into my NAS. The goal is to keep you in your flow and save you from an alt tab to a browser and copy pasting content to get help.
-
 [![PyPI version](https://badge.fury.io/py/whai.svg)](https://badge.fury.io/py/whai)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/whai)](https://pepy.tech/project/whai)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
 [![GitHub stars](https://img.shields.io/github/stars/gael-vanderlee/whai.svg?style=social&label=Star)](https://github.com/gael-vanderlee/whai)
+
+Whai is a simple way to call an LLM from terminal. It is not an agent that wipes your hard drive while you are in the kitchen.
+
+I built this to lend me a hand when I get stuck or confused when ssh'd into my NAS. The goal is to keep you in your flow and save you from an alt tab to a browser and copy pasting content to get help.
 
 https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 
