@@ -8,7 +8,7 @@
 
 Whai is a simple way to call an LLM from terminal. It is not an agent that wipes your hard drive while you are in the kitchen.
 
-I built this to lend me a hand when I get stuck or confused when ssh'd into my NAS. The goal is to keep you in your flow and save you from an alt tab to a browser and copy pasting content to get help.
+I built this to lend me a hand when I get stuck or confused when ssh'd into my NAS. The goal is to keep you in your flow and save you from an alt tab to a browser and copy pasting context to get help.
 
 https://github.com/user-attachments/assets/cbe834f0-2437-405b-9c95-88f02f6f69d9
 
