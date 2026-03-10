@@ -24,6 +24,13 @@ NO_TOOL_CALL_RECOVERY_HINT = (
     "If no command is needed and the task is complete, reply with a final answer only."
 )
 
+_THINKING_TAG_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_thinking_tags(text: str) -> str:
+    """Remove <think>...</think> blocks emitted by reasoning models (e.g. Qwen)."""
+    return _THINKING_TAG_RE.sub("", text).strip()
+
 
 def _looks_like_continuation_without_tool_call(text: str) -> bool:
     """Heuristic: detect when assistant text implies another command should be run."""
@@ -32,10 +39,15 @@ def _looks_like_continuation_without_tool_call(text: str) -> bool:
 
     normalized = " ".join(text.lower().split())
     continuation_patterns = (
-        r"\bi(?:\s*'ll|\s+will)\s+(?:run|check|inspect|look|try|execute|analyze|dig)\b",
-        r"\blet\s+me\s+(?:run|check|inspect|look|try|execute|analyze|dig)\b",
+        r"\bi(?:\s*'ll|\s+will)\s+(?:run|check|inspect|look|try|execute|analyze|dig|examine|verify|test|scan|see|find)\b",
+        r"\blet\s+me\s+(?:run|check|inspect|look|try|execute|analyze|dig|examine|verify|test|scan|see|find|start)\b",
         r"\bnext\s+i(?:\s*'ll|\s+will)\b",
-        r"\bi\s+need\s+to\s+(?:run|check|inspect|look)\b",
+        r"\bi\s+need\s+to\s+(?:run|check|inspect|look|examine|verify|test|scan|see|find)\b",
+        r"\bfirst,?\s+i(?:\s*'ll|\s+will)\b",
+        r"\blet\s+me\s+start\s+by\b",
+        r"\bnow\s+i(?:\s*'ll|\s+will)\b",
+        r"\bnow\s+let\s+me\b",
+        r":\s*$",  # text ending with colon is a strong continuation signal
     )
     return any(re.search(pattern, normalized) for pattern in continuation_patterns)
 
@@ -46,16 +58,15 @@ def _looks_like_final_answer(text: str) -> bool:
         return False
 
     normalized = " ".join(text.lower().split())
-    final_markers = (
-        "task is complete",
-        "you're all set",
-        "that should do it",
-        "done.",
-        "done!",
-        "no further action",
-        "no more commands",
+    final_patterns = (
+        r"\bdone[.!]\s*$",                          # "done." / "done!" only at end
+        r"(?<!not\s)(?<!n't\s)task\s+is\s+complete", # "task is complete" but not "task is not complete"
+        r"\byou'?re\s+all\s+set\b",
+        r"\bthat\s+should\s+do\s+it\b",
+        r"\bno\s+further\s+action\b",
+        r"\bno\s+more\s+commands\b",
     )
-    return any(marker in normalized for marker in final_markers)
+    return any(re.search(pattern, normalized) for pattern in final_patterns)
 
 
 def run_conversation_loop(
@@ -126,6 +137,7 @@ def run_conversation_loop(
     
     loop_iteration = 0
     no_tool_call_retries = 0
+    successful_tool_calls = 0
     next_tool_choice = None
     try:
         while True:
@@ -190,14 +202,23 @@ def run_conversation_loop(
                 loop_perf.log_section("Response parsing", extra_info={"tool_calls": len(tool_calls)})
 
                 if not tool_calls:
-                    # If model text implies another command but no tool call was emitted,
-                    # retry once with explicit tool-use guidance.
-                    if (
-                        no_tool_call_retries < NO_TOOL_CALL_RECOVERY_MAX_RETRIES
-                        and assistant_content
-                        and _looks_like_continuation_without_tool_call(assistant_content)
-                        and not _looks_like_final_answer(assistant_content)
-                    ):
+                    # Strip thinking tags before applying heuristics so that
+                    # <think>done.</think> doesn't trigger false-positive final-answer detection.
+                    cleaned = _strip_thinking_tags(assistant_content) if assistant_content else ""
+                    is_final = _looks_like_final_answer(cleaned)
+                    is_continuation = _looks_like_continuation_without_tool_call(cleaned)
+                    has_prior_tool_calls = successful_tool_calls > 0
+
+                    should_retry = False
+                    if no_tool_call_retries < NO_TOOL_CALL_RECOVERY_MAX_RETRIES and cleaned:
+                        if has_prior_tool_calls:
+                            # Mid-conversation: retry unless text is clearly a final answer
+                            should_retry = not is_final
+                        else:
+                            # First turn: only retry if continuation detected and not final
+                            should_retry = is_continuation and not is_final
+
+                    if should_retry:
                         messages.append(
                             {
                                 "role": "assistant",
@@ -220,8 +241,8 @@ def run_conversation_loop(
                         continue
 
                     if (
-                        assistant_content
-                        and _looks_like_continuation_without_tool_call(assistant_content)
+                        cleaned
+                        and (is_continuation or has_prior_tool_calls)
                         and no_tool_call_retries >= NO_TOOL_CALL_RECOVERY_MAX_RETRIES
                     ):
                         ui.info(
@@ -235,6 +256,7 @@ def run_conversation_loop(
 
                 # Reset retry budget after a normal tool-call turn.
                 no_tool_call_retries = 0
+                successful_tool_calls += len(tool_calls)
 
                 # Process each tool call
                 tool_results = []
