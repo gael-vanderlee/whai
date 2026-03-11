@@ -165,7 +165,6 @@ def run_conversation_loop(
                 loop_perf.log_section("Response parsing", extra_info={"tool_calls": len(tool_calls)})
 
                 if not tool_calls:
-                    cleaned = _strip_thinking_tags(assistant_content) if assistant_content else ""
                     if no_tool_call_retries < NO_TOOL_CALL_RECOVERY_MAX_RETRIES:
                         # No tool call = model forgot or produced empty response; always retry
                         if assistant_content:
