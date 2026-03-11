@@ -24,6 +24,7 @@ def test_get_base_system_prompt_deep_context():
     assert "commands and their output" in prompt
     assert "whai" in prompt
     assert "execute_shell" in prompt
+    assert "Emit at most one execute_shell tool call per response" in prompt
     # Should include system information
     assert "System:" in prompt
     assert "OS:" in prompt
@@ -60,6 +61,10 @@ def test_execute_shell_tool_schema():
 
     assert tool["type"] == "function"
     assert tool["function"]["name"] == "execute_shell"
+    assert (
+        "Emit at most one execute_shell call per response"
+        in tool["function"]["description"]
+    )
     assert "command" in tool["function"]["parameters"]["properties"]
     assert "command" in tool["function"]["parameters"]["required"]
 
@@ -87,12 +92,15 @@ def test_llm_provider_init_with_overrides():
         default_model="gpt-5-mini",
     )
 
-    provider = llm.LLMProvider(config, model="gpt-5-mini", temperature=0.5, perf_logger=create_test_perf_logger())
+    provider = llm.LLMProvider(
+        config,
+        model="gpt-5-mini",
+        temperature=0.5,
+        perf_logger=create_test_perf_logger(),
+    )
 
     assert provider.model == "gpt-5-mini"
     assert provider.temperature == 0.5
-
-
 
 
 @pytest.mark.integration
@@ -116,7 +124,7 @@ def test_send_message_real_api():
         api_key = openai_cfg.api_key if openai_cfg else None
     except Exception:
         pass
-    
+
     # Fall back to environment if config doesn't have it
     if not api_key:
         api_key = os.environ.get("OPENAI_API_KEY")
@@ -164,14 +172,19 @@ def test_send_message_mistral_real_api():
         api_key = mistral_cfg.api_key if mistral_cfg else None
     except Exception:
         pass
-    
+
     # Fall back to environment if config doesn't have it
     if not api_key:
         api_key = os.environ.get("MISTRAL_API_KEY")
 
     # Skip if no API key from env or config, or if it's a dummy/test key
     # Note: "test-key" is returned by test mode when config doesn't exist
-    if not api_key or api_key in ("test-key-123", "test-key", "test-mistral-key", "your-api-key-here"):
+    if not api_key or api_key in (
+        "test-key-123",
+        "test-key",
+        "test-mistral-key",
+        "your-api-key-here",
+    ):
         pytest.skip("No valid Mistral API key in environment or whai config")
 
     config = create_test_config(
@@ -199,7 +212,7 @@ def test_send_message_mistral_real_api():
 def _clear_provider_env_vars():
     """
     Clear all provider-related environment variables.
-    
+
     This ensures tests start with a clean environment and can verify
     that only the expected variables are set by the provider.
     """
@@ -489,29 +502,31 @@ def test_configure_api_keys_no_keys_when_not_configured():
 # ============================================================================
 
 
-def _check_service_running(url: str, timeout: float = 2.0, is_ollama: bool = False) -> bool:
+def _check_service_running(
+    url: str, timeout: float = 2.0, is_ollama: bool = False
+) -> bool:
     """
     Check if a local service is running by attempting to connect to it.
-    
+
     Args:
         url: The base URL to check (e.g., "http://localhost:1234/v1")
         timeout: Connection timeout in seconds
         is_ollama: If True, check Ollama's /api/tags endpoint instead of /models
-        
+
     Returns:
         True if service is reachable, False otherwise
     """
     try:
         import urllib.error
         import urllib.request
-        
+
         if is_ollama:
             # Ollama uses /api/tags endpoint
             check_url = f"{url.rstrip('/')}/api/tags"
         else:
             # LM Studio and other OpenAI-compatible services use /models
             check_url = f"{url.rstrip('/')}/models"
-        
+
         req = urllib.request.Request(check_url, method="GET")
         urllib.request.urlopen(req, timeout=timeout)
         return True
@@ -522,10 +537,10 @@ def _check_service_running(url: str, timeout: float = 2.0, is_ollama: bool = Fal
 def _load_user_config_or_defaults(provider_name: str):
     """
     Load user's actual configuration for a provider, or return defaults.
-    
+
     Args:
         provider_name: Name of the provider (e.g., "lm_studio", "ollama")
-        
+
     Returns:
         Tuple of (api_base, default_model, api_key) from user config or defaults
     """
@@ -536,24 +551,24 @@ def _load_user_config_or_defaults(provider_name: str):
         DEFAULT_MODEL_OLLAMA,
     )
     from whai.configuration import user_config as whai_config
-    
+
     # Try to load user's actual config
     try:
         loaded = whai_config.load_config()
         provider_cfg = loaded.llm.get_provider(provider_name)
-        
+
         if provider_cfg:
             api_base = provider_cfg.api_base
             default_model = provider_cfg.default_model
             api_key = getattr(provider_cfg, "api_key", None)
-            
+
             # Return user's config if available
             if api_base and default_model:
                 return api_base, default_model, api_key
     except Exception:
         # Config doesn't exist or provider not configured, use defaults
         pass
-    
+
     # Fall back to defaults
     if provider_name == "lm_studio":
         return DEFAULT_LM_STUDIO_API_BASE, DEFAULT_MODEL_LM_STUDIO, None
@@ -585,15 +600,15 @@ def _load_user_config_or_defaults(provider_name: str):
 def _unload_ollama_model(api_base: str, model_name: str) -> bool:
     """
     Unload a model from Ollama to free VRAM.
-    
+
     Ollama keeps models loaded in VRAM after use. This function explicitly
     unloads a model by making a request with keep_alive=0, which tells
     Ollama to unload the model immediately after the request.
-    
+
     Args:
         api_base: Ollama API base URL (e.g., "http://localhost:11434")
         model_name: Name of the model to unload
-        
+
     Returns:
         True if the unload request succeeded, False otherwise
     """
@@ -601,18 +616,18 @@ def _unload_ollama_model(api_base: str, model_name: str) -> bool:
         import json
         import urllib.error
         import urllib.request
-        
+
         # Use /api/generate with keep_alive=0 to unload the model
         # This is the standard way to unload models in Ollama
         unload_url = f"{api_base.rstrip('/')}/api/generate"
-        
+
         payload = {
             "model": model_name,
             "prompt": "",  # Empty prompt, we just want to trigger unload
             "keep_alive": "0",  # 0 means unload immediately
             "stream": False,
         }
-        
+
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             unload_url,
@@ -620,7 +635,7 @@ def _unload_ollama_model(api_base: str, model_name: str) -> bool:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        
+
         # Make the request with a short timeout
         urllib.request.urlopen(req, timeout=2)
         return True
@@ -637,21 +652,21 @@ def _unload_ollama_model(api_base: str, model_name: str) -> bool:
 def _unload_lm_studio_model(api_base: str, model_name: str) -> bool:
     """
     Unload all models from LM Studio to free VRAM.
-    
+
     Uses LM Studio's CLI command `lms unload --all` to explicitly unload
     all loaded models from GPU memory.
-    
+
     Args:
         api_base: LM Studio API base URL (e.g., "http://localhost:1234/v1")
                   Not used, but kept for API consistency with Ollama helper
         model_name: Name of the model (not used, but kept for API consistency)
-        
+
     Returns:
         True if the unload command succeeded, False otherwise
     """
     try:
         import subprocess
-        
+
         # Use LM Studio's CLI to unload all models
         result = subprocess.run(
             ["lms", "unload", "--all"],
@@ -659,7 +674,7 @@ def _unload_lm_studio_model(api_base: str, model_name: str) -> bool:
             text=True,
             timeout=5,
         )
-        
+
         # Return True only if command succeeded (exit code 0)
         return result.returncode == 0
     except FileNotFoundError:
@@ -680,17 +695,17 @@ def _unload_lm_studio_model(api_base: str, model_name: str) -> bool:
 def test_send_message_lm_studio():
     """
     End-to-end integration test with LM Studio.
-    
+
     Requires LM Studio to be running with a model loaded.
-    
+
     Uses your actual LM Studio configuration from ~/.config/whai/config.toml if available,
     otherwise falls back to defaults.
-    
+
     VRAM Management: This test automatically unloads all models after completion to free
     VRAM for other tests (e.g., Ollama tests) using `lms unload --all`. The unload happens
     in a finally block to ensure cleanup even if the test fails. Note: This requires the
     LM Studio CLI (`lms`) to be installed and available in PATH.
-    
+
     To run this test:
     1. Start LM Studio
     2. Load a model
@@ -699,7 +714,7 @@ def test_send_message_lm_studio():
     """
     # Load user's actual config or use defaults
     api_base, configured_model, api_key = _load_user_config_or_defaults("lm_studio")
-    
+
     # Check if LM Studio is running at the configured endpoint
     if not _check_service_running(api_base):
         pytest.skip(
@@ -711,23 +726,23 @@ def test_send_message_lm_studio():
             f"4. Ensure the server is running at {api_base}\n"
             "5. (Optional) Configure in whai: whai --interactive-config"
         )
-    
+
     # Create a temporary config to reuse project logic for getting available models
     temp_config = LMStudioConfig(
         api_base=api_base,
         default_model=configured_model,
         api_key=api_key,
     )
-    
+
     # Use project code to get available models
     available_models = temp_config._get_available_models()
-    
+
     if not available_models:
         pytest.skip(
             f"LM Studio is running at {api_base} but no models are available. "
             "Please ensure at least one model is available in LM Studio."
         )
-    
+
     # Try to use the configured model if it's available, otherwise use first available
     # Use the exact model ID as returned by LM Studio - it will auto-load if available
     model_name = None
@@ -738,14 +753,14 @@ def test_send_message_lm_studio():
             # Use the exact model_id as returned by LM Studio
             model_name = model_id
             break
-    
+
     # If configured model not found, use first available model ID as-is
     if model_name is None:
         model_name = available_models[0]
-    
+
     # Clear environment variables that might interfere with the test
     _clear_provider_env_vars()
-    
+
     # Create config with LM Studio using user's settings
     config = create_test_config(
         default_provider="lm_studio",
@@ -758,21 +773,24 @@ def test_send_message_lm_studio():
             )
         },
     )
-    
+
     provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
-    
+
     # Verify environment variables are set correctly
     assert os.environ.get("LM_STUDIO_API_BASE") == api_base
     assert "OPENAI_API_KEY" not in os.environ  # Should not be set!
-    
+
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": 'Say "LM Studio test successful" and nothing else.'},
+        {
+            "role": "user",
+            "content": 'Say "LM Studio test successful" and nothing else.',
+        },
     ]
-    
+
     try:
         result = provider.send_message(messages, stream=False, tools=[])
-        
+
         assert "lm studio test successful" in result["content"].lower()
     finally:
         # Unload the model to free VRAM for other tests
@@ -784,17 +802,17 @@ def test_send_message_lm_studio():
 def test_send_message_ollama():
     """
     End-to-end integration test with Ollama.
-    
+
     Requires Ollama to be running with a model available.
-    
+
     Uses your actual Ollama configuration from ~/.config/whai/config.toml if available,
     otherwise falls back to defaults.
-    
+
     VRAM Management: This test automatically unloads the model after completion to free
     VRAM for other tests (e.g., LM Studio tests). The unload uses Ollama's keep_alive=0
     parameter to immediately free the model from VRAM. The unload happens in a finally
     block to ensure cleanup even if the test fails.
-    
+
     To run this test:
     1. Start Ollama (usually runs automatically)
     2. Pull a model: ollama pull mistral
@@ -802,7 +820,7 @@ def test_send_message_ollama():
     """
     # Load user's actual config or use defaults
     api_base, configured_model, _ = _load_user_config_or_defaults("ollama")
-    
+
     # Check if Ollama is running at the configured endpoint
     if not _check_service_running(api_base, is_ollama=True):
         pytest.skip(
@@ -813,44 +831,47 @@ def test_send_message_ollama():
             f"3. Ensure Ollama is accessible at {api_base}\n"
             "4. (Optional) Configure in whai: whai --interactive-config"
         )
-    
+
     # Create a temporary config to reuse project logic for getting available models
     temp_config = OllamaConfig(
         api_base=api_base,
         default_model=configured_model,
     )
-    
+
     # Use project code to get available models
     available_models = temp_config._get_available_models()
-    
+
     if not available_models:
         pytest.skip(
             f"Ollama is running at {api_base} but no models are available. "
             "Please pull a model (e.g., 'ollama pull mistral') and try again."
         )
-    
+
     # For integration tests, always use the first available model
     # This ensures the test works even if the configured model isn't fully loaded
     # Model names can include tags (e.g., "mistral-small3.2:24b"), which we preserve
-    configured_base = configured_model.split(":")[0] if ":" in configured_model else configured_model
-    
+    configured_base = (
+        configured_model.split(":")[0] if ":" in configured_model else configured_model
+    )
+
     # Use first available model (most reliable for testing)
     # Keep the full name including tag if present
     model_name = available_models[0]
-    
+
     # Log if we're using a different model than configured
     model_name_base = model_name.split(":")[0] if ":" in model_name else model_name
     if configured_base != model_name_base:
         import warnings
+
         warnings.warn(
             f"Configured model '{configured_model}' not selected. "
             f"Using first available model '{model_name}' for test.",
-            UserWarning
+            UserWarning,
         )
-    
+
     # Clear environment variables that might interfere with the test
     _clear_provider_env_vars()
-    
+
     # Create config with Ollama using user's settings
     config = create_test_config(
         default_provider="ollama",
@@ -862,21 +883,21 @@ def test_send_message_ollama():
             )
         },
     )
-    
+
     provider = llm.LLMProvider(config, perf_logger=create_test_perf_logger())
-    
+
     # Verify environment variables are set correctly
     assert os.environ.get("OLLAMA_API_BASE") == api_base
     assert "OPENAI_API_KEY" not in os.environ  # Should not be set!
-    
+
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": 'Say "Ollama test successful" and nothing else.'},
     ]
-    
+
     try:
         result = provider.send_message(messages, stream=False, tools=[])
-        
+
         assert "ollama test successful" in result["content"].lower()
     finally:
         # Unload the model to free VRAM for other tests

@@ -20,6 +20,7 @@ NO_TOOL_CALL_RECOVERY_MAX_RETRIES = 2
 NO_TOOL_CALL_RECOVERY_HINT = (
     "You MUST respond with a tool call. Your previous response did not include one. "
     "If another command is needed, call the appropriate tool, such as execute_shell or an MCP tool. "
+    "When using execute_shell, emit at most one shell command per response. "
     "If the task is complete, call the task_complete tool with a brief summary. "
     "Do NOT reply with plain text - you must call a tool now."
 )
@@ -217,11 +218,26 @@ def run_conversation_loop(
 
                 # Process each tool call
                 tool_results = []
+                execute_shell_seen = False
                 for tool_call in tool_calls:
                     if tool_call["name"] == "task_complete":
                         continue
 
                     if tool_call["name"] == "execute_shell":
+                        if execute_shell_seen:
+                            logger.warning(
+                                "Skipping extra execute_shell tool call in same turn (id=%s)",
+                                tool_call["id"],
+                            )
+                            tool_results.append(
+                                {
+                                    "tool_call_id": tool_call["id"],
+                                    "output": "Skipped execute_shell tool call: only one shell command may be run per response.",
+                                }
+                            )
+                            continue
+
+                        execute_shell_seen = True
                         command = tool_call["arguments"].get("command", "")
 
                         if not command:

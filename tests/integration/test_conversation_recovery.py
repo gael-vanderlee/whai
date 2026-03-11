@@ -102,6 +102,62 @@ def test_task_complete_runs_after_other_tool_calls_in_same_turn():
     assert mock_provider.send_message.call_count == 1
 
 
+def test_multiple_execute_shell_calls_only_run_first_command():
+    mock_provider = MagicMock(spec=LLMProvider)
+    messages = [
+        {"role": "system", "content": "You are helpful."},
+        {"role": "user", "content": "Check disk space."},
+    ]
+
+    responses = [
+        _stream(
+            [
+                {"type": "text", "content": "Checking disk."},
+                {
+                    "type": "tool_call",
+                    "id": "shell_1",
+                    "name": "execute_shell",
+                    "arguments": {"command": "df -h"},
+                },
+                {
+                    "type": "tool_call",
+                    "id": "shell_2",
+                    "name": "execute_shell",
+                    "arguments": {"command": "du -sh ."},
+                },
+                {
+                    "type": "tool_call",
+                    "id": "done_1",
+                    "name": "task_complete",
+                    "arguments": {"summary": "Disk checked."},
+                },
+            ]
+        ),
+    ]
+
+    mock_provider.send_message.side_effect = lambda *args, **kwargs: responses.pop(0)
+
+    with (
+        patch("whai.core.executor.approval_loop", side_effect=lambda cmd: cmd),
+        patch(
+            "whai.core.executor.execute_command", return_value=("ok\n", "", 0)
+        ) as mock_exec,
+    ):
+        run_conversation_loop(
+            mock_provider,
+            messages,
+            timeout=30,
+        )
+
+    mock_exec.assert_called_once_with("df -h", timeout=30)
+    assert mock_provider.send_message.call_count == 1
+    assert {
+        "role": "tool",
+        "tool_call_id": "shell_2",
+        "content": "Skipped execute_shell tool call: only one shell command may be run per response.",
+    } in messages
+
+
 def test_missing_execute_shell_command_is_recoverable():
     mock_provider = MagicMock(spec=LLMProvider)
 

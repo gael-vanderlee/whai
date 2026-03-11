@@ -19,7 +19,7 @@ EXECUTE_SHELL_TOOL = {
     "type": "function",
     "function": {
         "name": "execute_shell",
-        "description": "Execute a shell command in the terminal. Use this when you need to run commands to help the user.",
+        "description": "Execute a single shell command in the terminal. Use this when you need to run a command to help the user. Emit at most one execute_shell call per response.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -61,7 +61,12 @@ class LLMProvider:
     """
 
     def __init__(
-        self, config: WhaiConfig, model: str = None, temperature: float = None, perf_logger: PerformanceLogger = None, provider: Optional[str] = None
+        self,
+        config: WhaiConfig,
+        model: str = None,
+        temperature: float = None,
+        perf_logger: PerformanceLogger = None,
+        provider: Optional[str] = None,
     ) -> None:
         """
         Initialize the LLM provider.
@@ -77,12 +82,14 @@ class LLMProvider:
             raise ValueError("perf_logger is required")
         self.config = config
         self.perf_logger = perf_logger
-        
+
         # Use provided provider or fall back to default
-        provider_name = provider if provider is not None else config.llm.default_provider
+        provider_name = (
+            provider if provider is not None else config.llm.default_provider
+        )
         if provider_name is None:
             raise ValueError("No provider specified and no default provider configured")
-        
+
         provider_cfg = config.llm.get_provider(provider_name)
         if not provider_cfg:
             available = list(config.llm.providers.keys())
@@ -91,15 +98,16 @@ class LLMProvider:
                 f"Available providers: {available if available else 'none'}. "
                 "Run 'whai --interactive-config' to set up a provider."
             )
-        
+
         self.configured_provider = provider_name
         # Resolve model: CLI override > provider-level default > built-in fallback
         # If model is None, use provider's default model
         model_to_use = model if model is not None else provider_cfg.default_model
-        
+
         # Sanitize model name for provider-specific formatting (if needed)
-        self.model = provider_cfg.sanitize_model_name(model_to_use) if model_to_use else None
-            
+        self.model = (
+            provider_cfg.sanitize_model_name(model_to_use) if model_to_use else None
+        )
 
         # Store custom API base for providers that need it
         self.api_base = provider_cfg.api_base if provider_cfg else None
@@ -129,32 +137,32 @@ class LLMProvider:
     def _configure_api_keys(self):
         """
         Configure API keys and endpoints from config for LiteLLM.
-        
+
         Only sets environment variables for the currently active provider to avoid
         conflicts and security issues. Each provider uses its specific environment
         variables as documented by LiteLLM.
         """
         # Only set API keys for the provider we're actually using
         # This prevents conflicts when multiple providers are configured
-        
+
         provider_cfg = self.config.llm.get_provider(self.configured_provider)
-        
+
         if self.configured_provider == "openai":
             if provider_cfg and provider_cfg.api_key:
                 os.environ["OPENAI_API_KEY"] = provider_cfg.api_key
-        
+
         elif self.configured_provider == "anthropic":
             if provider_cfg and provider_cfg.api_key:
                 os.environ["ANTHROPIC_API_KEY"] = provider_cfg.api_key
-        
+
         elif self.configured_provider == "gemini":
             if provider_cfg and provider_cfg.api_key:
                 os.environ["GEMINI_API_KEY"] = provider_cfg.api_key
-        
+
         elif self.configured_provider == "mistral":
             if provider_cfg and provider_cfg.api_key:
                 os.environ["MISTRAL_API_KEY"] = provider_cfg.api_key
-        
+
         elif self.configured_provider == "azure_openai":
             if provider_cfg:
                 if provider_cfg.api_key:
@@ -163,17 +171,17 @@ class LLMProvider:
                     os.environ["AZURE_API_BASE"] = provider_cfg.api_base
                 if provider_cfg.api_version:
                     os.environ["AZURE_API_VERSION"] = provider_cfg.api_version
-        
+
         elif self.configured_provider == "ollama":
             if provider_cfg and provider_cfg.api_base:
                 os.environ["OLLAMA_API_BASE"] = provider_cfg.api_base
-        
+
         elif self.configured_provider == "lm_studio":
             # LM Studio uses lm_studio/ prefix with official LiteLLM support
             # Set LM_STUDIO_API_BASE for the endpoint
             if provider_cfg and provider_cfg.api_base:
                 os.environ["LM_STUDIO_API_BASE"] = provider_cfg.api_base
-            
+
             # Set LM_STUDIO_API_KEY if configured (defaults to empty string)
             if provider_cfg and provider_cfg.api_key:
                 os.environ["LM_STUDIO_API_KEY"] = provider_cfg.api_key
@@ -239,7 +247,11 @@ class LLMProvider:
                 completion_kwargs["api_key"] = self.api_key
 
             # Only include temperature if explicitly set AND model supports it
-            if self.temperature is not None and self.model and not self.model.startswith(GPT5_MODEL_PREFIX):
+            if (
+                self.temperature is not None
+                and self.model
+                and not self.model.startswith(GPT5_MODEL_PREFIX)
+            ):
                 completion_kwargs["temperature"] = self.temperature
 
             if tools:  # Only add tools if list is not empty
@@ -291,7 +303,9 @@ class LLMProvider:
                                 heading,
                                 content,
                                 extra={
-                                    "category": "llm_system" if role == "system" else "llm_user"
+                                    "category": "llm_system"
+                                    if role == "system"
+                                    else "llm_user"
                                 },
                             )
                 except Exception:
@@ -408,7 +422,10 @@ class LLMProvider:
                         "Run 'whai --interactive-config' to update your configuration."
                     )
                 # Check for "LLM Provider NOT provided" error - this happens when model name format is wrong
-                if "llm provider not provided" in text.lower() or "provider not provided" in text.lower():
+                if (
+                    "llm provider not provided" in text.lower()
+                    or "provider not provided" in text.lower()
+                ):
                     return (
                         f"Model '{self.model}' is not recognized for provider '{self.configured_provider}'. "
                         "The model name may be invalid or incorrectly formatted. "
@@ -456,7 +473,9 @@ class LLMProvider:
             friendly = _friendly_message(e)
             raise RuntimeError(friendly)
 
-    def _get_mcp_tools(self, mcp_loop: Optional[asyncio.AbstractEventLoop] = None) -> List[Dict[str, Any]]:
+    def _get_mcp_tools(
+        self, mcp_loop: Optional[asyncio.AbstractEventLoop] = None
+    ) -> List[Dict[str, Any]]:
         """
         Get MCP tools from the manager set up by the executor.
 
