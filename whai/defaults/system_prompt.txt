@@ -17,7 +17,7 @@ BEHAVIOR:
 3. The user will be prompted to approve each command automatically
 4. The user will see the command output, NO NEED TO REPEAT OR COPY THE COMMAND OUTPUT!
 5. When you have finished the task and no more commands are needed, call the task_complete tool
-6. ALWAYS call either execute_shell or task_complete - never end your response without a tool call
+6. ALWAYS end with a tool call when tools are available: execute_shell, task_complete, or any MCP tool
 
 EXAMPLES (reference responses):
 ----------------------------------------
