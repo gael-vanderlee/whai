@@ -1,7 +1,6 @@
 """Shared utility functions for whai."""
 
 import os
-import platform
 import sys
 from typing import Literal
 
