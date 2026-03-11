@@ -17,12 +17,12 @@ from whai.utils import PerformanceLogger
 logger = get_logger(__name__)
 
 
-NO_TOOL_CALL_RECOVERY_MAX_RETRIES = 1
+NO_TOOL_CALL_RECOVERY_MAX_RETRIES = 2
 NO_TOOL_CALL_RECOVERY_HINT = (
-    "Your previous response did not include a tool call. "
+    "You MUST respond with a tool call. Your previous response did not include one. "
     "If another command is needed, call the execute_shell tool. "
     "If the task is complete, call the task_complete tool with a brief summary. "
-    "You must call one of these tools."
+    "Do NOT reply with plain text — you must call one of these tools now."
 )
 
 _THINKING_TAG_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
@@ -166,9 +166,10 @@ def run_conversation_loop(
 
                 if not tool_calls:
                     cleaned = _strip_thinking_tags(assistant_content) if assistant_content else ""
-                    if no_tool_call_retries < NO_TOOL_CALL_RECOVERY_MAX_RETRIES and cleaned:
-                        # No tool call at all = model forgot; always retry
-                        messages.append({"role": "assistant", "content": assistant_content})
+                    if no_tool_call_retries < NO_TOOL_CALL_RECOVERY_MAX_RETRIES:
+                        # No tool call = model forgot or produced empty response; always retry
+                        if assistant_content:
+                            messages.append({"role": "assistant", "content": assistant_content})
                         messages.append({"role": "system", "content": NO_TOOL_CALL_RECOVERY_HINT})
                         no_tool_call_retries += 1
                         next_tool_choice = "required"

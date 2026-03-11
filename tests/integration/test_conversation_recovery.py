@@ -375,6 +375,9 @@ def test_no_tool_call_recovery_stops_after_max_retry():
         _stream([
             {"type": "text", "content": "I will run another check next."},
         ]),
+        _stream([
+            {"type": "text", "content": "Still no tool call."},
+        ]),
     ]
 
     call_kwargs = []
@@ -395,6 +398,94 @@ def test_no_tool_call_recovery_stops_after_max_retry():
     messages = [
         {"role": "system", "content": "You are helpful."},
         {"role": "user", "content": "Clean up disk space."},
+    ]
+
+    run_conversation_loop(mock_provider, messages, timeout=30)
+
+    assert len(call_kwargs) == 3
+    assert call_kwargs[0]["tool_choice"] is None
+    assert call_kwargs[1]["tool_choice"] == "required"
+    assert call_kwargs[2]["tool_choice"] == "required"
+
+
+def test_empty_response_triggers_retry():
+    """Empty response (text_len=0, tool_calls=0) should trigger recovery retry."""
+    mock_provider = MagicMock(spec=LLMProvider)
+
+    responses = [
+        # Empty response — no text, no tool calls
+        _stream([]),
+        # After retry, still empty — second retry
+        _stream([]),
+        # Third attempt also empty — exhausted retries, loop exits
+        _stream([]),
+    ]
+
+    call_kwargs = []
+
+    def _mock_send_message(
+        messages,
+        tools=None,
+        stream=True,
+        tool_choice=None,
+        mcp_loop=None,
+        **kwargs,
+    ):
+        call_kwargs.append({"tool_choice": tool_choice})
+        return responses.pop(0)
+
+    mock_provider.send_message.side_effect = _mock_send_message
+
+    messages = [
+        {"role": "system", "content": "You are helpful."},
+        {"role": "user", "content": "Do something."},
+    ]
+
+    run_conversation_loop(mock_provider, messages, timeout=30)
+
+    # Should have retried twice then given up
+    assert len(call_kwargs) == 3
+    assert call_kwargs[0]["tool_choice"] is None
+    assert call_kwargs[1]["tool_choice"] == "required"
+    assert call_kwargs[2]["tool_choice"] == "required"
+
+
+def test_empty_response_retry_then_tool_call():
+    """Empty response -> retry -> model produces tool call -> success."""
+    mock_provider = MagicMock(spec=LLMProvider)
+
+    responses = [
+        # Empty response
+        _stream([]),
+        # After retry, model produces task_complete
+        _stream([
+            {
+                "type": "tool_call",
+                "id": "tc_1",
+                "name": "task_complete",
+                "arguments": {"summary": "Recovered from empty response."},
+            },
+        ]),
+    ]
+
+    call_kwargs = []
+
+    def _mock_send_message(
+        messages,
+        tools=None,
+        stream=True,
+        tool_choice=None,
+        mcp_loop=None,
+        **kwargs,
+    ):
+        call_kwargs.append({"tool_choice": tool_choice})
+        return responses.pop(0)
+
+    mock_provider.send_message.side_effect = _mock_send_message
+
+    messages = [
+        {"role": "system", "content": "You are helpful."},
+        {"role": "user", "content": "Do something."},
     ]
 
     run_conversation_loop(mock_provider, messages, timeout=30)
