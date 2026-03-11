@@ -9,6 +9,7 @@ These tests validate that whai correctly parses various combinations of:
 The focus is on verifying the PARSED VALUES, not just exit codes.
 """
 
+import copy
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -34,8 +35,8 @@ def mock_llm_capture_messages():
     captured_calls = []
     
     def mock_completion(**kwargs):
-        # Capture the call
-        captured_calls.append(kwargs)
+        # Capture a snapshot so later mutations (e.g. recovery appends) don't affect it
+        captured_calls.append(copy.deepcopy(kwargs))
         
         # Return mock response
         mock_response = MagicMock()
