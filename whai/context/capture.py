@@ -6,9 +6,9 @@ from typing import Optional, Tuple
 from whai.constants import HISTORY_MAX_COMMANDS
 from whai.context.history import (
     _get_history_context,
-    _get_shell_from_env,
     get_additional_context,
 )
+from whai.utils import detect_shell
 from whai.context.tmux import _get_tmux_context
 from whai.logging_setup import get_logger
 
@@ -55,7 +55,7 @@ def get_context(
     if session_context:
         return session_context, True
 
-    detected_shell = _get_shell_from_env()
+    detected_shell = detect_shell()
     history_context = _get_history_context(
         max_commands, shell=detected_shell, exclude_command=exclude_command
     )
