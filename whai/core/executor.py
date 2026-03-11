@@ -514,13 +514,41 @@ def run_conversation_loop(
                                     "output": f"Invalid MCP tool name format: {tool_name}",
                                 }
                             )
+                    else:
+                        # Unrecognized tool call — feed error back to the model
+                        logger.warning("Unrecognized tool call: %s", tool_call["name"])
+                        tool_results.append(
+                            {
+                                "tool_call_id": tool_call["id"],
+                                "output": f"Unknown tool: {tool_call['name']}. Use execute_shell or task_complete.",
+                            }
+                        )
+
+                # Handle task_complete first, before checking tool_results
+                if task_complete_call:
+                    summary = task_complete_call["arguments"].get("summary", "")
+                    if summary:
+                        session_logger.print(summary, soft_wrap=True)
+                        session_logger.print()
+                    loop_perf.log_section(
+                        "Task complete handling",
+                        extra_info={"tool_results": len(tool_results)},
+                    )
+                    loop_perf.log_complete(
+                        extra_info={
+                            "ended": "task_complete",
+                            "tool_calls": len(tool_calls),
+                            "tool_results": len(tool_results),
+                        }
+                    )
+                    break
 
                 # Decide whether to end the conversation
                 all_rejected = tool_results and all(
                     "rejected" in r["output"].lower() for r in tool_results
                 )
 
-                if not tool_results and tool_calls and not task_complete_call:
+                if not tool_results and tool_calls:
                     # Tool calls existed but none were runnable (e.g., empty/missing command)
                     ui.info("No runnable tool calls were produced (missing command).")
                     loop_perf.log_complete(
@@ -569,24 +597,6 @@ def run_conversation_loop(
                             "content": result["output"],
                         }
                     )
-
-                if task_complete_call:
-                    summary = task_complete_call["arguments"].get("summary", "")
-                    if summary:
-                        session_logger.print(summary, soft_wrap=True)
-                        session_logger.print()
-                    loop_perf.log_section(
-                        "Message history update",
-                        extra_info={"tool_results": len(tool_results)},
-                    )
-                    loop_perf.log_complete(
-                        extra_info={
-                            "ended": "task_complete",
-                            "tool_calls": len(tool_calls),
-                            "tool_results": len(tool_results),
-                        }
-                    )
-                    break
 
                 loop_perf.log_section(
                     "Message history update",
