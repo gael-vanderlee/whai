@@ -11,7 +11,7 @@ from typing import Callable, List, Optional, Tuple
 
 from whai.constants import DEFAULT_COMMAND_TIMEOUT
 from whai.logging_setup import get_logger
-from whai.utils import detect_shell, is_windows
+from whai.utils import detect_shell, is_linux, is_windows
 
 logger = get_logger(__name__)
 
@@ -33,9 +33,33 @@ INPUT_PROMPT_PATTERNS = [
         r"Enter .{1,30}:",
         r"[Uu]sername\s*:",
         r"[Ll]ogin\s*:",
+        r"remove\s+.+\?",  # rm -i: "remove regular file 'foo'?"
+        r"overwrite\s+.+\?",  # cp -i: "overwrite 'foo'?"
+        r"replace\s+.+\?",  # mv -i (some systems): "replace 'foo'?"
     ]
 ]
 PROMPT_SEARCH_WINDOW = 200
+
+
+def _is_waiting_on_stdin(pid: int) -> bool:
+    """Check if process is blocked reading from stdin via /proc/pid/syscall.
+
+    Linux-only. Returns False on other platforms or if /proc is unavailable.
+    Format: 'syscall_nr arg0 arg1 ... sp pc' — arg0 is the fd for read-family syscalls.
+    When arg0 == 0 and process is blocked, it's waiting on stdin.
+    """
+    try:
+        with open(f"/proc/{pid}/syscall", "r") as f:
+            line = f.read().strip()
+        if line == "running":
+            return False
+        parts = line.split()
+        if len(parts) < 2:
+            return False
+        fd_arg = int(parts[1], 16) if parts[1].startswith("0x") else int(parts[1])
+        return fd_arg == 0
+    except (OSError, ValueError, IndexError):
+        return False
 
 
 def _stream_chars(
@@ -179,6 +203,30 @@ def execute_command(
                         and not any(thread.is_alive() for thread in threads)
                     ):
                         break
+
+                    # Linux: check if process is blocked reading from stdin
+                    if (
+                        is_linux()
+                        and _is_waiting_on_stdin(proc.pid)
+                        and proc.poll() is None
+                    ):
+                        abs_pos = len(combined_buf)
+                        if abs_pos > last_handled_prompt_end:
+                            output_so_far = "".join(combined_buf)
+                            user_input = on_input_needed(output_so_far)
+                            last_handled_prompt_end = abs_pos
+                            if user_input is None:
+                                proc.kill()
+                                proc.wait()
+                                raise RuntimeError(
+                                    "Command input was cancelled."
+                                )
+                            try:
+                                proc.stdin.write(user_input)
+                                proc.stdin.flush()
+                            except (BrokenPipeError, OSError):
+                                pass
+
                     continue
 
                 if stream_name == "stdout":
