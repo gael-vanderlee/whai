@@ -36,10 +36,6 @@ INPUT_PROMPT_PATTERNS = [
     ]
 ]
 PROMPT_SEARCH_WINDOW = 200
-# If the process is alive but no output has been received for this many seconds,
-# assume it is waiting for input (handles prompts written to /dev/tty or other
-# undetectable destinations).
-INPUT_IDLE_TIMEOUT = 3.0
 
 
 def _stream_chars(
@@ -158,9 +154,7 @@ def execute_command(
             thread.start()
 
         start_time = time.monotonic()
-        last_output_time = time.monotonic()
         last_handled_prompt_end = -1
-        idle_prompted = False
 
         try:
             while True:
@@ -185,36 +179,7 @@ def execute_command(
                         and not any(thread.is_alive() for thread in threads)
                     ):
                         break
-
-                    # Idle-timeout detection: if process is alive but no output
-                    # for INPUT_IDLE_TIMEOUT seconds, it may be waiting for input
-                    # (e.g. read -p writes to /dev/tty, not captured pipes).
-                    if (
-                        not idle_prompted
-                        and proc.poll() is None
-                        and (time.monotonic() - last_output_time)
-                        >= INPUT_IDLE_TIMEOUT
-                    ):
-                        idle_prompted = True
-                        output_so_far = "".join(combined_buf)
-                        user_input = on_input_needed(output_so_far)
-                        if user_input is None:
-                            proc.kill()
-                            proc.wait()
-                            raise RuntimeError("Command input was cancelled.")
-                        try:
-                            proc.stdin.write(user_input)
-                            proc.stdin.flush()
-                        except (BrokenPipeError, OSError):
-                            pass
-                        last_output_time = time.monotonic()
-                        idle_prompted = False
-
                     continue
-
-                # Got output — reset idle timer
-                last_output_time = time.monotonic()
-                idle_prompted = False
 
                 if stream_name == "stdout":
                     stdout_buf.append(chunk)
