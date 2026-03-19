@@ -4,8 +4,10 @@ import asyncio
 import json
 from typing import Any, Dict, List, Optional
 
+from rich.text import Text
+
 from whai import ui
-from whai.constants import TOOL_OUTPUT_MAX_TOKENS
+from whai.constants import TOOL_OUTPUT_MAX_TOKENS, UI_TEXT_STYLE_PROMPT
 from whai.core.session_logger import SessionLogger
 from whai.interaction import approval_loop, approve_tool, execute_command
 from whai.llm import LLMProvider
@@ -344,10 +346,51 @@ def run_conversation_loop(
                                     },
                                 )
                             else:
-                                with ui.spinner("Executing command..."):
+                                status = ui.console.status(
+                                    "Executing command...", spinner="dots"
+                                )
+                                status.start()
+                                last_prompt_output = ""
+                                interactive_inputs: list[tuple[str, str]] = []
+
+                                def on_input_needed(
+                                    output_so_far: str,
+                                ) -> Optional[str]:
+                                    nonlocal last_prompt_output
+                                    status.stop()
+                                    fresh_output = output_so_far
+                                    if output_so_far.startswith(last_prompt_output):
+                                        fresh_output = output_so_far[
+                                            len(last_prompt_output) :
+                                        ]
+                                    if fresh_output:
+                                        ui.print_output(fresh_output, "", -1)
+                                    last_prompt_output = output_so_far
+                                    try:
+                                        ui.console.print(
+                                            Text(
+                                                "Command is waiting for input: ",
+                                                style=UI_TEXT_STYLE_PROMPT,
+                                            ),
+                                            end="",
+                                        )
+                                        user_input = input()
+                                        fresh_prompt = fresh_output.strip() if fresh_output.strip() else output_so_far.strip()
+                                        interactive_inputs.append((fresh_prompt, user_input))
+                                        return user_input + "\n"
+                                    except (EOFError, KeyboardInterrupt):
+                                        return None
+                                    finally:
+                                        status.start()
+
+                                try:
                                     stdout, stderr, returncode = execute_command(
-                                        approved_command, timeout=timeout
+                                        approved_command,
+                                        timeout=timeout,
+                                        on_input_needed=on_input_needed,
                                     )
+                                finally:
+                                    status.stop()
                                 loop_perf.log_section(
                                     "Command execution",
                                     extra_info={
@@ -372,6 +415,13 @@ def run_conversation_loop(
                                     result += (
                                         "\nOutput: (empty - command produced no output)"
                                     )
+
+                                if interactive_inputs:
+                                    result += "\n\nInteractive input provided during execution:\n"
+                                    for prompt_text, response in interactive_inputs:
+                                        result += f"  Prompt: {prompt_text}\n"
+                                        result += f"  User input: {response}\n"
+                                    result += "\nThe command already received all necessary input and completed."
 
                                 # Truncate tool output if needed to respect token limits
                                 truncated_result, was_truncated = (
@@ -398,7 +448,12 @@ def run_conversation_loop(
 
                                 # Display the output (pretty formatted)
                                 ui.console.print()
-                                ui.print_output(stdout, stderr, returncode)
+                                if last_prompt_output:
+                                    # Output was already shown during interactive prompts.
+                                    # Just show completion status to avoid duplicate display.
+                                    ui.print_output("", "", returncode)
+                                else:
+                                    ui.print_output(stdout, stderr, returncode)
                                 ui.console.print()
 
                         except Exception as e:

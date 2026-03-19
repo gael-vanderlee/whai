@@ -13,6 +13,14 @@ def _stream(chunks):
         yield chunk
 
 
+def _assert_execute_shell_call(mock_exec, command: str, timeout: int) -> None:
+    mock_exec.assert_called_once()
+    args, kwargs = mock_exec.call_args
+    assert args == (command,)
+    assert kwargs["timeout"] == timeout
+    assert callable(kwargs["on_input_needed"])
+
+
 def test_no_tool_call_retries_with_required_tool_choice():
     mock_provider = MagicMock(spec=LLMProvider)
 
@@ -98,7 +106,7 @@ def test_task_complete_runs_after_other_tool_calls_in_same_turn():
             timeout=30,
         )
 
-    mock_exec.assert_called_once_with("df -h", timeout=30)
+    _assert_execute_shell_call(mock_exec, "df -h", 30)
     assert mock_provider.send_message.call_count == 1
 
 
@@ -149,7 +157,7 @@ def test_multiple_execute_shell_calls_only_run_first_command():
             timeout=30,
         )
 
-    mock_exec.assert_called_once_with("df -h", timeout=30)
+    _assert_execute_shell_call(mock_exec, "df -h", 30)
     assert mock_provider.send_message.call_count == 1
     # task_complete is handled before tool results are appended to messages,
     # so the skipped shell_2 result won't appear in the message history.
@@ -210,7 +218,7 @@ def test_missing_execute_shell_command_is_recoverable():
             timeout=30,
         )
 
-    mock_exec.assert_called_once_with("echo hi", timeout=30)
+    _assert_execute_shell_call(mock_exec, "echo hi", 30)
     assert mock_provider.send_message.call_count == 3
 
 
