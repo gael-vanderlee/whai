@@ -31,6 +31,7 @@ INPUT_PROMPT_PATTERNS = [
         r"Press Enter",
         r"Press any key",
         r"Do you want to continue",
+        r"(?:^|[\r\n])[^\r\n]{1,80}\?",
     ]
 ]
 PROMPT_SEARCH_WINDOW = 200
@@ -134,6 +135,7 @@ def execute_command(
         stderr_buf: List[str] = []
         combined_buf: List[str] = []
         recent_output = ""
+        recent_output_offset = 0
         output_queue: "queue.Queue[tuple[str, str]]" = queue.Queue()
         threads = [
             threading.Thread(
@@ -151,7 +153,7 @@ def execute_command(
             thread.start()
 
         start_time = time.monotonic()
-        last_prompt_match = ""
+        last_handled_prompt_end = -1
 
         try:
             while True:
@@ -182,20 +184,25 @@ def execute_command(
                 else:
                     stderr_buf.append(chunk)
                 combined_buf.append(chunk)
-                recent_output = (recent_output + chunk)[-PROMPT_SEARCH_WINDOW:]
+                recent_output += chunk
+                if len(recent_output) > PROMPT_SEARCH_WINDOW:
+                    trim = len(recent_output) - PROMPT_SEARCH_WINDOW
+                    recent_output = recent_output[trim:]
+                    recent_output_offset += trim
 
-                matched_prompt = None
+                latest_prompt_end = None
                 for pattern in INPUT_PROMPT_PATTERNS:
-                    match = pattern.search(recent_output)
-                    if match:
-                        matched_prompt = match.group(0)
+                    for match in pattern.finditer(recent_output):
+                        abs_end = recent_output_offset + match.end()
+                        if abs_end > last_handled_prompt_end:
+                            latest_prompt_end = abs_end
 
-                if matched_prompt is None or matched_prompt == last_prompt_match:
+                if latest_prompt_end is None:
                     continue
 
                 output_so_far = "".join(combined_buf)
                 user_input = on_input_needed(output_so_far)
-                last_prompt_match = matched_prompt
+                last_handled_prompt_end = latest_prompt_end
                 if user_input is None:
                     proc.kill()
                     proc.wait()
@@ -204,7 +211,6 @@ def execute_command(
                 try:
                     proc.stdin.write(user_input)
                     proc.stdin.flush()
-                    last_prompt_match = ""
                 except (BrokenPipeError, OSError):
                     pass
         except RuntimeError:

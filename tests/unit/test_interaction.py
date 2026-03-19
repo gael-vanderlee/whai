@@ -182,6 +182,7 @@ def test_execute_command_interactive_prompt_on_stdout():
     assert stdout == "Continue?"
     assert stderr == ""
     assert code == 0
+    assert callback.call_count == 1
     callback.assert_called_once_with("Continue?")
     assert proc.stdin.getvalue() == "y\n"
 
@@ -203,8 +204,55 @@ def test_execute_command_interactive_prompt_on_stderr():
     assert stdout == ""
     assert stderr == "Password:"
     assert code == 0
+    assert callback.call_count == 1
     callback.assert_called_once_with("Password:")
     assert proc.stdin.getvalue() == "secret\n"
+
+
+def test_execute_command_interactive_sequential_prompts():
+    """Test that sequential prompts each trigger exactly once."""
+    proc = FakeProcess(stdout_text="First? Second? done\n", stderr_text="", returncode=0)
+    callback = MagicMock(side_effect=["alpha\n", "beta\n"])
+
+    with (
+        patch("whai.interaction.execution.is_windows", return_value=False),
+        patch("subprocess.Popen", return_value=proc),
+        patch.dict("os.environ", {"SHELL": "/bin/bash"}),
+    ):
+        stdout, stderr, code = interaction.execute_command(
+            "some_command", on_input_needed=callback
+        )
+
+    assert stdout == "First? Second? done\n"
+    assert stderr == ""
+    assert code == 0
+    assert callback.call_count == 2
+    assert callback.call_args_list[0].args == ("First?",)
+    assert callback.call_args_list[1].args == ("First? Second?",)
+    assert proc.stdin.getvalue() == "alpha\nbeta\n"
+
+
+def test_execute_command_interactive_same_prompt_text_twice():
+    """Test that the same prompt text can appear twice without duplicate firing."""
+    proc = FakeProcess(stdout_text="Continue? Continue? done\n", stderr_text="", returncode=0)
+    callback = MagicMock(side_effect=["yes\n", "still yes\n"])
+
+    with (
+        patch("whai.interaction.execution.is_windows", return_value=False),
+        patch("subprocess.Popen", return_value=proc),
+        patch.dict("os.environ", {"SHELL": "/bin/bash"}),
+    ):
+        stdout, stderr, code = interaction.execute_command(
+            "some_command", on_input_needed=callback
+        )
+
+    assert stdout == "Continue? Continue? done\n"
+    assert stderr == ""
+    assert code == 0
+    assert callback.call_count == 2
+    assert callback.call_args_list[0].args == ("Continue?",)
+    assert callback.call_args_list[1].args == ("Continue? Continue?",)
+    assert proc.stdin.getvalue() == "yes\nstill yes\n"
 
 
 def test_execute_command_interactive_cancel_raises_error():
