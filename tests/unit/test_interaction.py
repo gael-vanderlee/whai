@@ -505,3 +505,72 @@ def test_execute_command_interactive_syscall_detection():
     assert callback.call_count == 1
     callback.assert_called_once_with("waiting for input")
     assert proc.stdin.getvalue() == "answer\n"
+
+
+# --- Interactive input context in LLM result tests ---
+
+
+def _format_result_with_interactions(command, stdout, stderr, returncode, interactive_inputs):
+    """Replicate the executor's result formatting logic for testing."""
+    result = f"Command: {command}\n"
+    result += f"Exit code: {returncode}\n"
+    if stdout:
+        result += f"\nOutput:\n{stdout}"
+    if stderr:
+        result += f"\nErrors:\n{stderr}"
+    if not stdout and not stderr:
+        result += "\nOutput: (empty - command produced no output)"
+
+    if interactive_inputs:
+        result += "\n\nInteractive input provided during execution:\n"
+        for prompt_text, response in interactive_inputs:
+            result += f"  Prompt: {prompt_text}\n"
+            result += f"  User input: {response}\n"
+        result += "\nThe command already received all necessary input and completed."
+
+    return result
+
+
+def test_result_includes_interactive_input_context():
+    """Tool result includes interactive input context when interactions occurred."""
+    interactive_inputs = [("rm: remove regular file 'debug.log'?", "y")]
+    result = _format_result_with_interactions(
+        "rm -i debug.log", "", "rm: remove regular file 'debug.log'?", 0, interactive_inputs
+    )
+
+    assert "Interactive input provided during execution:" in result
+    assert "Prompt: rm: remove regular file 'debug.log'?" in result
+    assert "User input: y" in result
+    assert "The command already received all necessary input and completed." in result
+
+
+def test_result_no_interactive_section_when_empty():
+    """Tool result has no interactive section when no interactions occurred."""
+    interactive_inputs = []
+    result = _format_result_with_interactions(
+        "ls", "file1.txt\n", "", 0, interactive_inputs
+    )
+
+    assert "Interactive input" not in result
+    assert "already received" not in result
+
+
+def test_result_multiple_interactive_inputs():
+    """Tool result includes all interactive input pairs in order."""
+    interactive_inputs = [
+        ("Continue?", "y"),
+        ("Are you sure?", "yes"),
+    ]
+    result = _format_result_with_interactions(
+        "some_command", "output\n", "", 0, interactive_inputs
+    )
+
+    assert "Interactive input provided during execution:" in result
+    assert "Prompt: Continue?" in result
+    assert "User input: y" in result
+    assert "Prompt: Are you sure?" in result
+    assert "User input: yes" in result
+    # Verify order: Continue? appears before Are you sure?
+    idx1 = result.index("Prompt: Continue?")
+    idx2 = result.index("Prompt: Are you sure?")
+    assert idx1 < idx2

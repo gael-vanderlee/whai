@@ -351,6 +351,7 @@ def run_conversation_loop(
                                 )
                                 status.start()
                                 last_prompt_output = ""
+                                interactive_inputs: list[tuple[str, str]] = []
 
                                 def on_input_needed(
                                     output_so_far: str,
@@ -374,6 +375,8 @@ def run_conversation_loop(
                                             end="",
                                         )
                                         user_input = input()
+                                        fresh_prompt = fresh_output.strip() if fresh_output.strip() else output_so_far.strip()
+                                        interactive_inputs.append((fresh_prompt, user_input))
                                         return user_input + "\n"
                                     except (EOFError, KeyboardInterrupt):
                                         return None
@@ -412,6 +415,13 @@ def run_conversation_loop(
                                     result += (
                                         "\nOutput: (empty - command produced no output)"
                                     )
+
+                                if interactive_inputs:
+                                    result += "\n\nInteractive input provided during execution:\n"
+                                    for prompt_text, response in interactive_inputs:
+                                        result += f"  Prompt: {prompt_text}\n"
+                                        result += f"  User input: {response}\n"
+                                    result += "\nThe command already received all necessary input and completed."
 
                                 # Truncate tool output if needed to respect token limits
                                 truncated_result, was_truncated = (
