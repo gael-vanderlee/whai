@@ -123,6 +123,7 @@ class MCPManager:
         self.clients: Dict[str, MCPClient] = {}
         self._server_configs: Dict[str, MCPServerConfig] = {}
         self._tools_cache: Optional[List[Dict]] = None
+        self._tools_desc_index: Dict[str, str] = {}
         self._initialized = False
         self._enabled_cache: Optional[bool] = None
         self._config_cache: Optional[MCPConfig] = None
@@ -237,6 +238,11 @@ class MCPManager:
             raise RuntimeError("\n\n".join(error_msgs))
 
         self._tools_cache = all_tools
+        self._tools_desc_index = {
+            name: func.get("description", "")
+            for tool in all_tools
+            if (func := tool.get("function")) and (name := func.get("name"))
+        }
         perf.log_complete(extra_info={"tools": len(all_tools), "servers": len(self.clients)})
         logger.info("Total MCP tools available: %d", len(all_tools))
         return all_tools
@@ -302,6 +308,7 @@ class MCPManager:
     def clear_cache(self) -> None:
         """Clear the tools cache (forces re-discovery on next get_all_tools call)."""
         self._tools_cache = None
+        self._tools_desc_index = {}
 
     async def close_all(self) -> None:
         """Close all MCP connections."""
@@ -317,6 +324,7 @@ class MCPManager:
         self.clients.clear()
         self._server_configs.clear()
         self._tools_cache = None
+        self._tools_desc_index = {}
         self._config_cache = None
         self._initialized = False
         self._closed = True
@@ -343,16 +351,7 @@ class MCPManager:
         Returns:
             Tool description if found, None otherwise.
         """
-        # Tools are cached, but get_all_tools is async
-        # We need to access the cache synchronously
-        if self._tools_cache is None:
-            return None
-        
-        for tool in self._tools_cache:
-            if tool.get("function", {}).get("name") == tool_name:
-                return tool.get("function", {}).get("description")
-        
-        return None
+        return self._tools_desc_index.get(tool_name)
 
     def is_enabled(self) -> bool:
         """

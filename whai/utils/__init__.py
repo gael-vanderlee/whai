@@ -1,7 +1,6 @@
 """Shared utility functions for whai."""
 
 import os
-import platform
 import sys
 from typing import Literal
 
@@ -64,54 +63,6 @@ def detect_shell() -> ShellType:
         return "bash"
 
 
-def get_os_name() -> str:
-    """
-    Get a user-friendly OS name.
-
-    Returns:
-        OS name like "Windows 11", "macOS 14.1", "Ubuntu 22.04", etc.
-    """
-    system = platform.system()
-
-    if system == "Windows":
-        release = platform.release()
-        # Try to get Windows version name
-        version = platform.version()
-        if "10.0.22" in version or release == "11":
-            return "Windows 11"
-        elif release == "10":
-            return "Windows 10"
-        else:
-            return f"Windows {release}"
-
-    elif system == "Darwin":
-        # macOS
-        mac_version = platform.mac_ver()[0]
-        return f"macOS {mac_version}"
-
-    elif system == "Linux":
-        # Try to get distro info
-        try:
-            with open("/etc/os-release") as f:
-                lines = f.readlines()
-                distro_info = {}
-                for line in lines:
-                    if "=" in line:
-                        key, value = line.strip().split("=", 1)
-                        distro_info[key] = value.strip('"')
-
-                name = distro_info.get("PRETTY_NAME") or distro_info.get("NAME")
-                if name:
-                    return name
-        except (FileNotFoundError, PermissionError):
-            pass
-
-        # Fallback
-        return f"Linux {platform.release()}"
-
-    else:
-        return f"{system} {platform.release()}"
-
 
 def is_windows() -> bool:
     """Check if running on Windows."""
@@ -134,7 +85,6 @@ __all__ = [
     "ShellType",
     "SUPPORTED_SHELLS",
     "detect_shell",
-    "get_os_name",
     "is_windows",
     "is_macos",
     "is_linux",

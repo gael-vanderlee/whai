@@ -561,11 +561,6 @@ def run_conversation_loop(
                     break
 
                 # Build assistant message for history
-                # Collect text content
-                assistant_content = "".join(
-                    c["content"] for c in response_chunks if c["type"] == "text"
-                )
-
                 assistant_message: Dict[str, Any] = {
                     "role": "assistant",
                     "content": assistant_content,

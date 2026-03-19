@@ -51,17 +51,10 @@ class SessionLogger:
             logger.debug("SessionLogger disabled on non-Windows platform")
             return None
 
+        from whai.context.session_reader import _locate_logs
         sess_dir = get_config_dir() / "sessions"
-
-        session_logs = [
-            log for log in sess_dir.glob("session_*.log")
-            if not log.name.endswith("_whai.log")
-        ]
-        if not session_logs:
-            return None
-
-        transcript_log = sorted(session_logs, reverse=True)[0]
-        return transcript_log.parent / f"{transcript_log.stem}_whai{transcript_log.suffix}"
+        _, whai_log = _locate_logs(sess_dir, is_windows=True)
+        return whai_log
     
     def _append_to_log(self, text: str) -> None:
         """

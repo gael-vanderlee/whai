@@ -249,15 +249,10 @@ _SHELL_HANDLERS: Dict[str, ShellContextHandler] = {
 }
 
 
-def _get_shell_from_env() -> str:
-    """Detect the current shell from environment variables."""
-    return detect_shell()
-
-
 def get_shell_executable(shell_name: Optional[str] = None) -> str:
     """Get the executable path for a shell."""
     if shell_name is None:
-        shell_name = _get_shell_from_env()
+        shell_name = detect_shell()
 
     handler = _get_handler_for_shell(shell_name)
     if handler:
@@ -272,7 +267,7 @@ def get_shell_executable(shell_name: Optional[str] = None) -> str:
 def _get_handler_for_shell(shell: Optional[str] = None) -> Optional[ShellContextHandler]:
     """Get the context handler for a specific shell."""
     if shell is None:
-        shell = _get_shell_from_env()
+        shell = detect_shell()
 
     # Try exact match first
     handler = _SHELL_HANDLERS.get(shell)

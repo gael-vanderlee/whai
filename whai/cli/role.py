@@ -77,7 +77,6 @@ def _get_clear_command(shell: ShellType) -> str:
 @role_app.command("list")
 def list_roles() -> None:
     """List available roles."""
-    ensure_default_roles()
     roles = sorted(p.stem for p in _roles_dir().glob("*.md"))
     if not roles:
         ui.info("No roles found.")
@@ -97,7 +96,6 @@ def create_role(
         ui.error(str(e))
         raise typer.Exit(2)
 
-    ensure_default_roles()
     path = _role_path(name)
     if path.exists():
         ui.error(f"Role '{name}' already exists: {path}")
@@ -116,7 +114,6 @@ def edit_role(name: str = typer.Argument(...)) -> None:
         ui.error(str(e))
         raise typer.Exit(2)
 
-    ensure_default_roles()
     path = _role_path(name)
     if not path.exists():
         ui.error(f"Role '{name}' not found at {path}")
@@ -133,7 +130,6 @@ def remove_role(name: str = typer.Argument(...)) -> None:
         ui.error(str(e))
         raise typer.Exit(2)
 
-    ensure_default_roles()
     path = _role_path(name)
     if not path.exists():
         ui.error(f"Role '{name}' not found.")
@@ -154,7 +150,6 @@ def set_default_role(name: str = typer.Argument(...)) -> None:
         ui.error(str(e))
         raise typer.Exit(2)
 
-    ensure_default_roles()
     if not _role_path(name).exists():
         ui.error(f"Role '{name}' not found.")
         raise typer.Exit(2)
@@ -170,7 +165,6 @@ def reset_default() -> None:
     Reset the default role to the packaged default.md and set it as config default.
     This will overwrite the local default.md file.
     """
-    ensure_default_roles()
     path = _role_path(DEFAULT_ROLE_NAME)
 
     if path.exists():
@@ -231,7 +225,6 @@ def use_role(
         ui.error(str(e))
         raise typer.Exit(2)
 
-    ensure_default_roles()
     if not _role_path(name).exists():
         ui.error(f"Role '{name}' not found.")
         raise typer.Exit(2)
@@ -265,6 +258,7 @@ def role_manager(ctx: typer.Context) -> None:
 
     If no subcommand is provided, launches an interactive menu.
     """
+    ensure_default_roles()
     if ctx.invoked_subcommand:
         return
 
@@ -280,7 +274,6 @@ def role_manager(ctx: typer.Context) -> None:
         )
         raise typer.Exit(2)
 
-    ensure_default_roles()
     actions = [
         "list",
         "create",

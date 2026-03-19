@@ -55,18 +55,8 @@ def execute_command(
                     errors="replace",
                     timeout=timeout_for_subprocess,
                 )
-            elif shell_type == "cmd":
-                # CMD: use /c with the command
-                result = subprocess.run(
-                    ["cmd.exe", "/c", command],
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    timeout=timeout_for_subprocess,
-                )
             else:
-                # Unknown Windows shell, try cmd as fallback
+                # CMD or unknown Windows shell: use cmd.exe as fallback
                 result = subprocess.run(
                     ["cmd.exe", "/c", command],
                     capture_output=True,

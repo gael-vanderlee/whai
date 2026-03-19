@@ -72,19 +72,20 @@ def _truncate_by_lines(text: str, max_lines: int) -> tuple[str, bool]:
     return notice + truncated_text, True
 
 
+_stderr_console = Console(
+    highlight=False,
+    force_terminal=True,
+    color_system="auto",
+    file=sys.stderr,
+)
+
+
 def error(msg: str) -> None:
     """Print an error message to stderr."""
     if PLAIN_MODE:
         print(f"Error: {msg}", file=sys.stderr)
     else:
-        # Rich Console handles stderr via stderr parameter in constructor
-        stderr_console = Console(
-            highlight=False,
-            force_terminal=not PLAIN_MODE,
-            color_system=None if PLAIN_MODE else "auto",
-            file=sys.stderr,
-        )
-        stderr_console.print(Text(msg, style=UI_TEXT_STYLE_ERROR))
+        _stderr_console.print(Text(msg, style=UI_TEXT_STYLE_ERROR))
 
 
 def info(msg: str) -> None:
@@ -269,9 +270,3 @@ def celebration(msg: str) -> None:
         console.print(Text(emoji_msg, style="bold green"))
 
 
-def spinner(msg: str):
-    """Create a spinner context manager."""
-    from rich.spinner import Spinner
-    from rich.status import Status
-
-    return Status(Spinner("dots", msg), console=console)
