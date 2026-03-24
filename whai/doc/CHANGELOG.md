@@ -9,9 +9,10 @@ When ready to publish, change to version header: `## vX.Y.Z` (where X.Y.Z is you
 
 ## In Progress
 
+[2026-03-19] [change] [core]: simplify codebase by removing dead code and duplicated logic across CLI, context capture, MCP tool description lookup, UI error output, and command execution paths
 [2026-03-06] [feature] [cli]: add `--command-only` mode that generates a single shell command without running it, suitable for keybindings; output contains only the command line on stdout with no Rich UI
 [2026-03-06] [feature] [prompt]: add dedicated `system_prompt_command_only` template for command-only mode, ensuring the model responds only via a single execute_shell tool call with no natural-language explanation
-[2026-03-06] [test] [cli]: add unit tests for `--command-only` CLI behavior and an API-marked end-to-end test that validates it prints a single shell command
+[2026-03-06] [test] [cli]: add unit tests for `--command-only` CLI be havior and an API-marked end-to-end test that validates it prints a single shell command
 [2026-03-06] [feature] [wizard]: add insert-command keybinding option to interactive config wizard; detect bash/zsh, append idempotent Ctrl+G snippet to shell rc with clear explanation and sourcing reminder
 [2026-03-06] [test] [wizard]: extend config wizard tests to cover keybinding offer flows, shell detection, snippet writing, and idempotency without touching real user dotfiles or launching external apps
 [2026-03-06] [feature] [cli]: read prompt from stdin when no free-form query is provided so `whai --command-only` can be driven by shell widgets that pipe the current line
