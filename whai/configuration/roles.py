@@ -20,6 +20,8 @@ from whai.logging_setup import get_logger
 from whai.ui import warn
 
 logger = get_logger(__name__)
+YAML_SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 
 NEW_ROLE_TEMPLATE_FILENAME = "new.md"
 ROLE_TEMPLATE_PLACEHOLDER = "{{role_name}}"
@@ -181,7 +183,9 @@ class Role:
             name = path.stem
 
         content = path.read_text(encoding="utf-8")
-        logger.debug("Loading role '%s' from %s", name, path, extra={"category": "config"})
+        logger.debug(
+            "Loading role '%s' from %s", name, path, extra={"category": "config"}
+        )
         return cls.from_markdown(name, content)
 
     @classmethod
@@ -215,7 +219,7 @@ class Role:
 
         # Parse frontmatter YAML
         try:
-            metadata_dict = yaml.safe_load(frontmatter_text) or {}
+            metadata_dict = yaml.load(frontmatter_text, Loader=YAML_SAFE_LOADER) or {}
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML in frontmatter: {e}")
 
@@ -265,7 +269,7 @@ def get_default_role(role_name: str) -> str:
     roles_dir = files("whai").joinpath("defaults", "roles")
     role_file = roles_dir / f"{role_name}.md"
 
-    if not role_file.exists():
+    if not role_file.is_file():
         raise FileNotFoundError(
             f"Default role file for '{role_name}' not found at {role_file}. "
             "This indicates a broken installation. Please reinstall whai."
@@ -288,13 +292,15 @@ def get_new_role_template() -> str:
     roles_dir = files("whai").joinpath("defaults", "roles")
     template_file = roles_dir / NEW_ROLE_TEMPLATE_FILENAME
 
-    if not template_file.exists():
+    if not template_file.is_file():
         raise FileNotFoundError(
             f"New role template not found at {template_file}. "
             "This indicates a broken installation. Please reinstall whai."
         )
 
-    logger.debug("Loaded new role template from %s", template_file, extra={"category": "config"})
+    logger.debug(
+        "Loaded new role template from %s", template_file, extra={"category": "config"}
+    )
     return template_file.read_text()
 
 
@@ -330,7 +336,9 @@ def render_new_role_template(role_name: str) -> str:
             ROLE_TEMPLATE_PROVIDER_PLACEHOLDER, DEFAULT_PROVIDER
         )
 
-    logger.info("Rendered new role template for '%s'", role_name, extra={"category": "config"})
+    logger.info(
+        "Rendered new role template for '%s'", role_name, extra={"category": "config"}
+    )
     return rendered
 
 
@@ -369,11 +377,10 @@ def load_role(role_name: str = DEFAULT_ROLE_NAME) -> Role:
     """
     from whai.configuration.user_config import get_config_dir
 
-    # Ensure default roles exist
-    ensure_default_roles()
-
-    # Load the role file
     role_file = get_config_dir() / "roles" / f"{role_name}.md"
+    if role_name == DEFAULT_ROLE_NAME and not role_file.exists():
+        ensure_default_roles()
+
     role = Role.from_file(role_file, role_name)
     logger.info("Loaded role '%s' from %s", role_name, role_file)
     return role
@@ -467,8 +474,10 @@ def resolve_model(
             )
 
         # Use provided provider if available, otherwise fall back to default provider
-        provider_to_use = provider if provider is not None else config.llm.default_provider
-        
+        provider_to_use = (
+            provider if provider is not None else config.llm.default_provider
+        )
+
         if provider_to_use is None:
             raise RuntimeError(
                 "No default provider configured. Run 'whai --interactive-config' to set up a provider."
@@ -563,7 +572,10 @@ def resolve_provider(
             pass
 
     if config and config.llm.default_provider:
-        return config.llm.default_provider, f"default provider '{config.llm.default_provider}'"
+        return (
+            config.llm.default_provider,
+            f"default provider '{config.llm.default_provider}'",
+        )
 
     # No provider resolved
     return None, "none (will use LLMProvider default)"
